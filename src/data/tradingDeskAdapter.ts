@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { demoTradingDeskSnapshot, emptyDeskSnapshot, summarizeWatchlist } from "./demoSnapshot";
+import { TRADING_DESK_SNAPSHOT_CONTRACT_VERSION } from "../domain/tradingDesk";
 import type {
   DataMode,
   SnapshotSource,
@@ -24,8 +25,9 @@ export type TradingDeskLoadOptions = {
   scenario?: DemoScenario;
 };
 
-const EDWARD_SNAPSHOT_ENDPOINT = "/api/trading-desk/snapshot";
-const LIVE_STALE_AFTER_MS = 5 * 60 * 1000;
+export const EDWARD_SNAPSHOT_ENDPOINT = "/api/trading-desk/snapshot";
+export const LIVE_STALE_AFTER_MS = 5 * 60 * 1000;
+export const LIVE_STALE_AFTER_SECONDS = LIVE_STALE_AFTER_MS / 1000;
 
 const exposureStatusSchema = z.enum(["SAFE", "ELEVATED", "OVEREXPOSED", "CRITICAL"]);
 const directionSchema = z.enum(["LONG", "SHORT"]);
@@ -160,6 +162,7 @@ const watchlistSummarySchema = z.object({
 });
 
 const tradingDeskSnapshotSchema = z.object({
+  contractVersion: z.literal(TRADING_DESK_SNAPSHOT_CONTRACT_VERSION),
   timestamp: z.string().datetime(),
   mode: dataModeSchema.optional(),
   systemStatus: z.enum(["WATCHING", "OFFLINE", "STALE", "NO_OPEN_POSITION"]),

@@ -1,5 +1,11 @@
 import { calculateSoftLandingPace, enrichPositionWithPaceMath } from "../domain/softLanding";
-import type { TradingDeskSnapshot, TradingPosition, WatchlistItem, WatchlistSummary } from "../domain/tradingDesk";
+import {
+  TRADING_DESK_SNAPSHOT_CONTRACT_VERSION,
+  type TradingDeskSnapshot,
+  type TradingPosition,
+  type WatchlistItem,
+  type WatchlistSummary,
+} from "../domain/tradingDesk";
 
 const portfolio = {
   currentPV: 2658.42,
@@ -54,6 +60,7 @@ export function summarizeWatchlist(items: WatchlistItem[]): WatchlistSummary {
 }
 
 export const demoTradingDeskSnapshot: TradingDeskSnapshot = {
+  contractVersion: TRADING_DESK_SNAPSHOT_CONTRACT_VERSION,
   timestamp: new Date().toISOString(),
   mode: "demo_mode",
   systemStatus: "WATCHING",

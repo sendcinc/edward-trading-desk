@@ -8,6 +8,8 @@ import {
   type DemoScenario,
 } from "./tradingDeskAdapter";
 
+import { TRADING_DESK_SNAPSHOT_CONTRACT_VERSION } from "../domain/tradingDesk";
+
 const validSnapshot = () => structuredClone(demoTradingDeskSnapshot);
 
 describe("trading desk snapshot validation", () => {
@@ -16,6 +18,7 @@ describe("trading desk snapshot validation", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
+      expect(result.snapshot.contractVersion).toBe(TRADING_DESK_SNAPSHOT_CONTRACT_VERSION);
       expect(result.snapshot.portfolio.currentPV).toBeGreaterThan(0);
       expect(result.snapshot.portfolio.equity).toBeGreaterThan(0);
       expect(result.snapshot.softLandingPace.moonDailyRate).toBe(0.006);

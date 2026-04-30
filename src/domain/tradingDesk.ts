@@ -1,3 +1,6 @@
+export const TRADING_DESK_SNAPSHOT_CONTRACT_VERSION = "trading-desk-snapshot.v1" as const;
+export type TradingDeskSnapshotContractVersion = typeof TRADING_DESK_SNAPSHOT_CONTRACT_VERSION;
+
 export type DataMode = "live_available" | "live_stale" | "live_unavailable" | "demo_mode" | "validation_error";
 export type SnapshotSource = "demo" | "edward-api";
 export type SystemStatus = "WATCHING" | "OFFLINE" | "STALE" | "NO_OPEN_POSITION";
@@ -6,6 +9,7 @@ export type Direction = "LONG" | "SHORT";
 export type PaceStatus = "AHEAD" | "BEHIND";
 
 export type TradingDeskSnapshot = {
+  contractVersion: TradingDeskSnapshotContractVersion;
   timestamp: string;
   mode?: DataMode;
   systemStatus: SystemStatus;
