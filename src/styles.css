@@ -43,6 +43,8 @@ select {
 }
 
 .command-header,
+.data-state-banner,
+.demo-controls,
 .panel,
 .portfolio-bar {
   border: 1px solid rgba(146, 167, 255, 0.16);
@@ -109,6 +111,68 @@ h2 {
   gap: 8px;
 }
 
+.data-state-banner {
+  margin-top: 14px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+  border-width: 2px;
+}
+
+.data-state-banner h2,
+.data-state-banner p,
+.data-state-banner ul {
+  margin: 0;
+}
+
+.data-state-banner ul {
+  padding-left: 18px;
+  color: #ffd1d9;
+  line-height: 1.45;
+}
+
+.data-state-banner.demo_mode {
+  border-color: rgba(184, 199, 255, 0.52);
+  background: linear-gradient(135deg, rgba(70, 88, 255, 0.24), rgba(9, 11, 18, 0.94));
+}
+
+.data-state-banner.live_available {
+  border-color: rgba(99, 230, 190, 0.5);
+  background: linear-gradient(135deg, rgba(99, 230, 190, 0.18), rgba(9, 11, 18, 0.94));
+}
+
+.data-state-banner.live_stale,
+.data-state-banner.live_unavailable,
+.data-state-banner.validation_error {
+  border-color: rgba(255, 122, 144, 0.75);
+  background:
+    linear-gradient(135deg, rgba(255, 122, 144, 0.24), rgba(255, 209, 102, 0.12)),
+    rgba(9, 11, 18, 0.98);
+  box-shadow: 0 0 0 1px rgba(255, 122, 144, 0.18), 0 24px 90px rgba(255, 80, 110, 0.1);
+}
+
+.demo-controls {
+  margin-top: 14px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.demo-controls strong {
+  color: #dce4ff;
+}
+
+.demo-controls select {
+  min-width: min(100%, 280px);
+  color: #f5f7fb;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
 .timestamp,
 .status-pill {
   min-height: 30px;
@@ -125,6 +189,7 @@ h2 {
 }
 
 .status-pill.demo,
+.status-pill.demo_mode,
 .status-pill.watching,
 .status-pill.ready {
   color: #b8c7ff;
@@ -132,6 +197,7 @@ h2 {
 }
 
 .status-pill.live,
+.status-pill.live_available,
 .safe,
 .ahead,
 .yes,
@@ -140,6 +206,7 @@ h2 {
 }
 
 .status-pill.stale,
+.status-pill.live_stale,
 .status-pill.conditional,
 .status-pill.watchlist,
 .behind,
@@ -148,6 +215,8 @@ h2 {
 }
 
 .status-pill.unavailable,
+.status-pill.live_unavailable,
+.status-pill.validation_error,
 .status-pill.offline,
 .status-pill.too-late,
 .status-pill.skip,
@@ -318,6 +387,7 @@ h2 {
 .movement-row p,
 .warning-panel p,
 .recheck-panel p,
+.watchlist-summary,
 .watch-item p {
   color: #c7d0e5;
   line-height: 1.5;
@@ -422,6 +492,11 @@ h2 {
     grid-template-columns: 1.5fr repeat(4, 1fr) 1.1fr;
   }
 
+  .data-state-banner {
+    grid-template-columns: minmax(180px, 0.35fr) 1fr;
+    align-items: center;
+  }
+
   .pace-grid,
   .objective-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -438,6 +513,11 @@ h2 {
 
 @media (max-width: 620px) {
   .command-header {
+    flex-direction: column;
+  }
+
+  .demo-controls {
+    align-items: stretch;
     flex-direction: column;
   }
 

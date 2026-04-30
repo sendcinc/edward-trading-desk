@@ -1,4 +1,5 @@
-export type DataMode = "live" | "demo" | "stale" | "unavailable";
+export type DataMode = "live_available" | "live_stale" | "live_unavailable" | "demo_mode" | "validation_error";
+export type SnapshotSource = "demo" | "edward-api";
 export type SystemStatus = "WATCHING" | "OFFLINE" | "STALE" | "NO_OPEN_POSITION";
 export type ExposureStatus = "SAFE" | "ELEVATED" | "OVEREXPOSED" | "CRITICAL";
 export type Direction = "LONG" | "SHORT";
@@ -6,22 +7,25 @@ export type PaceStatus = "AHEAD" | "BEHIND";
 
 export type TradingDeskSnapshot = {
   timestamp: string;
-  mode: DataMode;
+  mode?: DataMode;
   systemStatus: SystemStatus;
   portfolio: PortfolioSnapshot;
+  riskState: RiskState;
   softLandingPace: SoftLandingPace;
   openPositions: TradingPosition[];
-  activePositionFocus?: TradingPosition;
-  edwardVerdict?: EdwardVerdict;
+  activePositionFocus?: TradingPosition | null;
+  edwardVerdict: EdwardVerdict;
   tradeObjective?: TradeObjective;
   marketMovement?: MarketMovement;
-  wrongBehavior?: WrongBehavior;
-  recheckTrigger?: RecheckTrigger;
+  wrongBehavior: WrongBehavior;
+  recheckTrigger: RecheckTrigger;
+  watchlistSummary: WatchlistSummary;
   watchlist: WatchlistItem[];
 };
 
 export type PortfolioSnapshot = {
   currentPV: number;
+  equity: number;
   startingPV: number;
   baselineDate: string;
   dailyPnL?: number;
@@ -29,6 +33,11 @@ export type PortfolioSnapshot = {
   marginUsed?: number;
   availableBalance?: number;
   exposureStatus: ExposureStatus;
+};
+
+export type RiskState = {
+  exposureStatus: ExposureStatus;
+  summary: string;
 };
 
 export type SoftLandingPace = {
@@ -134,4 +143,21 @@ export type WatchlistItem = {
   status: "READY" | "WATCHLIST" | "CONDITIONAL" | "EXTENDED" | "TOO LATE" | "SKIP";
   direction?: Direction;
   note?: string;
+};
+
+export type WatchlistSummary = {
+  total: number;
+  ready: number;
+  conditional: number;
+  blocked: number;
+  summary: string;
+};
+
+export type TradingDeskLoadResult = {
+  snapshot: TradingDeskSnapshot;
+  dataMode: DataMode;
+  source: SnapshotSource;
+  scenario?: string;
+  validationIssues: string[];
+  loadedAt: string;
 };

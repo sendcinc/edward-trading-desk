@@ -13,32 +13,38 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { loadTradingDeskSnapshot } from "./data/tradingDeskAdapter";
-import type { TradingDeskSnapshot } from "./domain/tradingDesk";
+import { loadTradingDeskSnapshot, type DemoScenario } from "./data/tradingDeskAdapter";
+import type { DataMode, TradingDeskLoadResult, TradingDeskSnapshot } from "./domain/tradingDesk";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
 
 export default function App() {
-  const [snapshot, setSnapshot] = useState<TradingDeskSnapshot | null>(null);
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "unavailable">("loading");
+  const [loadResult, setLoadResult] = useState<TradingDeskLoadResult | null>(null);
+  const [selectedScenario, setSelectedScenario] = useState<DemoScenario>("normal_demo");
+  const [loadState, setLoadState] = useState<"loading" | "ready">("loading");
 
   useEffect(() => {
-    loadTradingDeskSnapshot("demo")
+    setLoadState("loading");
+    loadTradingDeskSnapshot({ source: "demo", scenario: selectedScenario })
       .then((loaded) => {
-        setSnapshot(loaded);
+        setLoadResult(loaded);
         setLoadState("ready");
       })
-      .catch(() => setLoadState("unavailable"));
-  }, []);
+      .catch(() => setLoadState("ready"));
+  }, [selectedScenario]);
 
-  if (loadState === "loading" || !snapshot) {
+  if (loadState === "loading" || !loadResult) {
     return <main className="app-shell loading-shell">Loading Edward Trading Desk...</main>;
   }
 
+  const { snapshot } = loadResult;
+
   return (
     <main className="app-shell">
-      <TopCommandHeader snapshot={snapshot} dataUnavailable={loadState === "unavailable"} />
+      <TopCommandHeader loadResult={loadResult} />
+      <DataStateBanner loadResult={loadResult} />
+      <DemoControls selectedScenario={selectedScenario} onScenarioChange={setSelectedScenario} />
       <PortfolioCommandBar snapshot={snapshot} />
       <SoftLandingPanel snapshot={snapshot} />
       <ActivePositionCard snapshot={snapshot} />
@@ -51,7 +57,8 @@ export default function App() {
   );
 }
 
-function TopCommandHeader({ snapshot, dataUnavailable }: { snapshot: TradingDeskSnapshot; dataUnavailable: boolean }) {
+function TopCommandHeader({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const { snapshot, dataMode } = loadResult;
   return (
     <section className="command-header">
       <div>
@@ -60,7 +67,7 @@ function TopCommandHeader({ snapshot, dataUnavailable }: { snapshot: TradingDesk
         <p className="subtitle">Position-aware command center</p>
       </div>
       <div className="header-status">
-        <StatusPill label={dataUnavailable ? "UNAVAILABLE" : snapshot.mode.toUpperCase()} tone={snapshot.mode} />
+        <StatusPill label={formatDataMode(dataMode)} tone={dataMode} />
         <StatusPill label={formatStatus(snapshot.systemStatus)} tone={snapshot.systemStatus} />
         <span className="timestamp">
           <Clock3 size={14} />
@@ -71,15 +78,62 @@ function TopCommandHeader({ snapshot, dataUnavailable }: { snapshot: TradingDesk
   );
 }
 
+function DataStateBanner({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  return (
+    <section className={`data-state-banner ${loadResult.dataMode}`}>
+      <div>
+        <p className="eyebrow">Data State</p>
+        <h2>{formatDataMode(loadResult.dataMode)}</h2>
+      </div>
+      <p>{dataModeMessage(loadResult)}</p>
+      {loadResult.validationIssues.length > 0 && (
+        <ul>
+          {loadResult.validationIssues.slice(0, 4).map((issue) => <li key={issue}>{issue}</li>)}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+const demoScenarios: { value: DemoScenario; label: string }[] = [
+  { value: "normal_demo", label: "Normal demo" },
+  { value: "stale_data", label: "Stale data" },
+  { value: "unavailable_edward", label: "Unavailable Edward" },
+  { value: "invalid_snapshot", label: "Invalid snapshot" },
+  { value: "no_active_trade", label: "No active trade" },
+  { value: "active_trade_under_pressure", label: "Active trade under pressure" },
+  { value: "active_trade_healthy", label: "Active trade healthy" },
+];
+
+function DemoControls({
+  selectedScenario,
+  onScenarioChange,
+}: {
+  selectedScenario: DemoScenario;
+  onScenarioChange: (scenario: DemoScenario) => void;
+}) {
+  return (
+    <section className="demo-controls" aria-label="Demo scenario controls">
+      <div>
+        <p className="eyebrow">Developer Demo Controls</p>
+        <strong>Visual test mode only — not connected to live Edward.</strong>
+      </div>
+      <select value={selectedScenario} onChange={(event) => onScenarioChange(event.target.value as DemoScenario)}>
+        {demoScenarios.map((scenario) => <option key={scenario.value} value={scenario.value}>{scenario.label}</option>)}
+      </select>
+    </section>
+  );
+}
+
 function PortfolioCommandBar({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const { portfolio } = snapshot;
   return (
     <section className="portfolio-bar">
       <Metric label="Portfolio Value" value={currency.format(portfolio.currentPV)} icon={<CircleDollarSign />} strong />
+      <Metric label="Equity" value={currency.format(portfolio.equity)} />
       <Metric label="Unrealized PnL" value={money(portfolio.unrealizedPnL)} trend={portfolio.unrealizedPnL} />
       <Metric label="Daily PnL" value={money(portfolio.dailyPnL)} trend={portfolio.dailyPnL} />
       <Metric label="Margin Used" value={money(portfolio.marginUsed)} />
-      <Metric label="Available" value={money(portfolio.availableBalance)} />
       <div className={`exposure ${portfolio.exposureStatus.toLowerCase()}`}>
         <ShieldCheck size={18} />
         <span>{portfolio.exposureStatus}</span>
@@ -239,6 +293,7 @@ function WatchlistStrip({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   return (
     <section className="panel watchlist-panel">
       <PanelTitle icon={<Radio />} eyebrow="Watchlist / Opportunity Strip" title="Secondary Context" />
+      <p className="watchlist-summary">{snapshot.watchlistSummary.summary}</p>
       <div className="watchlist">
         {snapshot.watchlist.map((item) => (
           <article key={item.symbol} className="watch-item">
@@ -318,6 +373,25 @@ function MovementRow({ label, text }: { label: string; text: string }) {
 
 function StatusPill({ label, tone }: { label: string; tone: string }) {
   return <span className={`status-pill ${tone.toLowerCase().replace(/\s+/g, "-").replace(/\//g, "")}`}>{label}</span>;
+}
+
+function formatDataMode(mode: DataMode) {
+  return mode.replace(/_/g, " ").toUpperCase();
+}
+
+function dataModeMessage(loadResult: TradingDeskLoadResult) {
+  switch (loadResult.dataMode) {
+    case "live_available":
+      return "Edward data validated and fresh. Adapter contract passed runtime checks.";
+    case "live_stale":
+      return "Edward data is stale. Do not treat this as current market truth until a fresh snapshot arrives.";
+    case "live_unavailable":
+      return "Edward is unavailable. This desk is showing safe fallback data and should not drive trading decisions.";
+    case "validation_error":
+      return "Snapshot validation failed. The UI rejected the incoming contract and is showing fallback data.";
+    case "demo_mode":
+      return "Demo data is active. This is for visual testing only and is not live Edward output.";
+  }
 }
 
 function money(value?: number) {

@@ -1,8 +1,9 @@
 import { calculateSoftLandingPace, enrichPositionWithPaceMath } from "../domain/softLanding";
-import type { TradingDeskSnapshot, TradingPosition } from "../domain/tradingDesk";
+import type { TradingDeskSnapshot, TradingPosition, WatchlistItem, WatchlistSummary } from "../domain/tradingDesk";
 
 const portfolio = {
   currentPV: 2658.42,
+  equity: 2658.42,
   startingPV: 2373,
   baselineDate: "2026-02-16",
   dailyPnL: 28.4,
@@ -33,11 +34,34 @@ const activePosition: TradingPosition = enrichPositionWithPaceMath(
   pace,
 );
 
+const watchlist: WatchlistItem[] = [
+  { symbol: "BTC-PERP", status: "WATCHLIST", direction: "LONG", note: "Needs range reclaim before it matters." },
+  { symbol: "ETH-PERP", status: "CONDITIONAL", direction: "LONG", note: "Accept only on retest, not extension." },
+  { symbol: "WIF-PERP", status: "TOO LATE", direction: "LONG", note: "Move already consumed. No chase." },
+];
+
+export function summarizeWatchlist(items: WatchlistItem[]): WatchlistSummary {
+  const ready = items.filter((item) => item.status === "READY").length;
+  const conditional = items.filter((item) => item.status === "WATCHLIST" || item.status === "CONDITIONAL").length;
+  const blocked = items.filter((item) => item.status === "EXTENDED" || item.status === "TOO LATE" || item.status === "SKIP").length;
+  return {
+    total: items.length,
+    ready,
+    conditional,
+    blocked,
+    summary: `${ready} ready, ${conditional} conditional, ${blocked} blocked. Watchlist stays secondary to active trade management.`,
+  };
+}
+
 export const demoTradingDeskSnapshot: TradingDeskSnapshot = {
   timestamp: new Date().toISOString(),
-  mode: "demo",
+  mode: "demo_mode",
   systemStatus: "WATCHING",
   portfolio,
+  riskState: {
+    exposureStatus: portfolio.exposureStatus,
+    summary: "Exposure is controlled; no backend/live broker authority is connected.",
+  },
   softLandingPace: pace,
   openPositions: [activePosition],
   activePositionFocus: activePosition,
@@ -74,18 +98,19 @@ export const demoTradingDeskSnapshot: TradingDeskSnapshot = {
     priceLevel: 145.8,
     timeframe: "15m",
   },
-  watchlist: [
-    { symbol: "BTC-PERP", status: "WATCHLIST", direction: "LONG", note: "Needs range reclaim before it matters." },
-    { symbol: "ETH-PERP", status: "CONDITIONAL", direction: "LONG", note: "Accept only on retest, not extension." },
-    { symbol: "WIF-PERP", status: "TOO LATE", direction: "LONG", note: "Move already consumed. No chase." },
-  ],
+  watchlistSummary: summarizeWatchlist(watchlist),
+  watchlist,
 };
 
 export const emptyDeskSnapshot: TradingDeskSnapshot = {
   ...demoTradingDeskSnapshot,
   systemStatus: "NO_OPEN_POSITION",
   openPositions: [],
-  activePositionFocus: undefined,
+  activePositionFocus: null,
+  riskState: {
+    exposureStatus: "SAFE",
+    summary: "No active trade is open. Portfolio risk is quiet; opportunity scanning is secondary.",
+  },
   edwardVerdict: {
     action: "WAIT / NO ACTION",
     confidence: "MEDIUM",
