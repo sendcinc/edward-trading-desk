@@ -164,6 +164,21 @@ h2 {
   color: #dce4ff;
 }
 
+.demo-controls span,
+.freshness-line {
+  display: block;
+  margin-top: 4px;
+  color: #9da8c9;
+  font-size: 0.82rem;
+}
+
+.control-stack {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .demo-controls select {
   min-width: min(100%, 280px);
   color: #f5f7fb;

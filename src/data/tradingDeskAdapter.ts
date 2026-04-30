@@ -25,7 +25,7 @@ export type TradingDeskLoadOptions = {
   scenario?: DemoScenario;
 };
 
-export const EDWARD_SNAPSHOT_ENDPOINT = "/api/trading-desk/snapshot";
+export const EDWARD_SNAPSHOT_ENDPOINT = "/trading-desk/data/latest.json";
 export const LIVE_STALE_AFTER_MS = 5 * 60 * 1000;
 export const LIVE_STALE_AFTER_SECONDS = LIVE_STALE_AFTER_MS / 1000;
 

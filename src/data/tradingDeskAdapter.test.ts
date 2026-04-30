@@ -81,6 +81,20 @@ describe("data mode resolution", () => {
 });
 
 describe("adapter load states", () => {
+  it("fetches the static public Edward snapshot first", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(validSnapshot()), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadTradingDeskSnapshot({ source: "edward-api" });
+
+    expect(fetchMock).toHaveBeenCalledWith("/trading-desk/data/latest.json", {
+      headers: { Accept: "application/json" },
+    });
+    expect(result.dataMode).toBe("live_available");
+    expect(result.source).toBe("edward-api");
+    vi.unstubAllGlobals();
+  });
+
   it("returns validation_error when Edward returns an invalid snapshot", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ broken: true }), { status: 200 })));
 

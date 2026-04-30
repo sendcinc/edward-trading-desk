@@ -22,17 +22,21 @@ const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDi
 export default function App() {
   const [loadResult, setLoadResult] = useState<TradingDeskLoadResult | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<DemoScenario>("normal_demo");
+  const [dataSource, setDataSource] = useState<"live" | "demo">("live");
   const [loadState, setLoadState] = useState<"loading" | "ready">("loading");
 
   useEffect(() => {
     setLoadState("loading");
-    loadTradingDeskSnapshot({ source: "demo", scenario: selectedScenario })
+    const loadOptions = dataSource === "live"
+      ? { source: "edward-api" as const }
+      : { source: "demo" as const, scenario: selectedScenario };
+    loadTradingDeskSnapshot(loadOptions)
       .then((loaded) => {
         setLoadResult(loaded);
         setLoadState("ready");
       })
       .catch(() => setLoadState("ready"));
-  }, [selectedScenario]);
+  }, [dataSource, selectedScenario]);
 
   if (loadState === "loading" || !loadResult) {
     return <main className="app-shell loading-shell">Loading Edward Trading Desk...</main>;
@@ -44,7 +48,12 @@ export default function App() {
     <main className="app-shell">
       <TopCommandHeader loadResult={loadResult} />
       <DataStateBanner loadResult={loadResult} />
-      <DemoControls selectedScenario={selectedScenario} onScenarioChange={setSelectedScenario} />
+      <DemoControls
+        selectedScenario={selectedScenario}
+        dataSource={dataSource}
+        onScenarioChange={setSelectedScenario}
+        onDataSourceChange={setDataSource}
+      />
       <PortfolioCommandBar snapshot={snapshot} />
       <SoftLandingPanel snapshot={snapshot} />
       <ActivePositionCard snapshot={snapshot} />
@@ -71,7 +80,7 @@ function TopCommandHeader({ loadResult }: { loadResult: TradingDeskLoadResult })
         <StatusPill label={formatStatus(snapshot.systemStatus)} tone={snapshot.systemStatus} />
         <span className="timestamp">
           <Clock3 size={14} />
-          {formatTime(snapshot.timestamp)}
+          {formatTime(snapshot.timestamp)} · {formatAge(snapshot.timestamp)} old
         </span>
       </div>
     </section>
@@ -79,11 +88,13 @@ function TopCommandHeader({ loadResult }: { loadResult: TradingDeskLoadResult })
 }
 
 function DataStateBanner({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const age = formatAge(loadResult.snapshot.timestamp);
   return (
     <section className={`data-state-banner ${loadResult.dataMode}`}>
       <div>
         <p className="eyebrow">Data State</p>
         <h2>{formatDataMode(loadResult.dataMode)}</h2>
+        <span className="freshness-line">Snapshot {formatTime(loadResult.snapshot.timestamp)} · {age} old</span>
       </div>
       <p>{dataModeMessage(loadResult)}</p>
       {loadResult.validationIssues.length > 0 && (
@@ -107,20 +118,35 @@ const demoScenarios: { value: DemoScenario; label: string }[] = [
 
 function DemoControls({
   selectedScenario,
+  dataSource,
   onScenarioChange,
+  onDataSourceChange,
 }: {
   selectedScenario: DemoScenario;
+  dataSource: "live" | "demo";
   onScenarioChange: (scenario: DemoScenario) => void;
+  onDataSourceChange: (source: "live" | "demo") => void;
 }) {
   return (
-    <section className="demo-controls" aria-label="Demo scenario controls">
+    <section className="demo-controls" aria-label="Data source and demo scenario controls">
       <div>
-        <p className="eyebrow">Developer Demo Controls</p>
-        <strong>Visual test mode only — not connected to live Edward.</strong>
+        <p className="eyebrow">Data Source</p>
+        <strong>{dataSource === "live" ? "Live Edward snapshot first" : "Developer demo mode"}</strong>
+        <span>Demo remains available as an explicit fallback; live data is primary when valid.</span>
       </div>
-      <select value={selectedScenario} onChange={(event) => onScenarioChange(event.target.value as DemoScenario)}>
-        {demoScenarios.map((scenario) => <option key={scenario.value} value={scenario.value}>{scenario.label}</option>)}
-      </select>
+      <div className="control-stack">
+        <select value={dataSource} onChange={(event) => onDataSourceChange(event.target.value as "live" | "demo")}>
+          <option value="live">Live Edward snapshot</option>
+          <option value="demo">Developer demo scenarios</option>
+        </select>
+        <select
+          value={selectedScenario}
+          disabled={dataSource === "live"}
+          onChange={(event) => onScenarioChange(event.target.value as DemoScenario)}
+        >
+          {demoScenarios.map((scenario) => <option key={scenario.value} value={scenario.value}>{scenario.label}</option>)}
+        </select>
+      </div>
     </section>
   );
 }
@@ -413,6 +439,17 @@ function formatTime(timestamp: string) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(timestamp));
+}
+
+function formatAge(timestamp: string) {
+  const timestampMs = new Date(timestamp).getTime();
+  if (!Number.isFinite(timestampMs)) return "unknown age";
+  const ageSeconds = Math.max(0, Math.round((Date.now() - timestampMs) / 1000));
+  if (ageSeconds < 90) return `${ageSeconds}s`;
+  const ageMinutes = Math.round(ageSeconds / 60);
+  if (ageMinutes < 90) return `${ageMinutes}m`;
+  const ageHours = Math.round(ageMinutes / 60);
+  return `${ageHours}h`;
 }
 
 function formatStatus(status: string) {
