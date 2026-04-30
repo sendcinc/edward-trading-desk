@@ -25,6 +25,25 @@ export type TradingDeskSnapshot = {
   recheckTrigger: RecheckTrigger;
   watchlistSummary: WatchlistSummary;
   watchlist: WatchlistItem[];
+  tradeJournal?: TradeJournalEntry[];
+};
+
+export type TradeJournalEntry = {
+  tradeId?: string;
+  symbol: string;
+  side: "long" | "short";
+  status: string;
+  entryTime?: string;
+  exitTime?: string;
+  entryPrice?: number;
+  exitPrice?: number;
+  realizedPnl?: number;
+  fees?: number | null;
+  funding?: number | null;
+  size?: number | null;
+  framework?: string;
+  closeReason?: string;
+  confidence?: string;
 };
 
 export type PortfolioSnapshot = {
@@ -49,6 +68,7 @@ export type SoftLandingPace = {
   baselineDate: string;
   daysSinceBaseline: number;
   currentPV: number;
+  currentDailyPVPct: number;
   moonDailyRate: 0.006;
   sunDailyRate: 0.008;
   moonTargetPVToday: number;

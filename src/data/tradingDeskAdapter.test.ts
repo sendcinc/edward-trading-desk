@@ -21,6 +21,7 @@ describe("trading desk snapshot validation", () => {
       expect(result.snapshot.contractVersion).toBe(TRADING_DESK_SNAPSHOT_CONTRACT_VERSION);
       expect(result.snapshot.portfolio.currentPV).toBeGreaterThan(0);
       expect(result.snapshot.portfolio.equity).toBeGreaterThan(0);
+      expect(result.snapshot.softLandingPace.currentDailyPVPct).toBeGreaterThanOrEqual(0);
       expect(result.snapshot.softLandingPace.moonDailyRate).toBe(0.006);
       expect(result.snapshot.softLandingPace.sunDailyRate).toBe(0.008);
       expect(result.snapshot.edwardVerdict.action).toBe("HOLD BUT DO NOT ADD");
@@ -59,6 +60,20 @@ describe("trading desk snapshot validation", () => {
       expect(issues).toContain("wrongBehavior");
       expect(issues).toContain("recheckTrigger");
       expect(issues).toContain("watchlistSummary");
+    }
+  });
+
+  it("accepts older live snapshots without current daily PV by deriving it", () => {
+    const snapshot = validSnapshot() as Record<string, unknown>;
+    const pace = { ...(snapshot.softLandingPace as Record<string, unknown>) };
+    delete pace.currentDailyPVPct;
+    snapshot.softLandingPace = pace;
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.softLandingPace.currentDailyPVPct).toBeGreaterThanOrEqual(0);
     }
   });
 });

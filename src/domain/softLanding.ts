@@ -19,12 +19,16 @@ export function calculateSoftLandingPace(currentPV: number, asOfDate = new Date(
   const sunTargetPVToday = SOFT_LANDING_BASELINE_PV * Math.pow(1 + SUN_DAILY_RATE, daysSinceBaseline);
   const moonGapDollars = currentPV - moonTargetPVToday;
   const sunGapDollars = currentPV - sunTargetPVToday;
+  const currentDailyPVPct = daysSinceBaseline === 0
+    ? 0
+    : Math.pow(currentPV / SOFT_LANDING_BASELINE_PV, 1 / daysSinceBaseline) - 1;
 
   return {
     baselinePV: SOFT_LANDING_BASELINE_PV,
     baselineDate: SOFT_LANDING_BASELINE_DATE,
     daysSinceBaseline,
     currentPV,
+    currentDailyPVPct,
     moonDailyRate: MOON_DAILY_RATE,
     sunDailyRate: SUN_DAILY_RATE,
     moonTargetPVToday,

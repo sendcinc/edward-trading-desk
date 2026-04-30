@@ -56,6 +56,7 @@ const softLandingPaceSchema = z.object({
   baselineDate: z.string().min(1),
   daysSinceBaseline: z.number().int().nonnegative(),
   currentPV: z.number().finite(),
+  currentDailyPVPct: z.number().finite(),
   moonDailyRate: z.literal(0.006),
   sunDailyRate: z.literal(0.008),
   moonTargetPVToday: z.number().finite(),
@@ -153,6 +154,23 @@ const watchlistItemSchema = z.object({
   direction: directionSchema.optional(),
   note: z.string().optional(),
 });
+const tradeJournalEntrySchema = z.object({
+  tradeId: z.string().optional(),
+  symbol: z.string().min(1),
+  side: z.enum(["long", "short"]),
+  status: z.string().min(1),
+  entryTime: z.string().optional(),
+  exitTime: z.string().optional(),
+  entryPrice: z.number().finite().optional(),
+  exitPrice: z.number().finite().optional(),
+  realizedPnl: z.number().finite().optional(),
+  fees: z.number().finite().nullable().optional(),
+  funding: z.number().finite().nullable().optional(),
+  size: z.number().finite().nullable().optional(),
+  framework: z.string().optional(),
+  closeReason: z.string().optional(),
+  confidence: z.string().optional(),
+});
 const watchlistSummarySchema = z.object({
   total: z.number().int().nonnegative(),
   ready: z.number().int().nonnegative(),
@@ -178,14 +196,42 @@ const tradingDeskSnapshotSchema = z.object({
   recheckTrigger: recheckTriggerSchema,
   watchlistSummary: watchlistSummarySchema,
   watchlist: z.array(watchlistItemSchema),
+  tradeJournal: z.array(tradeJournalEntrySchema).optional(),
 });
+
+function normalizeLegacySnapshot(raw: unknown): unknown {
+  if (!isRecord(raw) || !isRecord(raw.softLandingPace)) return raw;
+  const pace = raw.softLandingPace;
+  if (typeof pace.currentDailyPVPct === "number") return raw;
+  const currentPV = typeof pace.currentPV === "number" ? pace.currentPV : undefined;
+  const baselinePV = typeof pace.baselinePV === "number" ? pace.baselinePV : undefined;
+  const daysSinceBaseline = typeof pace.daysSinceBaseline === "number" ? pace.daysSinceBaseline : undefined;
+  if (currentPV === undefined || baselinePV === undefined || daysSinceBaseline === undefined) return raw;
+
+  return {
+    ...raw,
+    softLandingPace: {
+      ...pace,
+      currentDailyPVPct: deriveCurrentDailyPVPct(currentPV, baselinePV, daysSinceBaseline),
+    },
+  };
+}
+
+function deriveCurrentDailyPVPct(currentPV: number, baselinePV: number, daysSinceBaseline: number): number {
+  if (baselinePV <= 0 || daysSinceBaseline <= 0) return 0;
+  return Math.pow(currentPV / baselinePV, 1 / daysSinceBaseline) - 1;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export type SnapshotValidationResult =
   | { ok: true; snapshot: TradingDeskSnapshot; issues: [] }
   | { ok: false; issues: string[] };
 
 export function validateTradingDeskSnapshot(raw: unknown): SnapshotValidationResult {
-  const result = tradingDeskSnapshotSchema.safeParse(raw);
+  const result = tradingDeskSnapshotSchema.safeParse(normalizeLegacySnapshot(raw));
   if (result.success) {
     return { ok: true, snapshot: result.data, issues: [] };
   }

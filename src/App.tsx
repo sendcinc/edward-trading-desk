@@ -13,7 +13,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { loadTradingDeskSnapshot, type DemoScenario } from "./data/tradingDeskAdapter";
+import { loadTradingDeskSnapshot } from "./data/tradingDeskAdapter";
+import { buildTradeJournalSummary } from "./data/tradeJournal";
 import type { DataMode, TradingDeskLoadResult, TradingDeskSnapshot } from "./domain/tradingDesk";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -21,22 +22,17 @@ const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDi
 
 export default function App() {
   const [loadResult, setLoadResult] = useState<TradingDeskLoadResult | null>(null);
-  const [selectedScenario, setSelectedScenario] = useState<DemoScenario>("normal_demo");
-  const [dataSource, setDataSource] = useState<"live" | "demo">("live");
   const [loadState, setLoadState] = useState<"loading" | "ready">("loading");
 
   useEffect(() => {
     setLoadState("loading");
-    const loadOptions = dataSource === "live"
-      ? { source: "edward-api" as const }
-      : { source: "demo" as const, scenario: selectedScenario };
-    loadTradingDeskSnapshot(loadOptions)
+    loadTradingDeskSnapshot({ source: "edward-api" })
       .then((loaded) => {
         setLoadResult(loaded);
         setLoadState("ready");
       })
       .catch(() => setLoadState("ready"));
-  }, [dataSource, selectedScenario]);
+  }, []);
 
   if (loadState === "loading" || !loadResult) {
     return <main className="app-shell loading-shell">Loading Edward Trading Desk...</main>;
@@ -48,12 +44,6 @@ export default function App() {
     <main className="app-shell">
       <TopCommandHeader loadResult={loadResult} />
       <DataStateBanner loadResult={loadResult} />
-      <DemoControls
-        selectedScenario={selectedScenario}
-        dataSource={dataSource}
-        onScenarioChange={setSelectedScenario}
-        onDataSourceChange={setDataSource}
-      />
       <PortfolioCommandBar snapshot={snapshot} />
       <SoftLandingPanel snapshot={snapshot} />
       <ActivePositionCard snapshot={snapshot} />
@@ -61,7 +51,7 @@ export default function App() {
       <TradeObjectivePanel snapshot={snapshot} />
       <MarketMovementPanel snapshot={snapshot} />
       <WarningAndRecheck snapshot={snapshot} />
-      <WatchlistStrip snapshot={snapshot} />
+      <TradeJournalPanel snapshot={snapshot} />
     </main>
   );
 }
@@ -102,51 +92,6 @@ function DataStateBanner({ loadResult }: { loadResult: TradingDeskLoadResult }) 
           {loadResult.validationIssues.slice(0, 4).map((issue) => <li key={issue}>{issue}</li>)}
         </ul>
       )}
-    </section>
-  );
-}
-
-const demoScenarios: { value: DemoScenario; label: string }[] = [
-  { value: "normal_demo", label: "Normal demo" },
-  { value: "stale_data", label: "Stale data" },
-  { value: "unavailable_edward", label: "Unavailable Edward" },
-  { value: "invalid_snapshot", label: "Invalid snapshot" },
-  { value: "no_active_trade", label: "No active trade" },
-  { value: "active_trade_under_pressure", label: "Active trade under pressure" },
-  { value: "active_trade_healthy", label: "Active trade healthy" },
-];
-
-function DemoControls({
-  selectedScenario,
-  dataSource,
-  onScenarioChange,
-  onDataSourceChange,
-}: {
-  selectedScenario: DemoScenario;
-  dataSource: "live" | "demo";
-  onScenarioChange: (scenario: DemoScenario) => void;
-  onDataSourceChange: (source: "live" | "demo") => void;
-}) {
-  return (
-    <section className="demo-controls" aria-label="Data source and demo scenario controls">
-      <div>
-        <p className="eyebrow">Data Source</p>
-        <strong>{dataSource === "live" ? "Live Edward snapshot first" : "Developer demo mode"}</strong>
-        <span>Demo remains available as an explicit fallback; live data is primary when valid.</span>
-      </div>
-      <div className="control-stack">
-        <select value={dataSource} onChange={(event) => onDataSourceChange(event.target.value as "live" | "demo")}>
-          <option value="live">Live Edward snapshot</option>
-          <option value="demo">Developer demo scenarios</option>
-        </select>
-        <select
-          value={selectedScenario}
-          disabled={dataSource === "live"}
-          onChange={(event) => onScenarioChange(event.target.value as DemoScenario)}
-        >
-          {demoScenarios.map((scenario) => <option key={scenario.value} value={scenario.value}>{scenario.label}</option>)}
-        </select>
-      </div>
     </section>
   );
 }
@@ -194,6 +139,7 @@ function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
       </div>
       <div className="pace-copy">
         <span>Current PV {currency.format(pace.currentPV)}</span>
+        <span>Current Daily PV {asPct(pace.currentDailyPVPct)} vs Moon {asPct(pace.moonDailyRate)} / Sun {asPct(pace.sunDailyRate)}</span>
         <span>Baseline {currency.format(pace.baselinePV)} on {pace.baselineDate}</span>
         <span>{pace.daysSinceBaseline} days compounded</span>
       </div>
@@ -315,24 +261,78 @@ function WarningAndRecheck({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
-function WatchlistStrip({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const journal = buildTradeJournalSummary(snapshot);
   return (
-    <section className="panel watchlist-panel">
-      <PanelTitle icon={<Radio />} eyebrow="Watchlist / Opportunity Strip" title="Secondary Context" />
-      <p className="watchlist-summary">{snapshot.watchlistSummary.summary}</p>
-      <div className="watchlist">
-        {snapshot.watchlist.map((item) => (
-          <article key={item.symbol} className="watch-item">
-            <div>
-              <strong>{item.symbol}</strong>
-              <span>{item.direction ?? "No direction"}</span>
-            </div>
-            <StatusPill label={item.status} tone={item.status} />
-            <p>{item.note}</p>
-          </article>
-        ))}
+    <section className="panel trade-journal-panel">
+      <div className="trade-journal-header">
+        <h2>Trade Journal</h2>
+        <span className="trade-journal-badge">{journal.badge}</span>
+      </div>
+
+      <div className="trade-journal-stats" aria-label="Trade journal summary">
+        <JournalStat value={journal.stats.trades} label="TRADES" />
+        <JournalStat value={journal.stats.wins} label="WINS" />
+        <JournalStat value={journal.stats.losses} label="LOSSES" />
+        <JournalStat value={journal.stats.winRate} label="WIN RATE" />
+      </div>
+
+      <div className="trade-journal-table-wrap">
+        <table className="trade-journal-table">
+          <thead>
+            <tr>
+              <th>Trade ID</th>
+              <th>Date</th>
+              <th>Symbol</th>
+              <th>Side</th>
+              <th>Status</th>
+              <th>Opened</th>
+              <th>Closed</th>
+              <th>Entry</th>
+              <th>Exit</th>
+              <th>Size</th>
+              <th>P&amp;L</th>
+              <th>Fees</th>
+              <th>Funding</th>
+              <th>Framework</th>
+              <th>Confidence</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {journal.tableRows.map((row) => (
+              <tr key={row.tradeId} className={row.tone}>
+                <td>{row.tradeId}</td>
+                <td>{row.date}</td>
+                <td>{row.symbol}</td>
+                <td><span className={`trade-side ${row.side.toLowerCase()}`}>{row.side}</span></td>
+                <td>{row.status}</td>
+                <td>{row.opened}</td>
+                <td>{row.closed}</td>
+                <td>{row.entry}</td>
+                <td>{row.exit}</td>
+                <td>{row.size}</td>
+                <td>{row.pnl}</td>
+                <td>{row.fees}</td>
+                <td>{row.funding}</td>
+                <td>{row.framework}</td>
+                <td>{row.confidence}</td>
+                <td>{row.reason}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
+  );
+}
+
+function JournalStat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="journal-stat">
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
   );
 }
 

@@ -44,7 +44,6 @@ select {
 
 .command-header,
 .data-state-banner,
-.demo-controls,
 .panel,
 .portfolio-bar {
   border: 1px solid rgba(146, 167, 255, 0.16);
@@ -151,41 +150,11 @@ h2 {
   box-shadow: 0 0 0 1px rgba(255, 122, 144, 0.18), 0 24px 90px rgba(255, 80, 110, 0.1);
 }
 
-.demo-controls {
-  margin-top: 14px;
-  padding: 12px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.demo-controls strong {
-  color: #dce4ff;
-}
-
-.demo-controls span,
 .freshness-line {
   display: block;
   margin-top: 4px;
   color: #9da8c9;
   font-size: 0.82rem;
-}
-
-.control-stack {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.demo-controls select {
-  min-width: min(100%, 280px);
-  color: #f5f7fb;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 12px;
-  padding: 10px 12px;
 }
 
 .timestamp,
@@ -401,9 +370,7 @@ h2 {
 .worth,
 .movement-row p,
 .warning-panel p,
-.recheck-panel p,
-.watchlist-summary,
-.watch-item p {
+.recheck-panel p {
   color: #c7d0e5;
   line-height: 1.5;
 }
@@ -470,32 +437,139 @@ h2 {
   background: rgba(255, 122, 144, 0.14);
 }
 
-.watchlist {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, 1fr);
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+.trade-journal-panel {
+  padding: 20px;
+  background: linear-gradient(180deg, rgba(17, 22, 42, 0.96), rgba(8, 11, 24, 0.96));
 }
 
-.watch-item {
-  min-height: 150px;
-  padding: 14px;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.watch-item > div {
+.trade-journal-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.watch-item p {
-  margin: 12px 0 0;
+.trade-journal-header h2 {
+  font-size: 1.1rem;
+}
+
+.trade-journal-badge {
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #63e6be;
+  background: rgba(99, 230, 190, 0.1);
+  border: 1px solid rgba(99, 230, 190, 0.22);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.trade-journal-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.journal-stat {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(28, 37, 68, 0.76);
+  border: 1px solid rgba(146, 167, 255, 0.13);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.journal-stat strong {
+  display: block;
+  color: #f6f8ff;
+  font-size: clamp(1.15rem, 4vw, 1.75rem);
+  line-height: 1;
+}
+
+.journal-stat span {
+  display: block;
+  margin-top: 8px;
+  color: #8490b2;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.trade-journal-table-wrap {
+  overflow-x: auto;
+}
+
+.trade-journal-table {
+  width: 100%;
+  min-width: 1480px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  color: #d9e1f7;
+  font-size: 0.8rem;
+}
+
+.trade-journal-table th,
+.trade-journal-table td {
+  padding: 11px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.trade-journal-table th {
+  color: #8490b2;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.trade-journal-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.trade-journal-table td:nth-child(3),
+.trade-journal-table td:nth-child(11) {
+  color: #f6f8ff;
+  font-weight: 900;
+}
+
+.trade-journal-table th:nth-child(16),
+.trade-journal-table td:nth-child(16) {
+  width: 24%;
+}
+
+.trade-journal-table tr.danger td:nth-child(11) {
+  color: #ff7a90;
+}
+
+.trade-journal-table tr.success td:nth-child(11) {
+  color: #63e6be;
+}
+
+.trade-side {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.trade-side.long {
+  color: #63e6be;
+  background: rgba(99, 230, 190, 0.12);
+}
+
+.trade-side.short {
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.12);
 }
 
 @media (min-width: 740px) {
@@ -528,11 +602,6 @@ h2 {
 
 @media (max-width: 620px) {
   .command-header {
-    flex-direction: column;
-  }
-
-  .demo-controls {
-    align-items: stretch;
     flex-direction: column;
   }
 
