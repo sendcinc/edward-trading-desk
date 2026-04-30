@@ -1,0 +1,98 @@
+import { calculateSoftLandingPace, enrichPositionWithPaceMath } from "../domain/softLanding";
+import type { TradingDeskSnapshot, TradingPosition } from "../domain/tradingDesk";
+
+const portfolio = {
+  currentPV: 2658.42,
+  startingPV: 2373,
+  baselineDate: "2026-02-16",
+  dailyPnL: 28.4,
+  unrealizedPnL: 41.62,
+  marginUsed: 412,
+  availableBalance: 2246.42,
+  exposureStatus: "SAFE" as const,
+};
+
+const pace = calculateSoftLandingPace(portfolio.currentPV);
+
+const activePosition: TradingPosition = enrichPositionWithPaceMath(
+  {
+    symbol: "SOL-PERP",
+    direction: "LONG",
+    entryPrice: 145.2,
+    currentPrice: 147.86,
+    size: 15.65,
+    leverage: 3,
+    margin: 758.02,
+    liquidationPrice: 101.18,
+    unrealizedPnL: 41.62,
+    tp1: 151.4,
+    stop: 143.1,
+    extendedTarget: 156.8,
+  },
+  portfolio.currentPV,
+  pace,
+);
+
+export const demoTradingDeskSnapshot: TradingDeskSnapshot = {
+  timestamp: new Date().toISOString(),
+  mode: "demo",
+  systemStatus: "WATCHING",
+  portfolio,
+  softLandingPace: pace,
+  openPositions: [activePosition],
+  activePositionFocus: activePosition,
+  edwardVerdict: {
+    action: "HOLD BUT DO NOT ADD",
+    confidence: "HIGH",
+    movementClassification: "HEALTHY PULLBACK",
+    summary: "The trade is still behaving. Price is above entry structure and TP1 remains realistic.",
+    whatIWouldDo: "Hold the current size and let the trade prove itself into TP1.",
+    addGuidance: "No add until a clean retest holds with BTC neutral or supportive.",
+    riskCommentary: "Exposure is controlled. Do not convert a green trade into a larger risk event.",
+  },
+  tradeObjective: {
+    moonTargetPct: 0.6,
+    sunTargetPct: 0.8,
+    moonTargetDollars: pace.moonDailyTargetDollars,
+    sunTargetDollars: pace.sunDailyTargetDollars,
+    tp1ContributionToMoonPct: activePosition.tp1ContributionToMoonDailyTargetPct,
+    tp1ContributionToSunPct: activePosition.tp1ContributionToSunDailyTargetPct,
+    worthContinuing: true,
+    summary: "TP1 meaningfully contributes to today's target without needing extra size.",
+  },
+  marketMovement: {
+    fifteenMinute: "Pulling back but still above entry structure.",
+    oneHour: "Continuation remains intact while higher lows hold.",
+    fourHour: "Trade remains inside a valid THORP management range.",
+    btcContext: "Neutral/supportive. No BTC breakdown pressure yet.",
+  },
+  wrongBehavior: {
+    message: "Do not add just because the candle is green.",
+  },
+  recheckTrigger: {
+    condition: "Recheck if 15m closes below 145.80 or price tags TP1 and stalls.",
+    priceLevel: 145.8,
+    timeframe: "15m",
+  },
+  watchlist: [
+    { symbol: "BTC-PERP", status: "WATCHLIST", direction: "LONG", note: "Needs range reclaim before it matters." },
+    { symbol: "ETH-PERP", status: "CONDITIONAL", direction: "LONG", note: "Accept only on retest, not extension." },
+    { symbol: "WIF-PERP", status: "TOO LATE", direction: "LONG", note: "Move already consumed. No chase." },
+  ],
+};
+
+export const emptyDeskSnapshot: TradingDeskSnapshot = {
+  ...demoTradingDeskSnapshot,
+  systemStatus: "NO_OPEN_POSITION",
+  openPositions: [],
+  activePositionFocus: undefined,
+  edwardVerdict: {
+    action: "WAIT / NO ACTION",
+    confidence: "MEDIUM",
+    movementClassification: "CHOPPING",
+    summary: "No open position is active. Edward is standing by.",
+    whatIWouldDo: "Preserve attention and wait for THORP to produce a valid opportunity.",
+    addGuidance: "No position means no add decision.",
+    riskCommentary: "Portfolio risk is low while no trade is active.",
+  },
+};
