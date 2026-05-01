@@ -101,10 +101,19 @@ describe("trading desk snapshot validation", () => {
     }
   });
 
-  it("accepts optional trade management plan while remaining backward compatible", () => {
-    const oldSnapshot = validateTradingDeskSnapshot(validSnapshot());
-    expect(oldSnapshot.ok).toBe(true);
+  it("accepts older snapshots without a trade management plan", () => {
+    const snapshot = validSnapshot();
+    delete snapshot.tradeManagementPlan;
 
+    const oldSnapshot = validateTradingDeskSnapshot(snapshot);
+
+    expect(oldSnapshot.ok).toBe(true);
+    if (oldSnapshot.ok) {
+      expect(oldSnapshot.snapshot.tradeManagementPlan).toBeUndefined();
+    }
+  });
+
+  it("accepts optional trade management plan when present", () => {
     const snapshot = validSnapshot();
     snapshot.tradeManagementPlan = {
       recommendation: "HOLD_WITH_PROTECTIVE_TRAIL",
@@ -150,6 +159,25 @@ describe("trading desk snapshot validation", () => {
       expect(result.snapshot.tradeManagementPlan?.recommendation).toBe("HOLD_WITH_PROTECTIVE_TRAIL");
       expect(result.snapshot.tradeManagementPlan?.protectionPlan.preferredMethod).toBe("PARTIAL_REDUCE_AND_TRAIL");
       expect(result.snapshot.tradeManagementPlan?.softLandingImpact.tp1MoonContributionPct).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects malformed trade management plans without weakening the base contract", () => {
+    const snapshot = validSnapshot() as Record<string, unknown>;
+    snapshot.tradeManagementPlan = {
+      recommendation: "HOLD_WITH_PROTECTIVE_TRAIL",
+      confidence: "HIGH",
+      summary: "",
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const issues = result.issues.join("\n");
+      expect(issues).toContain("tradeManagementPlan.summary");
+      expect(issues).toContain("tradeManagementPlan.primaryReason");
+      expect(issues).toContain("tradeManagementPlan.protectionPlan");
     }
   });
 
@@ -249,5 +277,13 @@ describe("adapter load states", () => {
 
     expect(result.scenario).toBe(scenario);
     expect(["demo_mode", "live_stale", "live_unavailable", "validation_error"]).toContain(result.dataMode);
+  });
+
+  it("does not render demo management advice for unavailable, invalid, or no-position fallback states", () => {
+    for (const scenario of ["unavailable_edward", "invalid_snapshot", "no_active_trade"] satisfies DemoScenario[]) {
+      const result = buildDemoSnapshot(scenario);
+
+      expect(result.snapshot.tradeManagementPlan).toBeUndefined();
+    }
   });
 });

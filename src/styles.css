@@ -743,7 +743,7 @@ h2 {
   gap: 10px;
   font-size: clamp(2.1rem, 8vw, 4.9rem);
   line-height: 0.96;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .decision-subtitle {

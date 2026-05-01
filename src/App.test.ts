@@ -104,4 +104,12 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Do Not Do");
     expect(appSource).toContain("tradeManagementPlan");
   });
+
+  it("only renders trade management plan content when the optional plan exists", () => {
+    expect(appSource).toContain("const plan = snapshot.tradeManagementPlan;");
+    expect(appSource).toContain("if (!plan) return null;");
+    expect(appSource.indexOf("if (!plan) return null;")).toBeLessThan(
+      appSource.indexOf('eyebrow="Trade Management Plan"'),
+    );
+  });
 });

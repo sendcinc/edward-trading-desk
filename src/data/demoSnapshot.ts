@@ -164,6 +164,7 @@ export const emptyDeskSnapshot: TradingDeskSnapshot = {
   systemStatus: "NO_OPEN_POSITION",
   openPositions: [],
   activePositionFocus: null,
+  tradeManagementPlan: undefined,
   riskState: {
     exposureStatus: "SAFE",
     summary: "No active trade is open. Portfolio risk is quiet; opportunity scanning is secondary.",

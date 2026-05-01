@@ -172,7 +172,7 @@ function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
         <div>
           <p className="eyebrow">Trade Decision</p>
           <h2>{position.symbol} <span className={`direction ${position.direction.toLowerCase()}`}>{position.direction}</span></h2>
-          <p className="decision-subtitle">What should Edwin do right now with this open trade?</p>
+          <p className="decision-subtitle">What should Edward do right now with this open trade?</p>
         </div>
         <div className="decision-verdict">
           <span>Edward says</span>

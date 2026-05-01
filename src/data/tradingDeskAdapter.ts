@@ -450,6 +450,7 @@ function validationErrorResult(issues: string[], scenario?: DemoScenario, source
   const snapshot = cloneSnapshot(demoTradingDeskSnapshot);
   snapshot.mode = "validation_error";
   snapshot.systemStatus = "OFFLINE";
+  delete snapshot.tradeManagementPlan;
   snapshot.riskState = {
     exposureStatus: "CRITICAL",
     summary: "Snapshot validation failed. UI is showing safe fallback demo data, not trusted Edward data.",
