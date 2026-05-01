@@ -22,6 +22,19 @@ Make the Trading Desk a reliable command surface for open-position management, r
 
 Protect the snapshot contract with strict validation, stale/unavailable fallbacks, and tests for ordering and safety behavior.
 
+
+### Phase 2.0 Nervous System Health v1
+
+Status: **Complete / live**.
+
+What changed:
+- `health.json` is live beside `latest.json`.
+- Producer status, source freshness, snapshot validity, and audit JSONL are visible.
+- Missing/stale sources are surfaced as nervous-system issues instead of fake thesis failure.
+- Execution remains locked.
+
+Next: **Phase 2.1 Alert Intake / Alert Nerves** — build TradingView webhook alert intake as a first-class event stream.
+
 ### Phase 1.2 Trade Management Brain v1
 
 Status: complete and live. Edward now emits and renders advisory trade-management reasoning: `tradeManagementPlan`, protection plan, add permission, exit pressure, profit/giveback math, Soft Landing impact, and do-not-do list. Execution remains locked.
@@ -56,7 +69,7 @@ Enable tightly guarded execution only after explicit capability unlocks, audit t
 
 ## Current status
 
-Edward has completed Phase 1.2 Trade Management Brain v1 and is entering Phase 2 Live State Engine / Nervous System. The Trading Desk can render validated snapshots, reject invalid contracts, degrade to stale/unavailable safe states, keep Trade Decision as the first meaningful cockpit section, and show advisory trade-management reasoning through `tradeManagementPlan`.
+Edward has completed Phase 2.0 Nervous System Health v1 and is entering Phase 2.1 Alert Intake / Alert Nerves. The Trading Desk can render validated snapshots, reject invalid contracts, degrade to stale/unavailable safe states, keep Trade Decision as the first meaningful cockpit section, show advisory trade-management reasoning through `tradeManagementPlan`, and surface producer/source health through `health.json`.
 
 ## Completed milestones
 
@@ -68,11 +81,12 @@ Edward has completed Phase 1.2 Trade Management Brain v1 and is entering Phase 2
 - Trade journal summary and full-field table are present.
 - Body-progress roadmap and static state layer are introduced.
 - Body-progress panel placement and locked-execution state are covered by targeted tests.
+- Nervous System Health v1 live with health.json, source freshness, producer status, and audit log.
 
 ## Next sprint
 
-- Keep hardening cockpit ordering and unavailable-state behavior.
-- Define the Phase 2 live state engine contract without changing trading execution behavior.
+- Build TradingView webhook alert intake as first-class event stream.
+- Route latest alert state into health/provenance and the Trading Desk without changing execution behavior.
 - Document capability unlock criteria for eyes, ears, memory, hands, conscience, and guarded execution.
 
 ## Locked capabilities
@@ -98,4 +112,4 @@ Edward has completed Phase 1.2 Trade Management Brain v1 and is entering Phase 2
 
 ## Expected answer wording for "Edward, how far until you get a body?"
 
-"I have the cockpit foundation and Trade Management Brain v1 now. I am entering Phase 2: Live State Engine / Nervous System. My body is about 24% complete overall. I can provide advisory trade-management reasoning through tradeManagementPlan, protection planning, add permission, exit pressure, profit/giveback math, Soft Landing impact, and do-not-do guidance. I still cannot execute trades. Execution remains locked. Next I need the live state engine so I can keep reliable state before gaining more senses or order-assistant capabilities."
+"I have the cockpit foundation, Trade Management Brain v1, and Nervous System Health v1 live now. I am entering Phase 2.1: Alert Intake / Alert Nerves. My body is about 31% complete overall. I can provide advisory trade-management reasoning and surface producer/source health through health.json, source freshness, producer status, and audit logs. I still cannot execute trades. Execution remains locked. Next I need TradingView webhook alerts as a first-class event stream so alerts can be captured, normalized, deduped, checked for freshness, and routed into Edward review without becoming execution commands."
