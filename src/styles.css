@@ -866,6 +866,75 @@ h2 {
   grid-column: 1 / -1;
 }
 
+.trade-management-plan {
+  border-color: rgba(146, 167, 255, 0.24);
+}
+
+.management-plan-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 14px 0;
+}
+
+.management-plan-head .summary {
+  margin-bottom: 8px;
+}
+
+.management-plan-tags,
+.management-plan-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.management-plan-tags {
+  align-content: start;
+  min-width: min(260px, 100%);
+}
+
+.management-plan-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.management-plan-box,
+.do-not-do-list {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px;
+}
+
+.management-plan-box h3,
+.do-not-do-list h3 {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #dfe7ff;
+}
+
+.management-plan-box .metric {
+  margin-bottom: 8px;
+}
+
+.management-plan-box p,
+.do-not-do-list ul {
+  margin-bottom: 0;
+  color: #b7c2df;
+  line-height: 1.45;
+}
+
+.do-not-do-list {
+  margin-top: 10px;
+  border-color: rgba(255, 122, 144, 0.2);
+  background: rgba(255, 122, 144, 0.055);
+}
+
+.do-not-do-list ul {
+  margin-top: 0;
+  padding-left: 18px;
+}
+
 .decision-metric-grid,
 .risk-grid,
 .watch-summary {
@@ -1061,8 +1130,13 @@ h2 {
   .risk-grid,
   .watch-summary,
   .separated-state-bar,
-  .separated-state-bar.compact {
+  .separated-state-bar.compact,
+  .management-plan-grid {
     grid-template-columns: 1fr;
+  }
+
+  .management-plan-head {
+    flex-direction: column;
   }
 
   .state-reasons {

@@ -72,6 +72,7 @@ export default function App() {
       />
       <DataStateBanner loadResult={loadResult} />
       <TradeDecisionCard snapshot={snapshot} />
+      <TradeManagementPlanPanel snapshot={snapshot} />
       {!snapshot.activePositionFocus && <WatchlistPanel snapshot={snapshot} />}
       <EdwardVerdictPanel snapshot={snapshot} />
       <RiskLadderPanel snapshot={snapshot} />
@@ -207,6 +208,61 @@ function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
         <Guardrail label="Add guidance" value={verdict.addGuidance} />
         <Guardrail label="Wrong behavior" value={snapshot.wrongBehavior?.message ?? "Do not manufacture a decision from anxiety."} danger />
         <Guardrail label="Recheck trigger" value={formatRecheck(snapshot)} />
+      </div>
+    </section>
+  );
+}
+
+function TradeManagementPlanPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const plan = snapshot.tradeManagementPlan;
+  if (!plan) return null;
+  return (
+    <section className="panel trade-management-plan">
+      <PanelTitle icon={<ShieldCheck />} eyebrow="Trade Management Plan" title={plan.recommendation.replace(/_/g, " ")} />
+      <div className="management-plan-head">
+        <div>
+          <p className="summary">{plan.summary}</p>
+          <p><strong>Why:</strong> {plan.primaryReason.replace(/_/g, " ")}</p>
+          <p><strong>Recheck:</strong> {plan.recheckTrigger}</p>
+        </div>
+        <div className="management-plan-tags">
+          <StatusPill label={`${plan.confidence} confidence`} tone={plan.confidence} />
+          <StatusPill label={`Exit pressure ${plan.exitPressure}`} tone={plan.exitPressure} />
+          <StatusPill label={`Add ${plan.addPermission}`} tone={plan.addPermission} />
+        </div>
+      </div>
+      <div className="management-plan-grid">
+        <div className="management-plan-box">
+          <h3>Protection Plan</h3>
+          <Metric label="Preferred Method" value={plan.protectionPlan.preferredMethod.replace(/_/g, " ")} />
+          <Metric label="Protective Stop" value={num(plan.protectionPlan.suggestedProtectiveStop)} danger />
+          <Metric label="Warning Level" value={num(plan.protectionPlan.warningLevel)} danger />
+          <Metric label="Hard Invalidation" value={num(plan.protectionPlan.hardInvalidation)} danger />
+          <p>{plan.protectionPlan.trailReason}</p>
+        </div>
+        <div className="management-plan-box">
+          <h3>Profit / Giveback Math</h3>
+          <Metric label="Unrealized Now" value={money(plan.profitMath.unrealizedNow)} trend={plan.profitMath.unrealizedNow} />
+          <Metric label="Profit if Close Now" value={money(plan.profitMath.profitIfCloseNow)} trend={plan.profitMath.profitIfCloseNow} />
+          <Metric label="Estimated Profit at TP1" value={money(plan.profitMath.estimatedProfitAtTP1)} trend={plan.profitMath.estimatedProfitAtTP1} />
+          <Metric label="Additional Profit to TP1" value={money(plan.profitMath.additionalProfitToTP1)} trend={plan.profitMath.additionalProfitToTP1} />
+          <Metric label="Giveback to Protective Stop" value={money(plan.profitMath.givebackToProtectiveStop)} danger />
+          <Metric label="Loss at Hard Invalidation" value={money(plan.profitMath.lossAtHardInvalidation)} danger />
+        </div>
+        <div className="management-plan-box">
+          <h3>Soft Landing Impact</h3>
+          <Metric label="Moon Status" value={plan.softLandingImpact.moonStatus} />
+          <Metric label="Sun Status" value={plan.softLandingImpact.sunStatus} />
+          <Metric label="Moon Daily Target" value={money(plan.softLandingImpact.moonDailyTargetDollars)} />
+          <Metric label="Sun Daily Target" value={money(plan.softLandingImpact.sunDailyTargetDollars)} />
+          <Metric label="Close Now → Moon" value={asPct(plan.softLandingImpact.closeNowMoonContributionPct)} />
+          <Metric label="TP1 → Moon" value={asPct(plan.softLandingImpact.tp1MoonContributionPct)} />
+          <p>{plan.softLandingImpact.summary}</p>
+        </div>
+      </div>
+      <div className="do-not-do-list">
+        <h3>Do Not Do</h3>
+        <ul>{plan.doNotDo.map((item) => <li key={item}>{item}</li>)}</ul>
       </div>
     </section>
   );

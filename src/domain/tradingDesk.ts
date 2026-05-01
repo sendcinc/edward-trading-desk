@@ -19,6 +19,7 @@ export type TradingDeskSnapshot = {
   openPositions: TradingPosition[];
   activePositionFocus?: TradingPosition | null;
   edwardVerdict: EdwardVerdict;
+  tradeManagementPlan?: TradeManagementPlan;
   tradeObjective?: TradeObjective;
   marketMovement?: MarketMovement;
   wrongBehavior: WrongBehavior;
@@ -78,6 +79,57 @@ export type ManagementState = {
   dataConfidence: Confidence;
   addPermission: ManagementAddPermission;
   reasons: string[];
+};
+
+export type TradeManagementRecommendation =
+  | "HOLD"
+  | "HOLD_WITH_PROTECTIVE_TRAIL"
+  | "REDUCE_PARTIAL"
+  | "REDUCE_PARTIAL_AND_TRAIL"
+  | "EXIT"
+  | "TAKE_PROFIT"
+  | "WAIT_NO_ACTION";
+export type ExitPressure = "LOW" | "MEDIUM" | "HIGH";
+export type ProtectionMethod = "NONE" | "HARD_STOP" | "TRAIL_STOP" | "PARTIAL_REDUCE_AND_TRAIL";
+
+export type TradeManagementPlan = {
+  recommendation: TradeManagementRecommendation;
+  confidence: Confidence;
+  summary: string;
+  primaryReason: string;
+  doNotDo: string[];
+  addPermission: ManagementAddPermission;
+  exitPressure: ExitPressure;
+  recheckTrigger: string;
+  technicalThesisState?: TechnicalThesisState;
+  protectionPlan: {
+    preferredMethod: ProtectionMethod;
+    suggestedProtectiveStop?: number;
+    warningLevel?: number;
+    hardInvalidation?: number;
+    trailReason: string;
+  };
+  profitMath: {
+    unrealizedNow?: number;
+    profitIfCloseNow?: number;
+    estimatedProfitAtTP1?: number;
+    estimatedProfitAtTP2?: number;
+    estimatedProfitAtTP3?: number;
+    additionalProfitToTP1?: number;
+    givebackToProtectiveStop?: number;
+    lossAtHardInvalidation?: number;
+  };
+  softLandingImpact: {
+    moonStatus: PaceStatus;
+    sunStatus: PaceStatus;
+    moonDailyTargetDollars: number;
+    sunDailyTargetDollars: number;
+    closeNowMoonContributionPct?: number;
+    closeNowSunContributionPct?: number;
+    tp1MoonContributionPct?: number;
+    tp1SunContributionPct?: number;
+    summary: string;
+  };
 };
 
 export type SoftLandingPace = {

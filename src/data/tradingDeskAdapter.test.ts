@@ -101,6 +101,58 @@ describe("trading desk snapshot validation", () => {
     }
   });
 
+  it("accepts optional trade management plan while remaining backward compatible", () => {
+    const oldSnapshot = validateTradingDeskSnapshot(validSnapshot());
+    expect(oldSnapshot.ok).toBe(true);
+
+    const snapshot = validSnapshot();
+    snapshot.tradeManagementPlan = {
+      recommendation: "HOLD_WITH_PROTECTIVE_TRAIL",
+      confidence: "MEDIUM",
+      summary: "Trade thesis is valid, but management risk requires protection.",
+      primaryReason: "VALID_THESIS_GREEN_TRADE_NEEDS_PROTECTION",
+      doNotDo: ["Do not add while exposure is elevated.", "Do not widen the stop."],
+      addPermission: "BLOCKED",
+      exitPressure: "MEDIUM",
+      recheckTrigger: "Recheck on warning level touch or TP1 tag.",
+      protectionPlan: {
+        preferredMethod: "PARTIAL_REDUCE_AND_TRAIL",
+        suggestedProtectiveStop: 448,
+        warningLevel: 440.17,
+        hardInvalidation: 438.49,
+        trailReason: "No stop means protection is mandatory.",
+      },
+      profitMath: {
+        unrealizedNow: 11.34,
+        profitIfCloseNow: 11.34,
+        estimatedProfitAtTP1: 43.14,
+        additionalProfitToTP1: 31.8,
+        givebackToProtectiveStop: 0,
+        lossAtHardInvalidation: -12.21,
+      },
+      softLandingImpact: {
+        moonStatus: "BEHIND",
+        sunStatus: "BEHIND",
+        moonDailyTargetDollars: 15,
+        sunDailyTargetDollars: 20,
+        closeNowMoonContributionPct: 0.756,
+        closeNowSunContributionPct: 0.567,
+        tp1MoonContributionPct: 2.876,
+        tp1SunContributionPct: 2.157,
+        summary: "TP1 would materially help Moon/Sun pace without adding size.",
+      },
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.tradeManagementPlan?.recommendation).toBe("HOLD_WITH_PROTECTIVE_TRAIL");
+      expect(result.snapshot.tradeManagementPlan?.protectionPlan.preferredMethod).toBe("PARTIAL_REDUCE_AND_TRAIL");
+      expect(result.snapshot.tradeManagementPlan?.softLandingImpact.tp1MoonContributionPct).toBeGreaterThan(0);
+    }
+  });
+
   it("accepts optional separated technical thesis and management state fields", () => {
     const oldSnapshot = validateTradingDeskSnapshot(validSnapshot());
     expect(oldSnapshot.ok).toBe(true);
