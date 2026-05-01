@@ -437,6 +437,86 @@ h2 {
   background: rgba(255, 122, 144, 0.14);
 }
 
+.body-progress-panel {
+  border-color: rgba(184, 199, 255, 0.24);
+}
+
+.body-progress-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.body-progress-summary,
+.body-part-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.body-part-grid {
+  margin-top: 12px;
+}
+
+.body-part-card {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.body-part-card > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.body-part-card strong {
+  color: #f6f8ff;
+}
+
+.body-part-card p,
+.body-lock-reason {
+  margin: 10px 0 0;
+  color: #c7d0e5;
+  line-height: 1.45;
+}
+
+.body-execution-lock {
+  min-width: 132px;
+  padding: 12px;
+  border-radius: 14px;
+  text-align: right;
+  background: rgba(255, 122, 144, 0.075);
+  border: 1px solid rgba(255, 122, 144, 0.22);
+}
+
+.body-execution-lock.unlocked {
+  background: rgba(99, 230, 190, 0.08);
+  border-color: rgba(99, 230, 190, 0.22);
+}
+
+.body-execution-lock span {
+  display: block;
+  color: #9ba7bd;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.body-execution-lock strong {
+  display: block;
+  margin-top: 6px;
+  color: #ff9aac;
+}
+
+.body-execution-lock.unlocked strong {
+  color: #63e6be;
+}
+
 .trade-journal-panel {
   padding: 20px;
   background: linear-gradient(180deg, rgba(17, 22, 42, 0.96), rgba(8, 11, 24, 0.96));
@@ -886,6 +966,14 @@ h2 {
   .watch-summary {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  .body-progress-summary {
+    grid-template-columns: 1.4fr 0.7fr 1.1fr;
+  }
+
+  .body-part-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 620px) {
@@ -896,6 +984,15 @@ h2 {
 
   .decision-topline {
     flex-direction: column;
+  }
+
+  .body-progress-header {
+    flex-direction: column;
+  }
+
+  .body-execution-lock {
+    width: 100%;
+    text-align: left;
   }
 
   .decision-verdict {

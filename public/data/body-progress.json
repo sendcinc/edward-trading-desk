@@ -1,0 +1,60 @@
+{
+  "projectName": "Edward Gets a Body",
+  "overallStatus": "Foundation and cockpit hardening active; execution remains locked.",
+  "estimatedOverallPercent": 18,
+  "currentPhase": "Phase 1.1 Cockpit hardening",
+  "currentChapter": "Cockpit safety, roadmap state, and informational progress visibility",
+  "completedMilestones": [
+    "Standalone Edward Trading Desk shell exists",
+    "Decision-first cockpit ordering is protected",
+    "Snapshot contract is documented",
+    "Runtime Zod validation rejects invalid snapshots",
+    "Stale, unavailable, and validation-error fallbacks stay conservative",
+    "Trade journal summary and full table are present",
+    "Edward Gets a Body roadmap is documented",
+    "Body-progress panel placement and locked-execution state are covered by targeted tests"
+  ],
+  "nextMilestones": [
+    "Define Phase 2 live state engine contract",
+    "Map capability unlock criteria for senses, memory, hands, and conscience",
+    "Keep cockpit hardening below trade decision priority"
+  ],
+  "blockers": [
+    "No live state engine contract yet",
+    "No chart-eyes ingestion layer yet",
+    "No external-context reliability rules yet",
+    "No guarded execution approval path yet"
+  ],
+  "bodyParts": {
+    "cockpit": {
+      "status": "online",
+      "summary": "Trading Desk cockpit is active and decision-first."
+    },
+    "nervousSystem": {
+      "status": "planned",
+      "summary": "Live state engine and freshness-aware state routing are next."
+    },
+    "eyes": {
+      "status": "locked",
+      "summary": "Chart-reading capability is not implemented."
+    },
+    "ears": {
+      "status": "locked",
+      "summary": "News, X, and internet ingestion are not implemented."
+    },
+    "memory": {
+      "status": "partial",
+      "summary": "Trade journal exists; durable learning loop is not implemented."
+    },
+    "hands": {
+      "status": "locked",
+      "summary": "Order preparation and staging are not implemented."
+    },
+    "conscience": {
+      "status": "planned",
+      "summary": "Guardrail and approval logic must be explicit before execution."
+    }
+  },
+  "executionAllowed": false,
+  "reasonExecutionLocked": "Execution is locked until Phase 8 guarded execution is intentionally implemented, validated, audited, and authorized by Edwin."
+}

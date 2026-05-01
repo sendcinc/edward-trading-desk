@@ -13,6 +13,7 @@ import {
   Target,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { edwardBodyProgress } from "./data/bodyProgress";
 import { EDWARD_SNAPSHOT_ENDPOINT, loadTradingDeskSnapshot } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
 import type { DataMode, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition } from "./domain/tradingDesk";
@@ -79,6 +80,7 @@ export default function App() {
       <SoftLandingPanel snapshot={snapshot} />
       <PortfolioCommandBar snapshot={snapshot} />
       {snapshot.activePositionFocus && <WatchlistPanel snapshot={snapshot} />}
+      <EdwardBodyProgressPanel />
       <TradeJournalPanel snapshot={snapshot} />
     </main>
   );
@@ -356,6 +358,42 @@ function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snap
   );
 }
 
+function EdwardBodyProgressPanel() {
+  const progress = edwardBodyProgress;
+  const nextMilestone = progress.nextMilestones[0] ?? "No next milestone published.";
+  return (
+    <section className="panel body-progress-panel" aria-label="Edward Body Progress">
+      <div className="body-progress-header">
+        <PanelTitle icon={<LockKeyhole />} eyebrow={progress.currentPhase} title="Edward Body Progress" />
+        <div className={`body-execution-lock ${progress.executionAllowed ? "unlocked" : "locked"}`}>
+          <span>Execution</span>
+          <strong>{progress.executionAllowed ? "Unlocked" : "Locked"}</strong>
+        </div>
+      </div>
+
+      <div className="body-progress-summary">
+        <Metric label="Current Chapter" value={progress.currentChapter} strong />
+        <Metric label="Overall Body Completion" value={`${progress.estimatedOverallPercent}%`} />
+        <Metric label="Next Milestone" value={nextMilestone} />
+      </div>
+
+      <div className="body-part-grid">
+        {Object.entries(progress.bodyParts).map(([part, bodyPart]) => (
+          <div className="body-part-card" key={part}>
+            <div>
+              <strong>{formatBodyPartName(part)}</strong>
+              <StatusPill label={bodyPart.status} tone={bodyPart.status} />
+            </div>
+            <p>{bodyPart.summary}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="body-lock-reason">{progress.reasonExecutionLocked}</p>
+    </section>
+  );
+}
+
 function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const journal = buildTradeJournalSummary(snapshot);
   return (
@@ -489,6 +527,10 @@ function dataModeMessage(loadResult: TradingDeskLoadResult) {
 function money(value?: number) { return value === undefined ? "Unavailable" : currency.format(value); }
 function num(value?: number) { return value === undefined ? "Unavailable" : value.toLocaleString("en-US", { maximumFractionDigits: 4 }); }
 function asPct(value?: number) { return value === undefined ? "N/A" : pct.format(value); }
+
+function formatBodyPartName(part: string) {
+  return part.replace(/([A-Z])/g, " $1").replace(/^./, (first) => first.toUpperCase());
+}
 
 function formatTime(timestamp: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(timestamp));
