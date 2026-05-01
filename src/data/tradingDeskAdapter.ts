@@ -33,6 +33,18 @@ const exposureStatusSchema = z.enum(["SAFE", "ELEVATED", "OVEREXPOSED", "CRITICA
 const directionSchema = z.enum(["LONG", "SHORT"]);
 const paceStatusSchema = z.enum(["AHEAD", "BEHIND"]);
 const dataModeSchema = z.enum(["live_available", "live_stale", "live_unavailable", "demo_mode", "validation_error"]);
+const confidenceSchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
+const technicalThesisSchema = z.object({
+  state: z.enum(["VALID", "WEAKENING", "FAILED", "UNKNOWN"]),
+  confidence: confidenceSchema,
+  reasons: z.array(z.string().min(1)),
+});
+const managementStateSchema = z.object({
+  riskState: exposureStatusSchema,
+  dataConfidence: confidenceSchema,
+  addPermission: z.enum(["ALLOWED", "RETEST_ONLY", "BLOCKED", "UNKNOWN"]),
+  reasons: z.array(z.string().min(1)),
+});
 
 const portfolioSchema = z.object({
   currentPV: z.number().finite(),
@@ -121,7 +133,7 @@ const edwardVerdictSchema = z.object({
     "EXIT",
     "WAIT / NO ACTION",
   ]),
-  confidence: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  confidence: confidenceSchema,
   movementClassification: z.enum([
     "CLEAN MOVE",
     "HEALTHY PULLBACK",
@@ -135,6 +147,8 @@ const edwardVerdictSchema = z.object({
   whatIWouldDo: z.string().min(1),
   addGuidance: z.string().min(1),
   riskCommentary: z.string().min(1),
+  technicalThesis: technicalThesisSchema.optional(),
+  managementState: managementStateSchema.optional(),
 });
 
 const marketMovementSchema = z.object({

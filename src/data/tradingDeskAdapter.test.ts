@@ -100,6 +100,36 @@ describe("trading desk snapshot validation", () => {
       expect(withLadder.snapshot.activePositionFocus?.remainingLadderEntries?.[0].status).toBe("WAITING");
     }
   });
+
+  it("accepts optional separated technical thesis and management state fields", () => {
+    const oldSnapshot = validateTradingDeskSnapshot(validSnapshot());
+    expect(oldSnapshot.ok).toBe(true);
+
+    const snapshot = validSnapshot();
+    snapshot.edwardVerdict = {
+      ...snapshot.edwardVerdict,
+      movementClassification: "STALLING",
+      technicalThesis: {
+        state: "VALID",
+        confidence: "MEDIUM",
+        reasons: ["HUD_15M_READY_LONG", "HUD_BATTLEFIELD_GREEN"],
+      },
+      managementState: {
+        riskState: "OVEREXPOSED",
+        dataConfidence: "LOW",
+        addPermission: "BLOCKED",
+        reasons: ["ACCOUNT_EXPOSURE_OVER_LIMIT", "ACTIVE_PLAN_MISSING"],
+      },
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.edwardVerdict.technicalThesis?.state).toBe("VALID");
+      expect(result.snapshot.edwardVerdict.managementState?.addPermission).toBe("BLOCKED");
+    }
+  });
 });
 
 describe("data mode resolution", () => {

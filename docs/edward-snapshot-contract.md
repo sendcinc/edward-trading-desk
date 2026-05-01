@@ -150,6 +150,25 @@ Allowed confidence values: `LOW`, `MEDIUM`, `HIGH`.
 
 Allowed movement classifications: `CLEAN MOVE`, `HEALTHY PULLBACK`, `STALLING`, `CHOPPING`, `REJECTING`, `THESIS WEAKENING`, `THESIS FAILED`.
 
+Optional separated state fields:
+
+```ts
+technicalThesis?: {
+  state: "VALID" | "WEAKENING" | "FAILED" | "UNKNOWN";
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+  reasons: string[];
+};
+
+managementState?: {
+  riskState: "SAFE" | "ELEVATED" | "OVEREXPOSED" | "CRITICAL";
+  dataConfidence: "LOW" | "MEDIUM" | "HIGH";
+  addPermission: "ALLOWED" | "RETEST_ONLY" | "BLOCKED" | "UNKNOWN";
+  reasons: string[];
+};
+```
+
+`movementClassification` remains for backward compatibility, but it must not be used as a catch-all for account exposure, missing active-plan linkage, unavailable private broker truth, or stale/missing review artifacts. `THESIS WEAKENING` is reserved for technical evidence from THORP/HUD/structure/BTC context. Management/data problems belong in `managementState.reasons`.
+
 ### WrongBehavior
 
 ```ts

@@ -63,6 +63,23 @@ export type RiskState = {
   summary: string;
 };
 
+export type TechnicalThesisState = "VALID" | "WEAKENING" | "FAILED" | "UNKNOWN";
+export type ManagementAddPermission = "ALLOWED" | "RETEST_ONLY" | "BLOCKED" | "UNKNOWN";
+export type Confidence = "LOW" | "MEDIUM" | "HIGH";
+
+export type TechnicalThesis = {
+  state: TechnicalThesisState;
+  confidence: Confidence;
+  reasons: string[];
+};
+
+export type ManagementState = {
+  riskState: ExposureStatus;
+  dataConfidence: Confidence;
+  addPermission: ManagementAddPermission;
+  reasons: string[];
+};
+
 export type SoftLandingPace = {
   baselinePV: number;
   baselineDate: string;
@@ -134,7 +151,7 @@ export type EdwardVerdict = {
     | "REDUCE"
     | "EXIT"
     | "WAIT / NO ACTION";
-  confidence: "LOW" | "MEDIUM" | "HIGH";
+  confidence: Confidence;
   movementClassification:
     | "CLEAN MOVE"
     | "HEALTHY PULLBACK"
@@ -147,6 +164,8 @@ export type EdwardVerdict = {
   whatIWouldDo: string;
   addGuidance: string;
   riskCommentary: string;
+  technicalThesis?: TechnicalThesis;
+  managementState?: ManagementState;
 };
 
 export type MarketMovement = {

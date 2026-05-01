@@ -80,6 +80,17 @@ export const demoTradingDeskSnapshot: TradingDeskSnapshot = {
     whatIWouldDo: "Hold the current size and let the trade prove itself into TP1.",
     addGuidance: "No add until a clean retest holds with BTC neutral or supportive.",
     riskCommentary: "Exposure is controlled. Do not convert a green trade into a larger risk event.",
+    technicalThesis: {
+      state: "VALID",
+      confidence: "HIGH",
+      reasons: ["DEMO_STRUCTURE_HEALTHY", "DEMO_TP1_REALISTIC"],
+    },
+    managementState: {
+      riskState: "SAFE",
+      dataConfidence: "HIGH",
+      addPermission: "RETEST_ONLY",
+      reasons: ["DEMO_EXPOSURE_CONTROLLED", "NO_CHASE_ADD"],
+    },
   },
   tradeObjective: {
     moonTargetPct: 0.6,
@@ -126,5 +137,16 @@ export const emptyDeskSnapshot: TradingDeskSnapshot = {
     whatIWouldDo: "Preserve attention and wait for THORP to produce a valid opportunity.",
     addGuidance: "No position means no add decision.",
     riskCommentary: "Portfolio risk is low while no trade is active.",
+    technicalThesis: {
+      state: "UNKNOWN",
+      confidence: "LOW",
+      reasons: ["NO_ACTIVE_POSITION"],
+    },
+    managementState: {
+      riskState: "SAFE",
+      dataConfidence: "MEDIUM",
+      addPermission: "UNKNOWN",
+      reasons: ["NO_ACTIVE_POSITION"],
+    },
   },
 };

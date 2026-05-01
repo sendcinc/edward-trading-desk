@@ -79,4 +79,14 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("progress.reasonExecutionLocked");
     expect(appSource).toContain("Object.entries(progress.bodyParts)");
   });
+
+  it("renders separated thesis, risk, data confidence, add permission, and reasons when present", () => {
+    expect(appSource).toContain("Technical Thesis");
+    expect(appSource).toContain("Risk State");
+    expect(appSource).toContain("Data Confidence");
+    expect(appSource).toContain("Add Permission");
+    expect(appSource).toContain("State Reasons");
+    expect(appSource).toContain("technicalThesis");
+    expect(appSource).toContain("managementState");
+  });
 });
