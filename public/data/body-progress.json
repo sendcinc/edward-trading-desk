@@ -1,9 +1,9 @@
 {
   "projectName": "Edward Gets a Body",
-  "overallStatus": "Foundation and cockpit hardening active; execution remains locked.",
-  "estimatedOverallPercent": 18,
-  "currentPhase": "Phase 1.1 Cockpit hardening",
-  "currentChapter": "Cockpit safety, roadmap state, and informational progress visibility",
+  "overallStatus": "Phase 1.2 Trade Management Brain v1 is live; execution remains locked.",
+  "estimatedOverallPercent": 24,
+  "currentPhase": "Phase 1.2 Trade Management Brain v1 complete; entering Phase 2 Live State Engine / Nervous System.",
+  "currentChapter": "Edward Gets a Nervous System",
   "completedMilestones": [
     "Standalone Edward Trading Desk shell exists",
     "Decision-first cockpit ordering is protected",
@@ -12,15 +12,18 @@
     "Stale, unavailable, and validation-error fallbacks stay conservative",
     "Trade journal summary and full table are present",
     "Edward Gets a Body roadmap is documented",
-    "Body-progress panel placement and locked-execution state are covered by targeted tests"
+    "Body-progress panel placement and locked-execution state are covered by targeted tests",
+    "Trade Management Brain v1 is live in the Trading Desk",
+    "tradeManagementPlan renders advisory trade-management reasoning",
+    "Protection plan, add permission, exit pressure, profit/giveback math, Soft Landing impact, and do-not-do guidance are present"
   ],
   "nextMilestones": [
-    "Define Phase 2 live state engine contract",
-    "Map capability unlock criteria for senses, memory, hands, and conscience",
-    "Keep cockpit hardening below trade decision priority"
+    "Define Phase 2 live state engine / nervous system contract",
+    "Route fresh/stale/unavailable state through a reliable live-state layer",
+    "Map capability unlock criteria for senses, memory, hands, and conscience"
   ],
   "blockers": [
-    "No live state engine contract yet",
+    "No live state engine / nervous system contract yet",
     "No chart-eyes ingestion layer yet",
     "No external-context reliability rules yet",
     "No guarded execution approval path yet"
@@ -28,11 +31,11 @@
   "bodyParts": {
     "cockpit": {
       "status": "online",
-      "summary": "Trading Desk cockpit is active and decision-first."
+      "summary": "Trading Desk cockpit is active, decision-first, and now includes advisory trade-management reasoning."
     },
     "nervousSystem": {
-      "status": "planned",
-      "summary": "Live state engine and freshness-aware state routing are next."
+      "status": "next",
+      "summary": "Phase 2 live state engine and freshness-aware state routing are next."
     },
     "eyes": {
       "status": "locked",

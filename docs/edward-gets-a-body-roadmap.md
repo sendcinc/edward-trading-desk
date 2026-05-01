@@ -22,6 +22,10 @@ Make the Trading Desk a reliable command surface for open-position management, r
 
 Protect the snapshot contract with strict validation, stale/unavailable fallbacks, and tests for ordering and safety behavior.
 
+### Phase 1.2 Trade Management Brain v1
+
+Status: complete and live. Edward now emits and renders advisory trade-management reasoning: `tradeManagementPlan`, protection plan, add permission, exit pressure, profit/giveback math, Soft Landing impact, and do-not-do list. Execution remains locked.
+
 ### Phase 2 Live State Engine / Nervous System
 
 Build a live state engine that can ingest validated Edward snapshots, normalize state, report freshness, and keep the cockpit aware of system health without weakening fallback behavior.
@@ -52,7 +56,7 @@ Enable tightly guarded execution only after explicit capability unlocks, audit t
 
 ## Current status
 
-Edward is in Phase 1.1 Cockpit hardening. The Trading Desk can render validated snapshots, reject invalid contracts, degrade to stale/unavailable safe states, and keep Trade Decision as the first meaningful cockpit section.
+Edward has completed Phase 1.2 Trade Management Brain v1 and is entering Phase 2 Live State Engine / Nervous System. The Trading Desk can render validated snapshots, reject invalid contracts, degrade to stale/unavailable safe states, keep Trade Decision as the first meaningful cockpit section, and show advisory trade-management reasoning through `tradeManagementPlan`.
 
 ## Completed milestones
 
@@ -94,4 +98,4 @@ Edward is in Phase 1.1 Cockpit hardening. The Trading Desk can render validated 
 
 ## Expected answer wording for "Edward, how far until you get a body?"
 
-"I have the cockpit and foundation now. I am in Phase 1.1: Cockpit hardening. My body is about 18% complete overall. My cockpit is online, my nervous system is planned, and my eyes, ears, memory, hands, conscience, and execution are still locked or not ready. I cannot execute trades. Next I need the live state engine so I can keep reliable state before gaining more senses or order-assistant capabilities."
+"I have the cockpit foundation and Trade Management Brain v1 now. I am entering Phase 2: Live State Engine / Nervous System. My body is about 24% complete overall. I can provide advisory trade-management reasoning through tradeManagementPlan, protection planning, add permission, exit pressure, profit/giveback math, Soft Landing impact, and do-not-do guidance. I still cannot execute trades. Execution remains locked. Next I need the live state engine so I can keep reliable state before gaining more senses or order-assistant capabilities."
