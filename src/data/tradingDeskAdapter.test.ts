@@ -76,6 +76,30 @@ describe("trading desk snapshot validation", () => {
       expect(result.snapshot.softLandingPace.currentDailyPVPct).toBeGreaterThanOrEqual(0);
     }
   });
+
+  it("accepts optional ladder and add-permission fields without requiring them", () => {
+    const withoutLadder = validateTradingDeskSnapshot(validSnapshot());
+    expect(withoutLadder.ok).toBe(true);
+
+    const snapshot = validSnapshot();
+    snapshot.activePositionFocus = {
+      ...snapshot.activePositionFocus!,
+      filledLadderEntries: [{ label: "starter", price: 145.2, size: 5, status: "FILLED" }],
+      remainingLadderEntries: [{ label: "retest add", price: 146.1, size: 3, status: "WAITING" }],
+      plannedSizeSplit: "70 / 30 only after retest",
+      nextAddLevel: 146.1,
+      averageEntryAfterFills: 145.47,
+      addPermission: "ONLY_ON_RETEST",
+    };
+    snapshot.openPositions = [snapshot.activePositionFocus];
+
+    const withLadder = validateTradingDeskSnapshot(snapshot);
+    expect(withLadder.ok).toBe(true);
+    if (withLadder.ok) {
+      expect(withLadder.snapshot.activePositionFocus?.addPermission).toBe("ONLY_ON_RETEST");
+      expect(withLadder.snapshot.activePositionFocus?.remainingLadderEntries?.[0].status).toBe("WAITING");
+    }
+  });
 });
 
 describe("data mode resolution", () => {
