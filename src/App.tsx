@@ -72,8 +72,8 @@ export default function App() {
       />
       <DataStateBanner loadResult={loadResult} />
       <TradeDecisionCard snapshot={snapshot} />
-      <EdwardHealthPanel health={loadResult.health} />
       <TradeManagementPlanPanel snapshot={snapshot} />
+      <EdwardHealthPanel health={loadResult.health} />
       {!snapshot.activePositionFocus && <WatchlistPanel snapshot={snapshot} />}
       <EdwardVerdictPanel snapshot={snapshot} />
       <RiskLadderPanel snapshot={snapshot} />

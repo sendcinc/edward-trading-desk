@@ -55,12 +55,16 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Next refresh");
     expect(appSource).toContain("Watchlist / Opportunity Scan");
     expect(appSource).toContain("Risk & Ladder Management");
-    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
-      appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />"),
-    );
-    expect(appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />")).toBeLessThan(
-      appSource.indexOf("<EdwardBodyProgressPanel />"),
-    );
+    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
+    const tradeManagementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
+    const healthIndex = appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />");
+    const bodyProgressIndex = appSource.indexOf("<EdwardBodyProgressPanel />");
+    const journalIndex = appSource.indexOf("<TradeJournalPanel snapshot={snapshot} />");
+
+    expect(tradeDecisionIndex).toBeLessThan(tradeManagementIndex);
+    expect(tradeManagementIndex).toBeLessThan(healthIndex);
+    expect(healthIndex).toBeLessThan(bodyProgressIndex);
+    expect(healthIndex).toBeLessThan(journalIndex);
     expect(appSource).toContain("Edward Health");
     expect(appSource).toContain("Producer Status");
     expect(appSource).toContain("Source Freshness");
