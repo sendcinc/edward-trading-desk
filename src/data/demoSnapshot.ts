@@ -92,6 +92,45 @@ export const demoTradingDeskSnapshot: TradingDeskSnapshot = {
       reasons: ["DEMO_EXPOSURE_CONTROLLED", "NO_CHASE_ADD"],
     },
   },
+  tradeManagementPlan: {
+    recommendation: "HOLD_WITH_PROTECTIVE_TRAIL",
+    confidence: "HIGH",
+    summary: "The trade is green and the thesis is valid; protect it instead of forcing an anxious exit.",
+    primaryReason: "VALID_THESIS_GREEN_TRADE_NEEDS_PROTECTION",
+    doNotDo: ["Do not chase an add without a clean retest.", "Do not widen the stop.", "Do not exit early from anxiety while structure holds."],
+    addPermission: "RETEST_ONLY",
+    exitPressure: "LOW",
+    recheckTrigger: "Recheck if 15m loses warning level or TP1 tags and stalls.",
+    technicalThesisState: "VALID",
+    protectionPlan: {
+      preferredMethod: "TRAIL_STOP",
+      suggestedProtectiveStop: activePosition.stop,
+      warningLevel: 145.8,
+      hardInvalidation: activePosition.stop,
+      trailReason: "A protective trail preserves upside while preventing a green trade from becoming discretionary damage.",
+    },
+    profitMath: {
+      unrealizedNow: activePosition.unrealizedPnL,
+      profitIfCloseNow: activePosition.unrealizedPnL,
+      estimatedProfitAtTP1: activePosition.estimatedProfitAtTP1,
+      additionalProfitToTP1: activePosition.estimatedProfitAtTP1 !== undefined && activePosition.unrealizedPnL !== undefined
+        ? activePosition.estimatedProfitAtTP1 - activePosition.unrealizedPnL
+        : undefined,
+      givebackToProtectiveStop: activePosition.estimatedLossAtStop,
+      lossAtHardInvalidation: activePosition.estimatedLossAtStop,
+    },
+    softLandingImpact: {
+      moonStatus: pace.moonStatus,
+      sunStatus: pace.sunStatus,
+      moonDailyTargetDollars: pace.moonDailyTargetDollars,
+      sunDailyTargetDollars: pace.sunDailyTargetDollars,
+      closeNowMoonContributionPct: activePosition.unrealizedPnL !== undefined ? activePosition.unrealizedPnL / pace.moonDailyTargetDollars : undefined,
+      closeNowSunContributionPct: activePosition.unrealizedPnL !== undefined ? activePosition.unrealizedPnL / pace.sunDailyTargetDollars : undefined,
+      tp1MoonContributionPct: activePosition.tp1ContributionToMoonDailyTargetPct,
+      tp1SunContributionPct: activePosition.tp1ContributionToSunDailyTargetPct,
+      summary: "TP1 helps Moon/Sun pace without increasing exposure; protection matters more than adding.",
+    },
+  },
   tradeObjective: {
     moonTargetPct: 0.6,
     sunTargetPct: 0.8,
@@ -125,6 +164,7 @@ export const emptyDeskSnapshot: TradingDeskSnapshot = {
   systemStatus: "NO_OPEN_POSITION",
   openPositions: [],
   activePositionFocus: null,
+  tradeManagementPlan: undefined,
   riskState: {
     exposureStatus: "SAFE",
     summary: "No active trade is open. Portfolio risk is quiet; opportunity scanning is secondary.",

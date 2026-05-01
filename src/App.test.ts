@@ -89,4 +89,27 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("technicalThesis");
     expect(appSource).toContain("managementState");
   });
+
+  it("renders trade management plan below the trade decision with protection and soft landing math", () => {
+    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
+      appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />"),
+    );
+    expect(appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />")).toBeLessThan(
+      appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),
+    );
+    expect(appSource).toContain("Trade Management Plan");
+    expect(appSource).toContain("Protection Plan");
+    expect(appSource).toContain("Profit / Giveback Math");
+    expect(appSource).toContain("Soft Landing Impact");
+    expect(appSource).toContain("Do Not Do");
+    expect(appSource).toContain("tradeManagementPlan");
+  });
+
+  it("only renders trade management plan content when the optional plan exists", () => {
+    expect(appSource).toContain("const plan = snapshot.tradeManagementPlan;");
+    expect(appSource).toContain("if (!plan) return null;");
+    expect(appSource.indexOf("if (!plan) return null;")).toBeLessThan(
+      appSource.indexOf('eyebrow="Trade Management Plan"'),
+    );
+  });
 });

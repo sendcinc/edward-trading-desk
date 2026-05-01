@@ -60,6 +60,7 @@ The UI supports these modes:
 - `activePositionFocus?: TradingPosition | null`
   - Use `null` when there is no active trade.
 - `tradeObjective?: TradeObjective`
+- `tradeManagementPlan?: TradeManagementPlan`
 - `marketMovement?: MarketMovement`
 - Position numeric management fields are optional when unavailable:
   - `size`
@@ -168,6 +169,69 @@ managementState?: {
 ```
 
 `movementClassification` remains for backward compatibility, but it must not be used as a catch-all for account exposure, missing active-plan linkage, unavailable private broker truth, or stale/missing review artifacts. `THESIS WEAKENING` is reserved for technical evidence from THORP/HUD/structure/BTC context. Management/data problems belong in `managementState.reasons`.
+
+### TradeManagementPlan
+
+Optional. When present, this is Edward's open-trade management brain. It is analysis/state/recommendation only; it must not imply exchange mutation or order placement.
+
+```ts
+tradeManagementPlan?: {
+  recommendation:
+    | "HOLD"
+    | "HOLD_WITH_PROTECTIVE_TRAIL"
+    | "REDUCE_PARTIAL"
+    | "REDUCE_PARTIAL_AND_TRAIL"
+    | "EXIT"
+    | "TAKE_PROFIT"
+    | "WAIT_NO_ACTION";
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+  summary: string;
+  primaryReason: string;
+  doNotDo: string[];
+  addPermission: "ALLOWED" | "RETEST_ONLY" | "BLOCKED" | "UNKNOWN";
+  exitPressure: "LOW" | "MEDIUM" | "HIGH";
+  recheckTrigger: string;
+  technicalThesisState?: "VALID" | "WEAKENING" | "FAILED" | "UNKNOWN";
+  protectionPlan: {
+    preferredMethod: "NONE" | "HARD_STOP" | "TRAIL_STOP" | "PARTIAL_REDUCE_AND_TRAIL";
+    suggestedProtectiveStop?: number;
+    warningLevel?: number;
+    hardInvalidation?: number;
+    trailReason: string;
+  };
+  profitMath: {
+    unrealizedNow?: number;
+    profitIfCloseNow?: number;
+    estimatedProfitAtTP1?: number;
+    estimatedProfitAtTP2?: number;
+    estimatedProfitAtTP3?: number;
+    additionalProfitToTP1?: number;
+    givebackToProtectiveStop?: number;
+    lossAtHardInvalidation?: number;
+  };
+  softLandingImpact: {
+    moonStatus: "AHEAD" | "BEHIND";
+    sunStatus: "AHEAD" | "BEHIND";
+    moonDailyTargetDollars: number;
+    sunDailyTargetDollars: number;
+    closeNowMoonContributionPct?: number;
+    closeNowSunContributionPct?: number;
+    tp1MoonContributionPct?: number;
+    tp1SunContributionPct?: number;
+    summary: string;
+  };
+};
+```
+
+Behavior rules:
+
+- Separate technical thesis from risk/exposure/data confidence.
+- Overexposure or missing active-plan linkage must not become `THESIS WEAKENING`.
+- If technical thesis is valid and the trade is green, prefer protected hold/trail over blind full exit when risk allows.
+- If exposure is too high, recommend reducing enough to make the position survivable, then trailing the remainder.
+- If no stop/hard invalidation exists, protection is mandatory.
+- 4H stale/late blocks adds but does not automatically invalidate a valid active 15m/1H trade.
+- Never suggest adding without explicit add permission and exposure capacity.
 
 ### WrongBehavior
 

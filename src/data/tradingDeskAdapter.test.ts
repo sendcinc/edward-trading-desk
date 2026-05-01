@@ -101,6 +101,86 @@ describe("trading desk snapshot validation", () => {
     }
   });
 
+  it("accepts older snapshots without a trade management plan", () => {
+    const snapshot = validSnapshot();
+    delete snapshot.tradeManagementPlan;
+
+    const oldSnapshot = validateTradingDeskSnapshot(snapshot);
+
+    expect(oldSnapshot.ok).toBe(true);
+    if (oldSnapshot.ok) {
+      expect(oldSnapshot.snapshot.tradeManagementPlan).toBeUndefined();
+    }
+  });
+
+  it("accepts optional trade management plan when present", () => {
+    const snapshot = validSnapshot();
+    snapshot.tradeManagementPlan = {
+      recommendation: "HOLD_WITH_PROTECTIVE_TRAIL",
+      confidence: "MEDIUM",
+      summary: "Trade thesis is valid, but management risk requires protection.",
+      primaryReason: "VALID_THESIS_GREEN_TRADE_NEEDS_PROTECTION",
+      doNotDo: ["Do not add while exposure is elevated.", "Do not widen the stop."],
+      addPermission: "BLOCKED",
+      exitPressure: "MEDIUM",
+      recheckTrigger: "Recheck on warning level touch or TP1 tag.",
+      protectionPlan: {
+        preferredMethod: "PARTIAL_REDUCE_AND_TRAIL",
+        suggestedProtectiveStop: 448,
+        warningLevel: 440.17,
+        hardInvalidation: 438.49,
+        trailReason: "No stop means protection is mandatory.",
+      },
+      profitMath: {
+        unrealizedNow: 11.34,
+        profitIfCloseNow: 11.34,
+        estimatedProfitAtTP1: 43.14,
+        additionalProfitToTP1: 31.8,
+        givebackToProtectiveStop: 0,
+        lossAtHardInvalidation: -12.21,
+      },
+      softLandingImpact: {
+        moonStatus: "BEHIND",
+        sunStatus: "BEHIND",
+        moonDailyTargetDollars: 15,
+        sunDailyTargetDollars: 20,
+        closeNowMoonContributionPct: 0.756,
+        closeNowSunContributionPct: 0.567,
+        tp1MoonContributionPct: 2.876,
+        tp1SunContributionPct: 2.157,
+        summary: "TP1 would materially help Moon/Sun pace without adding size.",
+      },
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.tradeManagementPlan?.recommendation).toBe("HOLD_WITH_PROTECTIVE_TRAIL");
+      expect(result.snapshot.tradeManagementPlan?.protectionPlan.preferredMethod).toBe("PARTIAL_REDUCE_AND_TRAIL");
+      expect(result.snapshot.tradeManagementPlan?.softLandingImpact.tp1MoonContributionPct).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects malformed trade management plans without weakening the base contract", () => {
+    const snapshot = validSnapshot() as Record<string, unknown>;
+    snapshot.tradeManagementPlan = {
+      recommendation: "HOLD_WITH_PROTECTIVE_TRAIL",
+      confidence: "HIGH",
+      summary: "",
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const issues = result.issues.join("\n");
+      expect(issues).toContain("tradeManagementPlan.summary");
+      expect(issues).toContain("tradeManagementPlan.primaryReason");
+      expect(issues).toContain("tradeManagementPlan.protectionPlan");
+    }
+  });
+
   it("accepts optional separated technical thesis and management state fields", () => {
     const oldSnapshot = validateTradingDeskSnapshot(validSnapshot());
     expect(oldSnapshot.ok).toBe(true);
@@ -197,5 +277,13 @@ describe("adapter load states", () => {
 
     expect(result.scenario).toBe(scenario);
     expect(["demo_mode", "live_stale", "live_unavailable", "validation_error"]).toContain(result.dataMode);
+  });
+
+  it("does not render demo management advice for unavailable, invalid, or no-position fallback states", () => {
+    for (const scenario of ["unavailable_edward", "invalid_snapshot", "no_active_trade"] satisfies DemoScenario[]) {
+      const result = buildDemoSnapshot(scenario);
+
+      expect(result.snapshot.tradeManagementPlan).toBeUndefined();
+    }
   });
 });

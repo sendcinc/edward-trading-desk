@@ -45,6 +45,54 @@ const managementStateSchema = z.object({
   addPermission: z.enum(["ALLOWED", "RETEST_ONLY", "BLOCKED", "UNKNOWN"]),
   reasons: z.array(z.string().min(1)),
 });
+const managementAddPermissionSchema = z.enum(["ALLOWED", "RETEST_ONLY", "BLOCKED", "UNKNOWN"]);
+const tradeManagementPlanSchema = z.object({
+  recommendation: z.enum([
+    "HOLD",
+    "HOLD_WITH_PROTECTIVE_TRAIL",
+    "REDUCE_PARTIAL",
+    "REDUCE_PARTIAL_AND_TRAIL",
+    "EXIT",
+    "TAKE_PROFIT",
+    "WAIT_NO_ACTION",
+  ]),
+  confidence: confidenceSchema,
+  summary: z.string().min(1),
+  primaryReason: z.string().min(1),
+  doNotDo: z.array(z.string().min(1)),
+  addPermission: managementAddPermissionSchema,
+  exitPressure: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  recheckTrigger: z.string().min(1),
+  technicalThesisState: z.enum(["VALID", "WEAKENING", "FAILED", "UNKNOWN"]).optional(),
+  protectionPlan: z.object({
+    preferredMethod: z.enum(["NONE", "HARD_STOP", "TRAIL_STOP", "PARTIAL_REDUCE_AND_TRAIL"]),
+    suggestedProtectiveStop: z.number().finite().optional(),
+    warningLevel: z.number().finite().optional(),
+    hardInvalidation: z.number().finite().optional(),
+    trailReason: z.string().min(1),
+  }),
+  profitMath: z.object({
+    unrealizedNow: z.number().finite().optional(),
+    profitIfCloseNow: z.number().finite().optional(),
+    estimatedProfitAtTP1: z.number().finite().optional(),
+    estimatedProfitAtTP2: z.number().finite().optional(),
+    estimatedProfitAtTP3: z.number().finite().optional(),
+    additionalProfitToTP1: z.number().finite().optional(),
+    givebackToProtectiveStop: z.number().finite().optional(),
+    lossAtHardInvalidation: z.number().finite().optional(),
+  }),
+  softLandingImpact: z.object({
+    moonStatus: paceStatusSchema,
+    sunStatus: paceStatusSchema,
+    moonDailyTargetDollars: z.number().finite(),
+    sunDailyTargetDollars: z.number().finite(),
+    closeNowMoonContributionPct: z.number().finite().optional(),
+    closeNowSunContributionPct: z.number().finite().optional(),
+    tp1MoonContributionPct: z.number().finite().optional(),
+    tp1SunContributionPct: z.number().finite().optional(),
+    summary: z.string().min(1),
+  }),
+});
 
 const portfolioSchema = z.object({
   currentPV: z.number().finite(),
@@ -217,6 +265,7 @@ const tradingDeskSnapshotSchema = z.object({
   openPositions: z.array(tradingPositionSchema),
   activePositionFocus: tradingPositionSchema.nullish(),
   edwardVerdict: edwardVerdictSchema,
+  tradeManagementPlan: tradeManagementPlanSchema.optional(),
   tradeObjective: tradeObjectiveSchema.optional(),
   marketMovement: marketMovementSchema.optional(),
   wrongBehavior: wrongBehaviorSchema,
@@ -401,6 +450,7 @@ function validationErrorResult(issues: string[], scenario?: DemoScenario, source
   const snapshot = cloneSnapshot(demoTradingDeskSnapshot);
   snapshot.mode = "validation_error";
   snapshot.systemStatus = "OFFLINE";
+  delete snapshot.tradeManagementPlan;
   snapshot.riskState = {
     exposureStatus: "CRITICAL",
     summary: "Snapshot validation failed. UI is showing safe fallback demo data, not trusted Edward data.",
