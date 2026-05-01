@@ -5,6 +5,8 @@ import {
   loadTradingDeskSnapshot,
   resolveDataMode,
   safeDegradedHealth,
+  safeUnavailableAlertIntake,
+  validateAlertIntake,
   validateTradingDeskHealth,
   validateTradingDeskSnapshot,
   type DemoScenario,
@@ -33,6 +35,67 @@ const validHealth = () => ({
     tradingDeskSnapshot: { status: "fresh", provenance: "Snapshot" },
   },
   sourceBreakdown: { fresh: ["phemex"], stale: [], unavailable: [], missing: [], error: [], technicalThesisState: "VALID" },
+});
+const validAlertIntake = () => ({
+  contractVersion: "edward-alert-intake.v1",
+  generatedAt: new Date().toISOString(),
+  webhookStatus: "live",
+  latestAlert: {
+    receivedAt: new Date().toISOString(),
+    alertType: "THORP_HUD",
+    symbol: "ETHUSDT",
+    normalizedSymbol: "ETHUSDT",
+    timeframe: "15m",
+    side: "long",
+    status: "accepted",
+    payloadHash: "abc123",
+    triggeredReview: true,
+    reviewStatus: "queued",
+    reason: "HUD long setup received.",
+    autoExecution: false,
+    executionIntent: "none",
+  },
+  latestBySymbol: {},
+  latestBySymbolTimeframe: {},
+  recentAlerts: [],
+  lastAlertAt: new Date().toISOString(),
+  lastValidAlertAt: new Date().toISOString(),
+  lastInvalidAlertAt: null,
+  queueDepth: 1,
+  lastReviewTriggeredAt: new Date().toISOString(),
+});
+
+describe("alert intake validation", () => {
+  it("accepts the latest alert intake contract", () => {
+    const result = validateAlertIntake(validAlertIntake());
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.alertIntake.contractVersion).toBe("edward-alert-intake.v1");
+      expect(result.alertIntake.latestAlert?.autoExecution).toBe(false);
+      expect(result.alertIntake.latestAlert?.executionIntent).toBe("none");
+    }
+  });
+
+  it("returns safe unavailable alert intake when latest-alert is missing", () => {
+    const alertIntake = safeUnavailableAlertIntake("latest-alert.json unavailable");
+
+    expect(alertIntake.webhookStatus).toBe("unavailable");
+    expect(alertIntake.latestAlert).toBeNull();
+    expect(alertIntake.recentAlerts).toEqual([]);
+    expect(alertIntake.validationIssues?.join("\n")).toContain("latest-alert.json unavailable");
+  });
+
+  it("rejects malformed alert intake so it cannot look live", () => {
+    const result = validateAlertIntake({ ...validAlertIntake(), latestAlert: { autoExecution: true, executionIntent: "market" } });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues.join("\n")).toContain("latestAlert.receivedAt");
+      expect(result.issues.join("\n")).toContain("latestAlert.autoExecution");
+      expect(result.issues.join("\n")).toContain("latestAlert.executionIntent");
+    }
+  });
 });
 
 describe("trading desk health validation", () => {
@@ -274,11 +337,12 @@ describe("data mode resolution", () => {
 });
 
 describe("adapter load states", () => {
-  it("fetches the static public Edward snapshot first and optional health second", async () => {
+  it("fetches the static public Edward snapshot first, optional health second, and optional latest alert third", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(validSnapshot()), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(validHealth()), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify(validHealth()), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(validAlertIntake()), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await loadTradingDeskSnapshot({ source: "edward-api" });
@@ -289,9 +353,31 @@ describe("adapter load states", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/trading-desk/data/health.json", {
       headers: { Accept: "application/json" },
     });
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/trading-desk/data/latest-alert.json", {
+      headers: { Accept: "application/json" },
+    });
     expect(result.dataMode).toBe("live_available");
     expect(result.health?.producerStatus).toBe("healthy");
+    expect(result.alertIntake?.latestAlert?.symbol).toBe("ETHUSDT");
     expect(result.source).toBe("edward-api");
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps old latest.json and health.json usable when latest alert is unavailable", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(validSnapshot()), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(validHealth()), { status: 200 }))
+      .mockResolvedValueOnce(new Response("missing", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadTradingDeskSnapshot({ source: "edward-api" });
+
+    expect(result.dataMode).toBe("live_available");
+    expect(result.health?.producerStatus).toBe("healthy");
+    expect(result.alertIntake?.webhookStatus).toBe("unavailable");
+    expect(result.alertIntake?.latestAlert).toBeNull();
+    expect(result.alertIntake?.validationIssues?.join("\n")).toContain("HTTP 404");
     vi.unstubAllGlobals();
   });
 
@@ -299,7 +385,8 @@ describe("adapter load states", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(validSnapshot()), { status: 200 }))
-      .mockResolvedValueOnce(new Response("missing", { status: 404 }));
+      .mockResolvedValueOnce(new Response("missing", { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(validAlertIntake()), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await loadTradingDeskSnapshot({ source: "edward-api" });
@@ -307,6 +394,24 @@ describe("adapter load states", () => {
     expect(result.dataMode).toBe("live_available");
     expect(result.health?.producerStatus).toBe("degraded");
     expect(result.health?.lastError).toContain("HTTP 404");
+    expect(result.alertIntake?.latestAlert?.symbol).toBe("ETHUSDT");
+    vi.unstubAllGlobals();
+  });
+
+  it("degrades malformed latest-alert without changing live snapshot status", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(validSnapshot()), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(validHealth()), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ broken: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadTradingDeskSnapshot({ source: "edward-api" });
+
+    expect(result.dataMode).toBe("live_available");
+    expect(result.alertIntake?.webhookStatus).toBe("unavailable");
+    expect(result.alertIntake?.latestAlert).toBeNull();
+    expect(result.alertIntake?.validationIssues?.join("\n")).toContain("latest-alert.json validation failed");
     vi.unstubAllGlobals();
   });
 

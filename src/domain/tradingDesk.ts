@@ -17,6 +17,9 @@ export type HealthSourceName =
 export type ExposureStatus = "SAFE" | "ELEVATED" | "OVEREXPOSED" | "CRITICAL";
 export type Direction = "LONG" | "SHORT";
 export type PaceStatus = "AHEAD" | "BEHIND";
+export type AlertIntakeStatus = string;
+export type LatestAlertStatus = "fresh" | "stale" | "duplicate" | "invalid" | "context_only" | "accepted";
+export type AlertSide = string;
 
 export type TradingDeskSnapshot = {
   contractVersion: TradingDeskSnapshotContractVersion;
@@ -303,6 +306,38 @@ export type TradingDeskHealth = {
   };
 };
 
+export type LatestAlert = {
+  receivedAt: string;
+  alertType: string;
+  symbol?: string;
+  normalizedSymbol?: string;
+  timeframe?: string;
+  side?: AlertSide;
+  status: LatestAlertStatus;
+  payloadHash: string;
+  triggeredReview: boolean;
+  reviewStatus: string;
+  reason?: string | null;
+  autoExecution: false;
+  executionIntent: "none";
+};
+
+export type AlertIntakeResult = {
+  contractVersion: "edward-alert-intake.v1";
+  generatedAt: string;
+  webhookStatus: AlertIntakeStatus;
+  latestAlert: LatestAlert | null;
+  latestBySymbol: Record<string, LatestAlert>;
+  latestBySymbolTimeframe: Record<string, Record<string, LatestAlert>>;
+  recentAlerts: LatestAlert[];
+  lastAlertAt?: string | null;
+  lastValidAlertAt?: string | null;
+  lastInvalidAlertAt?: string | null;
+  queueDepth: number;
+  lastReviewTriggeredAt?: string | null;
+  validationIssues?: string[];
+};
+
 export type TradingDeskLoadResult = {
   snapshot: TradingDeskSnapshot;
   dataMode: DataMode;
@@ -311,4 +346,5 @@ export type TradingDeskLoadResult = {
   validationIssues: string[];
   loadedAt: string;
   health?: TradingDeskHealth;
+  alertIntake?: AlertIntakeResult;
 };
