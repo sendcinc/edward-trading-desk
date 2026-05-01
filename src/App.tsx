@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
-import { EDWARD_SNAPSHOT_ENDPOINT, loadTradingDeskSnapshot } from "./data/tradingDeskAdapter";
+import { EDWARD_SNAPSHOT_ENDPOINT, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
-import type { DataMode, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition } from "./domain/tradingDesk";
+import type { DataMode, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition } from "./domain/tradingDesk";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
@@ -72,6 +72,7 @@ export default function App() {
       />
       <DataStateBanner loadResult={loadResult} />
       <TradeDecisionCard snapshot={snapshot} />
+      <EdwardHealthPanel health={loadResult.health} />
       <TradeManagementPlanPanel snapshot={snapshot} />
       {!snapshot.activePositionFocus && <WatchlistPanel snapshot={snapshot} />}
       <EdwardVerdictPanel snapshot={snapshot} />
@@ -211,6 +212,55 @@ function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
       </div>
     </section>
   );
+}
+
+function EdwardHealthPanel({ health }: { health?: TradingDeskHealth }) {
+  const degraded = !health;
+  const shown = health ?? safeDegradedHealth("health.json unavailable");
+  const sources = Object.entries(shown.sources).slice(0, 7);
+  return (
+    <section className={`panel health-panel ${shown.producerStatus}`}>
+      <div className="health-head">
+        <PanelTitle icon={<Activity />} eyebrow="Edward Health" title="Nervous System" />
+        <div className="health-tags">
+          <StatusPill label={`Producer ${shown.producerStatus}`} tone={shown.producerStatus} />
+          <StatusPill label={shown.latestJsonValid ? "Snapshot valid" : "Snapshot not verified"} tone={shown.latestJsonValid ? "live_available" : "validation_error"} />
+        </div>
+      </div>
+      <div className="health-grid">
+        <Metric label="Producer Status" value={shown.producerStatus.toUpperCase()} />
+        <Metric label="Last Successful Update" value={shown.lastSuccessfulUpdate ? formatTime(shown.lastSuccessfulUpdate) : "Unavailable"} />
+        <Metric label="Snapshot Age" value={typeof shown.snapshotAgeSeconds === "number" ? `${Math.round(shown.snapshotAgeSeconds)}s` : "Unknown"} />
+        <Metric label="Last Error" value={shown.lastError ?? (degraded ? "health.json unavailable" : "None")} danger={Boolean(shown.lastError || degraded)} />
+      </div>
+      {shown.validationIssues.length > 0 && (
+        <ul className="health-issues">
+          {shown.validationIssues.slice(0, 3).map((issue) => <li key={issue}>{issue}</li>)}
+        </ul>
+      )}
+      <div className="source-freshness">
+        <h3>Source Freshness</h3>
+        <div className="source-grid">
+          {sources.map(([name, source]) => (
+            <div className="source-item" key={name}>
+              <span>{sourceLabel(name)}</span>
+              <StatusPill label={source.status} tone={source.status} />
+              <small>{source.detail ?? source.provenance ?? "No provenance"}</small>
+            </div>
+          ))}
+          {sources.length === 0 && <p className="pace-copy">Health source details unavailable. Treat producer health as degraded.</p>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function sourceLabel(name: string): string {
+  return name
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (char) => char.toUpperCase())
+    .replace("Phemex", "Phemex")
+    .replace("Thorp", "THORP");
 }
 
 function TradeManagementPlanPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {

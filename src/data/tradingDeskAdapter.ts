@@ -4,6 +4,7 @@ import { TRADING_DESK_SNAPSHOT_CONTRACT_VERSION } from "../domain/tradingDesk";
 import type {
   DataMode,
   SnapshotSource,
+  TradingDeskHealth,
   TradingDeskLoadResult,
   TradingDeskSnapshot,
   TradingPosition,
@@ -26,6 +27,7 @@ export type TradingDeskLoadOptions = {
 };
 
 export const EDWARD_SNAPSHOT_ENDPOINT = "/trading-desk/data/latest.json";
+export const EDWARD_HEALTH_ENDPOINT = "/trading-desk/data/health.json";
 export const LIVE_STALE_AFTER_MS = 5 * 60 * 1000;
 export const LIVE_STALE_AFTER_SECONDS = LIVE_STALE_AFTER_MS / 1000;
 
@@ -254,6 +256,45 @@ const watchlistSummarySchema = z.object({
   summary: z.string().min(1),
 });
 
+
+const healthSourceStatusSchema = z.enum(["fresh", "stale", "unavailable", "missing", "error", "unknown"]);
+const healthSourceSchema = z.object({
+  status: healthSourceStatusSchema,
+  lastUpdatedAt: z.string().datetime().nullable().optional(),
+  ageSeconds: z.number().finite().nullable().optional(),
+  lastError: z.string().nullable().optional(),
+  provenance: z.string().nullable().optional(),
+  detail: z.string().nullable().optional(),
+});
+const tradingDeskHealthSchema = z.object({
+  contractVersion: z.literal("edward-trading-desk-health.v1"),
+  generatedAt: z.string().datetime(),
+  producerStatus: z.enum(["healthy", "degraded", "offline"]),
+  lastSnapshotAt: z.string().datetime().nullable().optional(),
+  snapshotAgeSeconds: z.number().finite().nullable().optional(),
+  latestJsonValid: z.boolean(),
+  validationIssues: z.array(z.string()),
+  lastSuccessfulUpdate: z.string().datetime().nullable().optional(),
+  lastError: z.string().nullable().optional(),
+  sources: z.object({
+    phemex: healthSourceSchema,
+    thorpHud15m: healthSourceSchema,
+    thorpHud1h: healthSourceSchema,
+    thorpHud4h: healthSourceSchema,
+    activePlan: healthSourceSchema,
+    brokerTruth: healthSourceSchema,
+    tradingDeskSnapshot: healthSourceSchema,
+  }),
+  sourceBreakdown: z.object({
+    fresh: z.array(z.string()).optional(),
+    stale: z.array(z.string()).optional(),
+    unavailable: z.array(z.string()).optional(),
+    missing: z.array(z.string()).optional(),
+    error: z.array(z.string()).optional(),
+    technicalThesisState: z.enum(["VALID", "WEAKENING", "FAILED", "UNKNOWN"]).optional(),
+  }).optional(),
+});
+
 const tradingDeskSnapshotSchema = z.object({
   contractVersion: z.literal(TRADING_DESK_SNAPSHOT_CONTRACT_VERSION),
   timestamp: z.string().datetime(),
@@ -306,6 +347,47 @@ export type SnapshotValidationResult =
   | { ok: true; snapshot: TradingDeskSnapshot; issues: [] }
   | { ok: false; issues: string[] };
 
+export type HealthValidationResult =
+  | { ok: true; health: TradingDeskHealth; issues: [] }
+  | { ok: false; issues: string[] };
+
+export function validateTradingDeskHealth(raw: unknown): HealthValidationResult {
+  const result = tradingDeskHealthSchema.safeParse(raw);
+  if (result.success) return { ok: true, health: result.data, issues: [] };
+  return {
+    ok: false,
+    issues: result.error.issues.map((issue) => {
+      const path = issue.path.length ? issue.path.join(".") : "health";
+      return `${path}: ${issue.message}`;
+    }),
+  };
+}
+
+export function safeDegradedHealth(message: string): TradingDeskHealth {
+  const unknown = { status: "unknown" as const, lastError: message, provenance: "health.json" };
+  return {
+    contractVersion: "edward-trading-desk-health.v1",
+    generatedAt: new Date().toISOString(),
+    producerStatus: "degraded",
+    lastSnapshotAt: null,
+    snapshotAgeSeconds: null,
+    latestJsonValid: false,
+    validationIssues: [],
+    lastSuccessfulUpdate: null,
+    lastError: message,
+    sources: {
+      phemex: unknown,
+      thorpHud15m: unknown,
+      thorpHud1h: unknown,
+      thorpHud4h: unknown,
+      activePlan: unknown,
+      brokerTruth: unknown,
+      tradingDeskSnapshot: unknown,
+    },
+    sourceBreakdown: { fresh: [], stale: [], unavailable: [], missing: [], error: [], technicalThesisState: "UNKNOWN" },
+  };
+}
+
 export function validateTradingDeskSnapshot(raw: unknown): SnapshotValidationResult {
   const result = tradingDeskSnapshotSchema.safeParse(normalizeLegacySnapshot(raw));
   if (result.success) {
@@ -339,6 +421,21 @@ export function resolveDataMode({
   return "live_available";
 }
 
+export async function loadTradingDeskHealth(): Promise<TradingDeskHealth> {
+  try {
+    const response = await fetch(EDWARD_HEALTH_ENDPOINT, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return safeDegradedHealth(`health.json unavailable: HTTP ${response.status}`);
+    const raw = await response.json();
+    const validation = validateTradingDeskHealth(raw);
+    if (!validation.ok) return safeDegradedHealth(`health.json validation failed: ${validation.issues.join("; ")}`);
+    return validation.health;
+  } catch (error) {
+    return safeDegradedHealth(error instanceof Error ? error.message : "health.json unavailable");
+  }
+}
+
 export async function loadTradingDeskSnapshot(options: TradingDeskLoadOptions | TradingDeskSource = "demo"): Promise<TradingDeskLoadResult> {
   const normalized = typeof options === "string" ? { source: options } : options;
   const source = normalized.source ?? "demo";
@@ -363,12 +460,14 @@ export async function loadTradingDeskSnapshot(options: TradingDeskLoadOptions | 
     }
 
     const dataMode = resolveDataMode({ source, snapshot: validation.snapshot });
+    const health = await loadTradingDeskHealth();
     return {
       snapshot: { ...validation.snapshot, mode: dataMode },
       dataMode,
       source,
       validationIssues: [],
       loadedAt: new Date().toISOString(),
+      health,
     };
   } catch (error) {
     return unavailableResult(error instanceof Error ? error.message : "Edward snapshot unavailable");

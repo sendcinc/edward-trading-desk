@@ -4,6 +4,8 @@ import {
   buildDemoSnapshot,
   loadTradingDeskSnapshot,
   resolveDataMode,
+  safeDegradedHealth,
+  validateTradingDeskHealth,
   validateTradingDeskSnapshot,
   type DemoScenario,
 } from "./tradingDeskAdapter";
@@ -11,6 +13,48 @@ import {
 import { TRADING_DESK_SNAPSHOT_CONTRACT_VERSION } from "../domain/tradingDesk";
 
 const validSnapshot = () => structuredClone(demoTradingDeskSnapshot);
+const validHealth = () => ({
+  contractVersion: "edward-trading-desk-health.v1",
+  generatedAt: "2026-05-01T15:00:30.000Z",
+  producerStatus: "healthy",
+  lastSnapshotAt: "2026-05-01T15:00:00.000Z",
+  snapshotAgeSeconds: 30,
+  latestJsonValid: true,
+  validationIssues: [],
+  lastSuccessfulUpdate: "2026-05-01T15:00:00.000Z",
+  lastError: null,
+  sources: {
+    phemex: { status: "fresh", provenance: "Phemex" },
+    thorpHud15m: { status: "fresh", provenance: "HUD" },
+    thorpHud1h: { status: "fresh", provenance: "HUD" },
+    thorpHud4h: { status: "fresh", provenance: "HUD" },
+    activePlan: { status: "fresh", provenance: "THORP" },
+    brokerTruth: { status: "fresh", provenance: "Broker" },
+    tradingDeskSnapshot: { status: "fresh", provenance: "Snapshot" },
+  },
+  sourceBreakdown: { fresh: ["phemex"], stale: [], unavailable: [], missing: [], error: [], technicalThesisState: "VALID" },
+});
+
+describe("trading desk health validation", () => {
+  it("accepts a valid optional producer health contract", () => {
+    const result = validateTradingDeskHealth(validHealth());
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.health.producerStatus).toBe("healthy");
+      expect(result.health.sources.tradingDeskSnapshot.status).toBe("fresh");
+    }
+  });
+
+  it("returns safe degraded health when health is missing or unavailable", () => {
+    const health = safeDegradedHealth("health.json unavailable");
+
+    expect(health.producerStatus).toBe("degraded");
+    expect(health.latestJsonValid).toBe(false);
+    expect(health.sources.tradingDeskSnapshot.status).toBe("unknown");
+    expect(health.lastError).toContain("health.json unavailable");
+  });
+});
 
 describe("trading desk snapshot validation", () => {
   it("accepts the demo snapshot contract", () => {
@@ -230,17 +274,39 @@ describe("data mode resolution", () => {
 });
 
 describe("adapter load states", () => {
-  it("fetches the static public Edward snapshot first", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify(validSnapshot()), { status: 200 }));
+  it("fetches the static public Edward snapshot first and optional health second", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(validSnapshot()), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(validHealth()), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await loadTradingDeskSnapshot({ source: "edward-api" });
 
-    expect(fetchMock).toHaveBeenCalledWith("/trading-desk/data/latest.json", {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/trading-desk/data/latest.json", {
+      headers: { Accept: "application/json" },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/trading-desk/data/health.json", {
       headers: { Accept: "application/json" },
     });
     expect(result.dataMode).toBe("live_available");
+    expect(result.health?.producerStatus).toBe("healthy");
     expect(result.source).toBe("edward-api");
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps old latest.json usable when health is unavailable", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(validSnapshot()), { status: 200 }))
+      .mockResolvedValueOnce(new Response("missing", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadTradingDeskSnapshot({ source: "edward-api" });
+
+    expect(result.dataMode).toBe("live_available");
+    expect(result.health?.producerStatus).toBe("degraded");
+    expect(result.health?.lastError).toContain("HTTP 404");
     vi.unstubAllGlobals();
   });
 

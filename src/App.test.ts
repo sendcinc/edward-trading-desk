@@ -55,7 +55,15 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Next refresh");
     expect(appSource).toContain("Watchlist / Opportunity Scan");
     expect(appSource).toContain("Risk & Ladder Management");
-    expect(appSource).toContain("No open trade");
+    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
+      appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />"),
+    );
+    expect(appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />")).toBeLessThan(
+      appSource.indexOf("<EdwardBodyProgressPanel />"),
+    );
+    expect(appSource).toContain("Edward Health");
+    expect(appSource).toContain("Producer Status");
+    expect(appSource).toContain("Source Freshness");
   });
 
   it("keeps Edward Body Progress after cockpit/watchlist flow and before the journal", () => {
