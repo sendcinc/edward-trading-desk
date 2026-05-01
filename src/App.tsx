@@ -71,13 +71,14 @@ export default function App() {
       />
       <DataStateBanner loadResult={loadResult} />
       <TradeDecisionCard snapshot={snapshot} />
+      {!snapshot.activePositionFocus && <WatchlistPanel snapshot={snapshot} />}
       <EdwardVerdictPanel snapshot={snapshot} />
       <RiskLadderPanel snapshot={snapshot} />
       <MarketMovementPanel snapshot={snapshot} />
       <WarningAndRecheck snapshot={snapshot} />
       <SoftLandingPanel snapshot={snapshot} />
       <PortfolioCommandBar snapshot={snapshot} />
-      <WatchlistPanel snapshot={snapshot} />
+      {snapshot.activePositionFocus && <WatchlistPanel snapshot={snapshot} />}
       <TradeJournalPanel snapshot={snapshot} />
     </main>
   );
