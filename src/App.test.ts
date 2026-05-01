@@ -19,6 +19,7 @@ describe("Trading Desk shell", () => {
     expect(appSource.indexOf('className="trade-journal-table-wrap"')).toBeGreaterThan(
       appSource.indexOf('className="trade-journal-stats"'),
     );
+    expect(appSource).toContain("trade-journal-mobile-cards");
     expect(appSource).toContain("journal.tableRows.map");
     for (const header of [
       "Trade ID",
@@ -41,5 +42,19 @@ describe("Trading Desk shell", () => {
     }
     expect(appSource).not.toContain("<th>Confidence</th>");
     expect(appSource).not.toContain("row.confidence");
+  });
+
+  it("renders a decision-first cockpit with refresh, risk ladder, and watchlist surfaces", () => {
+    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
+      appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),
+    );
+    expect(appSource.indexOf("<RiskLadderPanel snapshot={snapshot} />")).toBeLessThan(
+      appSource.indexOf("<MarketMovementPanel snapshot={snapshot} />"),
+    );
+    expect(appSource).toContain("REFRESH_INTERVAL_SECONDS = 30");
+    expect(appSource).toContain("Next refresh");
+    expect(appSource).toContain("Watchlist / Opportunity Scan");
+    expect(appSource).toContain("Risk & Ladder Management");
+    expect(appSource).toContain("No open trade");
   });
 });

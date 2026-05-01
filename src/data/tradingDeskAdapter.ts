@@ -71,6 +71,13 @@ const softLandingPaceSchema = z.object({
   sunStatus: paceStatusSchema,
 });
 
+const ladderEntrySchema = z.object({
+  label: z.string().optional(),
+  price: z.number().finite().optional(),
+  size: z.number().finite().optional(),
+  status: z.enum(["FILLED", "PLANNED", "WAITING", "CANCELLED"]).optional(),
+});
+
 const tradingPositionSchema = z.object({
   symbol: z.string().min(1),
   direction: directionSchema,
@@ -94,6 +101,12 @@ const tradingPositionSchema = z.object({
   tp1ContributionToSunDailyTargetPct: z.number().finite().optional(),
   tp1ContributionToMoonGapPct: z.number().finite().optional(),
   tp1ContributionToSunGapPct: z.number().finite().optional(),
+  filledLadderEntries: z.array(ladderEntrySchema).optional(),
+  remainingLadderEntries: z.array(ladderEntrySchema).optional(),
+  plannedSizeSplit: z.string().optional(),
+  nextAddLevel: z.number().finite().optional(),
+  averageEntryAfterFills: z.number().finite().optional(),
+  addPermission: z.enum(["ALLOWED_NOW", "ONLY_ON_RETEST", "NOT_ALLOWED", "UNAVAILABLE"]).optional(),
 });
 
 const edwardVerdictSchema = z.object({

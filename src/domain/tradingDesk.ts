@@ -106,6 +106,21 @@ export type TradingPosition = {
   tp1ContributionToSunDailyTargetPct?: number;
   tp1ContributionToMoonGapPct?: number;
   tp1ContributionToSunGapPct?: number;
+  filledLadderEntries?: LadderEntry[];
+  remainingLadderEntries?: LadderEntry[];
+  plannedSizeSplit?: string;
+  nextAddLevel?: number;
+  averageEntryAfterFills?: number;
+  addPermission?: AddPermission;
+};
+
+export type AddPermission = "ALLOWED_NOW" | "ONLY_ON_RETEST" | "NOT_ALLOWED" | "UNAVAILABLE";
+
+export type LadderEntry = {
+  label?: string;
+  price?: number;
+  size?: number;
+  status?: "FILLED" | "PLANNED" | "WAITING" | "CANCELLED";
 };
 
 export type EdwardVerdict = {
