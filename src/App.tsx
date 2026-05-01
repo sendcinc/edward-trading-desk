@@ -295,7 +295,6 @@ function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
               <th>Fees</th>
               <th>Funding</th>
               <th>Framework</th>
-              <th>Confidence</th>
               <th>Reason</th>
             </tr>
           </thead>
@@ -316,7 +315,6 @@ function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
                 <td>{row.fees}</td>
                 <td>{row.funding}</td>
                 <td>{row.framework}</td>
-                <td>{row.confidence}</td>
                 <td>{row.reason}</td>
               </tr>
             ))}

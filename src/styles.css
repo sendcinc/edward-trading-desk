@@ -503,7 +503,7 @@ h2 {
 
 .trade-journal-table {
   width: 100%;
-  min-width: 1480px;
+  min-width: 1400px;
   table-layout: fixed;
   border-collapse: collapse;
   color: #d9e1f7;
@@ -537,8 +537,8 @@ h2 {
   font-weight: 900;
 }
 
-.trade-journal-table th:nth-child(16),
-.trade-journal-table td:nth-child(16) {
+.trade-journal-table th:nth-child(15),
+.trade-journal-table td:nth-child(15) {
   width: 24%;
 }
 

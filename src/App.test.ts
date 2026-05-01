@@ -35,10 +35,11 @@ describe("Trading Desk shell", () => {
       "Fees",
       "Funding",
       "Framework",
-      "Confidence",
       "Reason",
     ]) {
       expect(appSource).toContain(`<th>${header}</th>`);
     }
+    expect(appSource).not.toContain("<th>Confidence</th>");
+    expect(appSource).not.toContain("row.confidence");
   });
 });

@@ -37,7 +37,6 @@ describe("trade journal table rows", () => {
       fees: "$0.00",
       funding: "$0.00",
       framework: "THORP",
-      confidence: "HIGH",
       reason: "historical backfill",
       tone: "danger",
     });

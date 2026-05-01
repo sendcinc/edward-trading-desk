@@ -15,7 +15,6 @@ export type TradeJournalRow = {
   fees: string;
   funding: string;
   framework: string;
-  confidence: string;
   reason: string;
   tone: "neutral" | "warning" | "danger" | "success";
 };
@@ -78,7 +77,6 @@ function buildEmptyRows(): TradeJournalRow[] {
     fees: "—",
     funding: "—",
     framework: "—",
-    confidence: "—",
     reason: "The trade journal ledger is not present in this snapshot yet.",
     tone: "warning",
   }];
@@ -108,7 +106,6 @@ function formatClosedTradeRow(trade: SnapshotTradeJournalEntry): TradeJournalRow
     fees: trade.fees == null ? "—" : money.format(trade.fees),
     funding: trade.funding == null ? "—" : money.format(trade.funding),
     framework: trade.framework || "—",
-    confidence: formatConfidence(trade.confidence),
     reason: cleanCloseReason(trade.closeReason),
     tone: pnl === undefined ? "neutral" : pnl < 0 ? "danger" : pnl > 0 ? "success" : "warning",
   };
@@ -141,15 +138,6 @@ function formatISODate(value?: string) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return value.slice(0, 10);
   return date.toISOString().slice(0, 10);
-}
-
-function formatConfidence(value?: string) {
-  if (!value) return "—";
-  const normalized = value.toUpperCase();
-  if (normalized.startsWith("HIGH")) return "HIGH";
-  if (normalized.startsWith("MEDIUM")) return "MEDIUM";
-  if (normalized.startsWith("LOW")) return "LOW";
-  return normalized;
 }
 
 function cleanCloseReason(value?: string) {
