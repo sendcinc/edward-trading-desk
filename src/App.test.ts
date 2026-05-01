@@ -57,4 +57,26 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Risk & Ladder Management");
     expect(appSource).toContain("No open trade");
   });
+
+  it("keeps Edward Body Progress after cockpit/watchlist flow and before the journal", () => {
+    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
+    const portfolioIndex = appSource.indexOf("<PortfolioCommandBar snapshot={snapshot} />");
+    const bodyProgressIndex = appSource.indexOf("<EdwardBodyProgressPanel />");
+    const journalIndex = appSource.indexOf("<TradeJournalPanel snapshot={snapshot} />");
+
+    expect(bodyProgressIndex).toBeGreaterThan(tradeDecisionIndex);
+    expect(bodyProgressIndex).toBeGreaterThan(portfolioIndex);
+    expect(bodyProgressIndex).toBeLessThan(journalIndex);
+  });
+
+  it("renders body-progress copy and locked execution state from static progress data", () => {
+    expect(appSource).toContain("edwardBodyProgress");
+    expect(appSource).toContain("Edward Body Progress");
+    expect(appSource).toContain("Current Chapter");
+    expect(appSource).toContain("Overall Body Completion");
+    expect(appSource).toContain("Next Milestone");
+    expect(appSource).toContain("progress.executionAllowed ? \"Unlocked\" : \"Locked\"");
+    expect(appSource).toContain("progress.reasonExecutionLocked");
+    expect(appSource).toContain("Object.entries(progress.bodyParts)");
+  });
 });
