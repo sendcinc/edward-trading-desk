@@ -182,6 +182,8 @@ h2 {
 
 .status-pill.live,
 .status-pill.live_available,
+.status-pill.healthy,
+.status-pill.fresh,
 .safe,
 .ahead,
 .yes,
@@ -191,6 +193,9 @@ h2 {
 
 .status-pill.stale,
 .status-pill.live_stale,
+.status-pill.degraded,
+.status-pill.missing,
+.status-pill.unknown,
 .status-pill.conditional,
 .status-pill.watchlist,
 .behind,
@@ -202,6 +207,7 @@ h2 {
 .status-pill.live_unavailable,
 .status-pill.validation_error,
 .status-pill.offline,
+.status-pill.error,
 .status-pill.too-late,
 .status-pill.skip,
 .overexposed,
@@ -267,6 +273,65 @@ h2 {
 .panel {
   margin-top: 14px;
   padding: 18px;
+}
+
+.health-panel {
+  border-color: rgba(146, 167, 255, 0.12);
+  background: linear-gradient(180deg, rgba(16, 20, 31, 0.9), rgba(8, 10, 16, 0.94));
+}
+
+.health-panel.degraded,
+.health-panel.offline {
+  border-color: rgba(255, 209, 102, 0.35);
+}
+
+.health-head,
+.health-tags {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.health-grid,
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.health-issues {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: #ffd1d9;
+}
+
+.source-freshness {
+  margin-top: 14px;
+}
+
+.source-freshness h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.source-item {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.source-item > span:first-child,
+.source-item small {
+  display: block;
+}
+
+.source-item small {
+  margin-top: 8px;
+  color: #9ba7bd;
 }
 
 .panel-title {
@@ -1129,6 +1194,8 @@ h2 {
   .decision-metric-grid,
   .risk-grid,
   .watch-summary,
+  .health-grid,
+  .source-grid,
   .separated-state-bar,
   .separated-state-bar.compact,
   .management-plan-grid {

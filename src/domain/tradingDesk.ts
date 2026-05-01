@@ -4,6 +4,16 @@ export type TradingDeskSnapshotContractVersion = typeof TRADING_DESK_SNAPSHOT_CO
 export type DataMode = "live_available" | "live_stale" | "live_unavailable" | "demo_mode" | "validation_error";
 export type SnapshotSource = "demo" | "edward-api";
 export type SystemStatus = "WATCHING" | "OFFLINE" | "STALE" | "NO_OPEN_POSITION";
+export type ProducerStatus = "healthy" | "degraded" | "offline";
+export type SourceFreshnessStatus = "fresh" | "stale" | "unavailable" | "missing" | "error" | "unknown";
+export type HealthSourceName =
+  | "phemex"
+  | "thorpHud15m"
+  | "thorpHud1h"
+  | "thorpHud4h"
+  | "activePlan"
+  | "brokerTruth"
+  | "tradingDeskSnapshot";
 export type ExposureStatus = "SAFE" | "ELEVATED" | "OVEREXPOSED" | "CRITICAL";
 export type Direction = "LONG" | "SHORT";
 export type PaceStatus = "AHEAD" | "BEHIND";
@@ -263,6 +273,36 @@ export type WatchlistSummary = {
   summary: string;
 };
 
+export type TradingDeskHealthSource = {
+  status: SourceFreshnessStatus;
+  lastUpdatedAt?: string | null;
+  ageSeconds?: number | null;
+  lastError?: string | null;
+  provenance?: string | null;
+  detail?: string | null;
+};
+
+export type TradingDeskHealth = {
+  contractVersion: "edward-trading-desk-health.v1";
+  generatedAt: string;
+  producerStatus: ProducerStatus;
+  lastSnapshotAt?: string | null;
+  snapshotAgeSeconds?: number | null;
+  latestJsonValid: boolean;
+  validationIssues: string[];
+  lastSuccessfulUpdate?: string | null;
+  lastError?: string | null;
+  sources: Record<HealthSourceName, TradingDeskHealthSource>;
+  sourceBreakdown?: {
+    fresh?: string[];
+    stale?: string[];
+    unavailable?: string[];
+    missing?: string[];
+    error?: string[];
+    technicalThesisState?: TechnicalThesisState;
+  };
+};
+
 export type TradingDeskLoadResult = {
   snapshot: TradingDeskSnapshot;
   dataMode: DataMode;
@@ -270,4 +310,5 @@ export type TradingDeskLoadResult = {
   scenario?: string;
   validationIssues: string[];
   loadedAt: string;
+  health?: TradingDeskHealth;
 };
