@@ -186,6 +186,7 @@ function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
         <span>{verdict.movementClassification}</span>
         <span className={addPermission.tone}>{addPermission.label}</span>
       </div>
+      <SeparatedStateBar snapshot={snapshot} />
 
       <div className="decision-metric-grid">
         <Metric label="Current Price" value={num(position.currentPrice)} strong />
@@ -220,6 +221,7 @@ function EdwardVerdictPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
         <span>{verdict.confidence} CONFIDENCE</span>
         <span>{verdict.movementClassification}</span>
       </div>
+      <SeparatedStateBar snapshot={snapshot} compact />
       <p className="summary">{verdict.summary}</p>
       <div className="verdict-notes">
         <p><strong>What I would do:</strong> {verdict.whatIWouldDo}</p>
@@ -228,6 +230,31 @@ function EdwardVerdictPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
       </div>
     </section>
   );
+}
+
+function SeparatedStateBar({ snapshot, compact = false }: { snapshot: TradingDeskSnapshot; compact?: boolean }) {
+  const { technicalThesis, managementState } = snapshot.edwardVerdict;
+  if (!technicalThesis && !managementState) return null;
+  const reasons = [...(technicalThesis?.reasons ?? []), ...(managementState?.reasons ?? [])];
+  return (
+    <div className={`separated-state-bar ${compact ? "compact" : ""}`}>
+      {technicalThesis && (
+        <StateBadge label="Technical Thesis" value={`${technicalThesis.state} · ${technicalThesis.confidence}`} tone={technicalThesis.state} />
+      )}
+      {managementState && (
+        <>
+          <StateBadge label="Risk State" value={managementState.riskState} tone={managementState.riskState} />
+          <StateBadge label="Data Confidence" value={managementState.dataConfidence} tone={managementState.dataConfidence} />
+          <StateBadge label="Add Permission" value={managementState.addPermission} tone={managementState.addPermission} />
+        </>
+      )}
+      {reasons.length > 0 && <div className="state-reasons"><span>State Reasons</span><strong>{reasons.join(" / ")}</strong></div>}
+    </div>
+  );
+}
+
+function StateBadge({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return <div className={`state-badge ${tone.toLowerCase().replace(/\s+/g, "-")}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function RiskLadderPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {

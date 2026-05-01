@@ -810,6 +810,62 @@ h2 {
 .decision-badges .caution { color: #ffd166; background: rgba(255, 209, 102, 0.11); }
 .decision-badges .danger { color: #ff7a90; background: rgba(255, 122, 144, 0.11); }
 
+.separated-state-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.separated-state-bar.compact {
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  margin-bottom: 14px;
+}
+
+.state-badge,
+.state-reasons {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 11px 12px;
+}
+
+.state-badge span,
+.state-reasons span {
+  display: block;
+  color: #96a3c7;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.state-badge strong,
+.state-reasons strong {
+  color: #f5f7ff;
+  font-size: 0.86rem;
+}
+
+.state-badge.valid,
+.state-badge.safe,
+.state-badge.high,
+.state-badge.allowed { border-color: rgba(99, 230, 190, 0.24); background: rgba(99, 230, 190, 0.07); }
+.state-badge.overexposed,
+.state-badge.critical,
+.state-badge.low,
+.state-badge.blocked,
+.state-badge.failed { border-color: rgba(255, 122, 144, 0.28); background: rgba(255, 122, 144, 0.07); }
+.state-badge.elevated,
+.state-badge.medium,
+.state-badge.retest_only,
+.state-badge.weakening,
+.state-badge.unknown { border-color: rgba(255, 209, 102, 0.25); background: rgba(255, 209, 102, 0.07); }
+
+.state-reasons {
+  grid-column: 1 / -1;
+}
+
 .decision-metric-grid,
 .risk-grid,
 .watch-summary {
@@ -1003,8 +1059,14 @@ h2 {
 
   .decision-metric-grid,
   .risk-grid,
-  .watch-summary {
+  .watch-summary,
+  .separated-state-bar,
+  .separated-state-bar.compact {
     grid-template-columns: 1fr;
+  }
+
+  .state-reasons {
+    grid-column: auto;
   }
 
   .watch-item {
