@@ -1,9 +1,9 @@
 {
   "projectName": "Edward Gets a Body",
-  "overallStatus": "Phase 1.2 Trade Management Brain v1 is live; execution remains locked.",
-  "estimatedOverallPercent": 24,
-  "currentPhase": "Phase 1.2 Trade Management Brain v1 complete; entering Phase 2 Live State Engine / Nervous System.",
-  "currentChapter": "Edward Gets a Nervous System",
+  "overallStatus": "Phase 2.0 Nervous System Health v1 is live; execution remains locked.",
+  "estimatedOverallPercent": 31,
+  "currentPhase": "Phase 2.0 Nervous System Health v1 complete; entering Phase 2.1 Alert Intake / Alert Nerves.",
+  "currentChapter": "Edward Gets Alert Nerves",
   "completedMilestones": [
     "Standalone Edward Trading Desk shell exists",
     "Decision-first cockpit ordering is protected",
@@ -15,9 +15,11 @@
     "Body-progress panel placement and locked-execution state are covered by targeted tests",
     "Trade Management Brain v1 is live in the Trading Desk",
     "tradeManagementPlan renders advisory trade-management reasoning",
-    "Protection plan, add permission, exit pressure, profit/giveback math, Soft Landing impact, and do-not-do guidance are present"
+    "Protection plan, add permission, exit pressure, profit/giveback math, Soft Landing impact, and do-not-do guidance are present",
+    "Nervous System Health v1 live with health.json, source freshness, producer status, and audit log."
   ],
   "nextMilestones": [
+    "Build TradingView webhook alert intake as first-class event stream.",
     "Define Phase 2 live state engine / nervous system contract",
     "Route fresh/stale/unavailable state through a reliable live-state layer",
     "Map capability unlock criteria for senses, memory, hands, and conscience"
