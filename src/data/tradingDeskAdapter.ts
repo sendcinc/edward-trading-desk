@@ -3,6 +3,7 @@ import { demoTradingDeskSnapshot, emptyDeskSnapshot, summarizeWatchlist } from "
 import { TRADING_DESK_SNAPSHOT_CONTRACT_VERSION } from "../domain/tradingDesk";
 import type {
   DataMode,
+  AlertIntakeResult,
   SnapshotSource,
   TradingDeskHealth,
   TradingDeskLoadResult,
@@ -28,6 +29,7 @@ export type TradingDeskLoadOptions = {
 
 export const EDWARD_SNAPSHOT_ENDPOINT = "/trading-desk/data/latest.json";
 export const EDWARD_HEALTH_ENDPOINT = "/trading-desk/data/health.json";
+export const EDWARD_ALERT_INTAKE_ENDPOINT = "/trading-desk/data/latest-alert.json";
 export const LIVE_STALE_AFTER_MS = 5 * 60 * 1000;
 export const LIVE_STALE_AFTER_SECONDS = LIVE_STALE_AFTER_MS / 1000;
 
@@ -295,6 +297,37 @@ const tradingDeskHealthSchema = z.object({
   }).optional(),
 });
 
+const latestAlertSchema = z.object({
+  receivedAt: z.string().datetime(),
+  alertType: z.string().min(1),
+  symbol: z.string().min(1).optional(),
+  normalizedSymbol: z.string().min(1).optional(),
+  timeframe: z.string().min(1).optional(),
+  side: z.string().min(1).optional(),
+  status: z.enum(["fresh", "stale", "duplicate", "invalid", "context_only", "accepted"]),
+  payloadHash: z.string().min(1),
+  triggeredReview: z.boolean(),
+  reviewStatus: z.string().min(1),
+  reason: z.string().nullable().optional(),
+  autoExecution: z.literal(false),
+  executionIntent: z.literal("none"),
+});
+
+const alertIntakeSchema = z.object({
+  contractVersion: z.literal("edward-alert-intake.v1"),
+  generatedAt: z.string().datetime(),
+  webhookStatus: z.string().min(1),
+  latestAlert: latestAlertSchema.nullable(),
+  latestBySymbol: z.record(z.string(), latestAlertSchema),
+  latestBySymbolTimeframe: z.record(z.string(), z.record(z.string(), latestAlertSchema)),
+  recentAlerts: z.array(latestAlertSchema),
+  lastAlertAt: z.string().datetime().nullable().optional(),
+  lastValidAlertAt: z.string().datetime().nullable().optional(),
+  lastInvalidAlertAt: z.string().datetime().nullable().optional(),
+  queueDepth: z.number().int().nonnegative(),
+  lastReviewTriggeredAt: z.string().datetime().nullable().optional(),
+});
+
 const tradingDeskSnapshotSchema = z.object({
   contractVersion: z.literal(TRADING_DESK_SNAPSHOT_CONTRACT_VERSION),
   timestamp: z.string().datetime(),
@@ -351,6 +384,10 @@ export type HealthValidationResult =
   | { ok: true; health: TradingDeskHealth; issues: [] }
   | { ok: false; issues: string[] };
 
+export type AlertIntakeValidationResult =
+  | { ok: true; alertIntake: AlertIntakeResult; issues: [] }
+  | { ok: false; issues: string[] };
+
 export function validateTradingDeskHealth(raw: unknown): HealthValidationResult {
   const result = tradingDeskHealthSchema.safeParse(raw);
   if (result.success) return { ok: true, health: result.data, issues: [] };
@@ -358,6 +395,18 @@ export function validateTradingDeskHealth(raw: unknown): HealthValidationResult 
     ok: false,
     issues: result.error.issues.map((issue) => {
       const path = issue.path.length ? issue.path.join(".") : "health";
+      return `${path}: ${issue.message}`;
+    }),
+  };
+}
+
+export function validateAlertIntake(raw: unknown): AlertIntakeValidationResult {
+  const result = alertIntakeSchema.safeParse(raw);
+  if (result.success) return { ok: true, alertIntake: result.data, issues: [] };
+  return {
+    ok: false,
+    issues: result.error.issues.map((issue) => {
+      const path = issue.path.length ? issue.path.join(".") : "alertIntake";
       return `${path}: ${issue.message}`;
     }),
   };
@@ -385,6 +434,24 @@ export function safeDegradedHealth(message: string): TradingDeskHealth {
       tradingDeskSnapshot: unknown,
     },
     sourceBreakdown: { fresh: [], stale: [], unavailable: [], missing: [], error: [], technicalThesisState: "UNKNOWN" },
+  };
+}
+
+export function safeUnavailableAlertIntake(message: string): AlertIntakeResult {
+  return {
+    contractVersion: "edward-alert-intake.v1",
+    generatedAt: new Date().toISOString(),
+    webhookStatus: "unavailable",
+    latestAlert: null,
+    latestBySymbol: {},
+    latestBySymbolTimeframe: {},
+    recentAlerts: [],
+    lastAlertAt: null,
+    lastValidAlertAt: null,
+    lastInvalidAlertAt: null,
+    queueDepth: 0,
+    lastReviewTriggeredAt: null,
+    validationIssues: [message],
   };
 }
 
@@ -436,6 +503,21 @@ export async function loadTradingDeskHealth(): Promise<TradingDeskHealth> {
   }
 }
 
+export async function loadAlertIntake(): Promise<AlertIntakeResult> {
+  try {
+    const response = await fetch(EDWARD_ALERT_INTAKE_ENDPOINT, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return safeUnavailableAlertIntake(`latest-alert.json unavailable: HTTP ${response.status}`);
+    const raw = await response.json();
+    const validation = validateAlertIntake(raw);
+    if (!validation.ok) return safeUnavailableAlertIntake(`latest-alert.json validation failed: ${validation.issues.join("; ")}`);
+    return validation.alertIntake;
+  } catch (error) {
+    return safeUnavailableAlertIntake(error instanceof Error ? error.message : "latest-alert.json unavailable");
+  }
+}
+
 export async function loadTradingDeskSnapshot(options: TradingDeskLoadOptions | TradingDeskSource = "demo"): Promise<TradingDeskLoadResult> {
   const normalized = typeof options === "string" ? { source: options } : options;
   const source = normalized.source ?? "demo";
@@ -461,6 +543,7 @@ export async function loadTradingDeskSnapshot(options: TradingDeskLoadOptions | 
 
     const dataMode = resolveDataMode({ source, snapshot: validation.snapshot });
     const health = await loadTradingDeskHealth();
+    const alertIntake = await loadAlertIntake();
     return {
       snapshot: { ...validation.snapshot, mode: dataMode },
       dataMode,
@@ -468,6 +551,7 @@ export async function loadTradingDeskSnapshot(options: TradingDeskLoadOptions | 
       validationIssues: [],
       loadedAt: new Date().toISOString(),
       health,
+      alertIntake,
     };
   } catch (error) {
     return unavailableResult(error instanceof Error ? error.message : "Edward snapshot unavailable");

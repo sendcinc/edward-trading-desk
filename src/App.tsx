@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  BellRing,
   CircleDollarSign,
   Clock3,
   Gauge,
@@ -14,9 +15,9 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
-import { EDWARD_SNAPSHOT_ENDPOINT, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
+import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
-import type { DataMode, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition } from "./domain/tradingDesk";
+import type { AlertIntakeResult, DataMode, LatestAlert, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition } from "./domain/tradingDesk";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
@@ -74,17 +75,60 @@ export default function App() {
       <TradeDecisionCard snapshot={snapshot} />
       <TradeManagementPlanPanel snapshot={snapshot} />
       <EdwardHealthPanel health={loadResult.health} />
-      {!snapshot.activePositionFocus && <WatchlistPanel snapshot={snapshot} />}
+      <LatestAlertPanel alertIntake={loadResult.alertIntake} />
+      <WatchlistPanel snapshot={snapshot} />
       <EdwardVerdictPanel snapshot={snapshot} />
       <RiskLadderPanel snapshot={snapshot} />
       <MarketMovementPanel snapshot={snapshot} />
       <WarningAndRecheck snapshot={snapshot} />
       <SoftLandingPanel snapshot={snapshot} />
       <PortfolioCommandBar snapshot={snapshot} />
-      {snapshot.activePositionFocus && <WatchlistPanel snapshot={snapshot} />}
       <EdwardBodyProgressPanel />
       <TradeJournalPanel snapshot={snapshot} />
     </main>
+  );
+}
+
+function LatestAlertPanel({ alertIntake }: { alertIntake?: AlertIntakeResult }) {
+  const latest = alertIntake?.latestAlert ?? null;
+  const unavailable = !alertIntake || alertIntake.webhookStatus === "unavailable";
+  const stale = isAlertIntakeStale(alertIntake);
+  const status = latest?.status;
+  const needsWarning = unavailable || stale || status === "context_only" || status === "invalid" || status === "duplicate";
+  const warning = alertWarningText({ unavailable, stale, status });
+
+  return (
+    <section className={`panel latest-alert-panel ${needsWarning ? "warning" : "ready"}`}>
+      <div className="latest-alert-head">
+        <PanelTitle icon={<BellRing />} eyebrow="Latest Alert / Alert Intake" title={latest ? `${latest.alertType} received` : "Alert intake unavailable / no recent alerts"} />
+        <StatusPill label={alertIntake?.webhookStatus ?? "unavailable"} tone={alertIntake?.webhookStatus ?? "unavailable"} />
+      </div>
+
+      <div className="alert-metrics">
+        <Metric label="Type" value={latest?.alertType ?? "No recent alert"} />
+        <Metric label="Symbol" value={latest?.normalizedSymbol ?? latest?.symbol ?? "Unavailable"} />
+        <Metric label="Timeframe" value={latest?.timeframe ?? "Unavailable"} />
+        <Metric label="Direction" value={formatAlertSide(latest)} />
+        <Metric label="Age" value={latest ? formatAge(latest.receivedAt) : "No recent alerts"} />
+        <Metric label="Status" value={latest?.status ?? "unavailable"} danger={needsWarning} />
+        <Metric label="Review Trigger" value={latest ? (latest.triggeredReview ? "Triggered" : "Not triggered") : "Unavailable"} />
+        <Metric label="Review Status" value={latest?.reviewStatus ?? "Unavailable"} />
+      </div>
+
+      <div className="alert-guardrails">
+        <Guardrail label="Execution" value="Alerts do not execute trades." danger />
+        <Guardrail label="Intent" value={latest ? `autoExecution ${String(latest.autoExecution)} / executionIntent ${latest.executionIntent}` : "No executable intent available."} danger />
+        <Guardrail label="Queue" value={`${alertIntake?.queueDepth ?? 0} queued reviews`} />
+        <Guardrail label="Latest reason" value={latest?.reason ?? "No recent valid alert intake data is available."} danger={needsWarning} />
+      </div>
+
+      {warning && <p className="alert-warning"><AlertTriangle size={16} /> {warning}</p>}
+      {alertIntake?.validationIssues?.length ? (
+        <ul className="health-issues">
+          {alertIntake.validationIssues.slice(0, 2).map((issue) => <li key={issue}>{issue}</li>)}
+        </ul>
+      ) : null}
+    </section>
   );
 }
 
@@ -645,6 +689,36 @@ function formatRecheck(snapshot: TradingDeskSnapshot) {
 
 function formatDataMode(mode: DataMode) {
   return mode.replace(/_/g, " ").toUpperCase();
+}
+
+function formatAlertSide(alert?: LatestAlert | null) {
+  if (!alert?.side) return "Unavailable";
+  if (alert.side === "none") return "None";
+  return alert.side.toUpperCase();
+}
+
+function isAlertIntakeStale(alertIntake?: AlertIntakeResult) {
+  const timestamp = alertIntake?.lastAlertAt ?? alertIntake?.latestAlert?.receivedAt ?? alertIntake?.generatedAt;
+  if (!timestamp) return true;
+  const timestampMs = new Date(timestamp).getTime();
+  return !Number.isFinite(timestampMs) || Date.now() - timestampMs > LIVE_STALE_AFTER_MS;
+}
+
+function alertWarningText({
+  unavailable,
+  stale,
+  status,
+}: {
+  unavailable: boolean;
+  stale: boolean;
+  status?: LatestAlert["status"];
+}) {
+  if (unavailable) return "Alert intake is unavailable; no recent alerts are trusted.";
+  if (stale) return "Alert intake is stale; do not treat this alert as current.";
+  if (status === "context_only") return "Latest alert is context_only and is not a trade signal.";
+  if (status === "invalid") return "Latest alert is invalid and was rejected by intake validation.";
+  if (status === "duplicate") return "Latest alert is a duplicate; wait for a new valid alert.";
+  return "";
 }
 
 function dataModeMessage(loadResult: TradingDeskLoadResult) {

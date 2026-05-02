@@ -63,6 +63,16 @@ describe("Trading Desk shell", () => {
 
     expect(tradeDecisionIndex).toBeLessThan(tradeManagementIndex);
     expect(tradeManagementIndex).toBeLessThan(healthIndex);
+    const alertIndex = appSource.indexOf("<LatestAlertPanel alertIntake={loadResult.alertIntake} />");
+    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} />");
+    const verdictIndex = appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />");
+    const riskIndex = appSource.indexOf("<RiskLadderPanel snapshot={snapshot} />");
+    expect(tradeDecisionIndex).toBeLessThan(alertIndex);
+    expect(tradeManagementIndex).toBeLessThan(alertIndex);
+    expect(healthIndex).toBeLessThan(alertIndex);
+    expect(alertIndex).toBeLessThan(watchlistIndex);
+    expect(watchlistIndex).toBeLessThan(verdictIndex);
+    expect(verdictIndex).toBeLessThan(riskIndex);
     expect(healthIndex).toBeLessThan(bodyProgressIndex);
     expect(healthIndex).toBeLessThan(journalIndex);
     expect(appSource).toContain("Edward Health");
@@ -123,5 +133,24 @@ describe("Trading Desk shell", () => {
     expect(appSource.indexOf("if (!plan) return null;")).toBeLessThan(
       appSource.indexOf('eyebrow="Trade Management Plan"'),
     );
+  });
+
+  it("renders latest alert intake below Edward Health without outranking decision or management", () => {
+    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
+    const tradeManagementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
+    const healthIndex = appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />");
+    const alertIndex = appSource.indexOf("<LatestAlertPanel alertIntake={loadResult.alertIntake} />");
+    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} />");
+
+    expect(alertIndex).toBeGreaterThan(-1);
+    expect(tradeDecisionIndex).toBeLessThan(tradeManagementIndex);
+    expect(tradeManagementIndex).toBeLessThan(healthIndex);
+    expect(healthIndex).toBeLessThan(alertIndex);
+    expect(alertIndex).toBeLessThan(watchlistIndex);
+    expect(appSource).toContain("Latest Alert / Alert Intake");
+    expect(appSource).toContain("Alerts do not execute trades.");
+    expect(appSource).toContain("Alert intake unavailable / no recent alerts");
+    expect(appSource).toContain("context_only");
+    expect(appSource).toContain("duplicate");
   });
 });
