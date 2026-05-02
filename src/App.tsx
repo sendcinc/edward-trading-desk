@@ -18,6 +18,7 @@ import { edwardBodyProgress } from "./data/bodyProgress";
 import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
 import type { AlertIntakeResult, DataMode, LatestAlert, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition } from "./domain/tradingDesk";
+import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
@@ -61,6 +62,7 @@ export default function App() {
   }
 
   const { snapshot } = loadResult;
+  const coreState = deriveEdwardCoreState({ snapshot, health: loadResult.health });
   const refreshSeconds = Math.max(0, Math.ceil((nextRefreshAt - now) / 1000));
 
   return (
@@ -70,6 +72,7 @@ export default function App() {
         refreshSeconds={refreshSeconds}
         isRefreshing={loadState === "refreshing"}
         onRefresh={() => void refreshSnapshot(true)}
+        coreState={coreState}
       />
       <DataStateBanner loadResult={loadResult} />
       <TradeDecisionCard snapshot={snapshot} />
@@ -137,19 +140,26 @@ function TopCommandHeader({
   refreshSeconds,
   isRefreshing,
   onRefresh,
+  coreState,
 }: {
   loadResult: TradingDeskLoadResult;
   refreshSeconds: number;
   isRefreshing: boolean;
   onRefresh: () => void;
+  coreState: EdwardCoreState;
 }) {
   const { snapshot, dataMode } = loadResult;
   return (
     <section className="command-header">
-      <div>
-        <p className="system-label">Edward Live Trade Desk</p>
-        <h1>Trading Cockpit</h1>
-        <p className="subtitle">Decision-first position management for THORP / Edward.</p>
+      <div className="command-title-row">
+        <div className="command-title-copy">
+          <div className="title-meta-row">
+            <p className="system-label">Edward Live Trade Desk</p>
+            <EdwardCoreAvatar core={coreState} />
+          </div>
+          <h1>Trading Cockpit</h1>
+          <p className="subtitle">Decision-first position management for THORP / Edward.</p>
+        </div>
       </div>
       <div className="header-status">
         <StatusPill label={formatDataMode(dataMode)} tone={dataMode} />
@@ -164,6 +174,33 @@ function TopCommandHeader({
         </button>
       </div>
     </section>
+  );
+}
+
+function EdwardCoreAvatar({ core }: { core: EdwardCoreState }) {
+  return (
+    <div className={`edward-core-avatar ${core.avatarState.toLowerCase()}`} aria-label={`Edward Core ${core.avatarState}`}>
+      {/* CSS animation honors prefers-reduced-motion: reduce */}
+      <svg className="edward-core-orb" viewBox="0 0 64 64" role="img" aria-hidden="true">
+        <defs>
+          <radialGradient id="edward-core-glow" cx="50%" cy="42%" r="58%">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.95" />
+            <stop offset="46%" stopColor="currentColor" stopOpacity="0.42" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.05" />
+          </radialGradient>
+        </defs>
+        <circle className="edward-core-halo" cx="32" cy="32" r="28" />
+        <circle className="edward-core-pulse" cx="32" cy="32" r="19" />
+        <circle className="edward-core-ring" cx="32" cy="32" r="22" />
+        <path className="edward-core-scan" d="M32 8a24 24 0 0 1 20.8 12M56 32a24 24 0 0 1-8 17.9M32 56a24 24 0 0 1-20.8-12M8 32a24 24 0 0 1 8-17.9" />
+        <circle className="edward-core-node" cx="32" cy="32" r="8" />
+      </svg>
+      <div className="edward-core-copy">
+        <strong>{core.title}</strong>
+        <span>{core.subtitle}</span>
+        <small>{core.guardrail === "Manual / Read-only" ? core.guardrail : "Manual / Read-only"} · {core.allAutoExecutionFalse ? "Auto off" : "Auto flag detected"}</small>
+      </div>
+    </div>
   );
 }
 

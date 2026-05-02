@@ -221,6 +221,29 @@ const tradeObjectiveSchema = z.object({
   summary: z.string().min(1),
 });
 
+const liveTradeStateItemSchema = z.object({
+  symbol: z.string().min(1),
+  position_status: z.enum(["OPEN", "FLAT"]),
+  entry_state: z.enum(["MANAGING_OPEN_TRADE", "SCANNER_WAKEUP", "NONE"]),
+  trade_lifecycle: z.enum(["ACTIVE_MANAGEMENT", "FRESH_CONTEXT_REQUIRED", "NO_ACTIVE_TRADE"]),
+  thesis_state: z.enum(["VALID", "WEAKENING", "FAILED", "UNKNOWN"]),
+  risk_state: exposureStatusSchema,
+  data_confidence: confidenceSchema,
+  management_bias: z.enum(["HOLD_PROTECT", "DEFENSIVE_HOLD", "REDUCE_RISK_NO_ADD", "EXIT_OR_REDUCE", "REVIEW_FRESH_CONTEXT", "WAIT_NO_ACTION"]),
+  last_updated: z.string().datetime(),
+  recent_state_events: z.array(z.string().min(1)),
+  auto_execution: z.literal(false),
+  direction: directionSchema.optional(),
+  current_price: z.number().finite().optional(),
+  trade_management_recommendation: z.string().min(1).optional(),
+});
+
+const liveTradeStateSchema = z.object({
+  contractVersion: z.literal("edward-live-trade-state.v1"),
+  generatedAt: z.string().datetime(),
+  trades: z.array(liveTradeStateItemSchema),
+});
+
 const wrongBehaviorSchema = z.object({ message: z.string().min(1) });
 const recheckTriggerSchema = z.object({
   condition: z.string().min(1),
@@ -340,6 +363,7 @@ const tradingDeskSnapshotSchema = z.object({
   activePositionFocus: tradingPositionSchema.nullish(),
   edwardVerdict: edwardVerdictSchema,
   tradeManagementPlan: tradeManagementPlanSchema.optional(),
+  liveTradeState: liveTradeStateSchema.optional(),
   tradeObjective: tradeObjectiveSchema.optional(),
   marketMovement: marketMovementSchema.optional(),
   wrongBehavior: wrongBehaviorSchema,

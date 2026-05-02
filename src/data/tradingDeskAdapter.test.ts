@@ -220,6 +220,70 @@ describe("trading desk snapshot validation", () => {
     }
   });
 
+  it("accepts optional live trade state when present", () => {
+    const snapshot = validSnapshot();
+    snapshot.liveTradeState = {
+      contractVersion: "edward-live-trade-state.v1",
+      generatedAt: "2026-05-02T13:00:00.000Z",
+      trades: [
+        {
+          symbol: "BCHUSDT",
+          position_status: "OPEN",
+          entry_state: "MANAGING_OPEN_TRADE",
+          trade_lifecycle: "ACTIVE_MANAGEMENT",
+          thesis_state: "VALID",
+          risk_state: "OVEREXPOSED",
+          data_confidence: "HIGH",
+          management_bias: "REDUCE_RISK_NO_ADD",
+          last_updated: "2026-05-02T13:00:00.000Z",
+          recent_state_events: ["RISK_OVEREXPOSED"],
+          auto_execution: false,
+          direction: "LONG",
+          current_price: 446.34,
+          trade_management_recommendation: "REDUCE_PARTIAL_AND_TRAIL",
+        },
+      ],
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.liveTradeState?.trades[0].management_bias).toBe("REDUCE_RISK_NO_ADD");
+      expect(result.snapshot.liveTradeState?.trades[0].auto_execution).toBe(false);
+    }
+  });
+
+  it("rejects live trade state if auto execution is not explicitly false", () => {
+    const snapshot = validSnapshot() as Record<string, unknown>;
+    snapshot.liveTradeState = {
+      contractVersion: "edward-live-trade-state.v1",
+      generatedAt: "2026-05-02T13:00:00.000Z",
+      trades: [
+        {
+          symbol: "BCHUSDT",
+          position_status: "OPEN",
+          entry_state: "MANAGING_OPEN_TRADE",
+          trade_lifecycle: "ACTIVE_MANAGEMENT",
+          thesis_state: "VALID",
+          risk_state: "SAFE",
+          data_confidence: "HIGH",
+          management_bias: "HOLD_PROTECT",
+          last_updated: "2026-05-02T13:00:00.000Z",
+          recent_state_events: [],
+          auto_execution: true,
+        },
+      ],
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues.join("\n")).toContain("liveTradeState.trades.0.auto_execution");
+    }
+  });
+
   it("accepts optional trade management plan when present", () => {
     const snapshot = validSnapshot();
     snapshot.tradeManagementPlan = {
