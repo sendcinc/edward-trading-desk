@@ -44,6 +44,23 @@ describe("Trading Desk shell", () => {
     expect(appSource).not.toContain("row.confidence");
   });
 
+  it("integrates the compact Edward Core status into the title metadata row", () => {
+    const titleMetaIndex = appSource.indexOf('className="title-meta-row"');
+    const systemLabelIndex = appSource.indexOf('className="system-label"');
+    const avatarIndex = appSource.indexOf("<EdwardCoreAvatar core={coreState} />");
+    const titleIndex = appSource.indexOf("<h1>Trading Cockpit</h1>");
+
+    expect(titleMetaIndex).toBeGreaterThan(-1);
+    expect(systemLabelIndex).toBeGreaterThan(titleMetaIndex);
+    expect(avatarIndex).toBeGreaterThan(systemLabelIndex);
+    expect(avatarIndex).toBeLessThan(titleIndex);
+    expect(appSource).toContain("deriveEdwardCoreState");
+    expect(appSource).toContain("Manual / Read-only");
+    expect(appSource).toContain("edward-core-orb");
+    expect(appSource).toContain("prefers-reduced-motion: reduce");
+    expect(appSource.indexOf("<TopCommandHeader")).toBeLessThan(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />"));
+  });
+
   it("renders a decision-first cockpit with refresh, risk ladder, and watchlist surfaces", () => {
     expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
       appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),

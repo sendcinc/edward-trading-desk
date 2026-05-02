@@ -33,6 +33,7 @@ export type TradingDeskSnapshot = {
   activePositionFocus?: TradingPosition | null;
   edwardVerdict: EdwardVerdict;
   tradeManagementPlan?: TradeManagementPlan;
+  liveTradeState?: LiveTradeState;
   tradeObjective?: TradeObjective;
   marketMovement?: MarketMovement;
   wrongBehavior: WrongBehavior;
@@ -92,6 +93,40 @@ export type ManagementState = {
   dataConfidence: Confidence;
   addPermission: ManagementAddPermission;
   reasons: string[];
+};
+
+export type LiveTradePositionStatus = "OPEN" | "FLAT";
+export type LiveTradeEntryState = "MANAGING_OPEN_TRADE" | "SCANNER_WAKEUP" | "NONE";
+export type LiveTradeLifecycle = "ACTIVE_MANAGEMENT" | "FRESH_CONTEXT_REQUIRED" | "NO_ACTIVE_TRADE";
+export type LiveTradeManagementBias =
+  | "HOLD_PROTECT"
+  | "DEFENSIVE_HOLD"
+  | "REDUCE_RISK_NO_ADD"
+  | "EXIT_OR_REDUCE"
+  | "REVIEW_FRESH_CONTEXT"
+  | "WAIT_NO_ACTION";
+
+export type LiveTradeStateItem = {
+  symbol: string;
+  position_status: LiveTradePositionStatus;
+  entry_state: LiveTradeEntryState;
+  trade_lifecycle: LiveTradeLifecycle;
+  thesis_state: TechnicalThesisState;
+  risk_state: ExposureStatus;
+  data_confidence: Confidence;
+  management_bias: LiveTradeManagementBias;
+  last_updated: string;
+  recent_state_events: string[];
+  auto_execution: false;
+  direction?: Direction;
+  current_price?: number;
+  trade_management_recommendation?: string;
+};
+
+export type LiveTradeState = {
+  contractVersion: "edward-live-trade-state.v1";
+  generatedAt: string;
+  trades: LiveTradeStateItem[];
 };
 
 export type TradeManagementRecommendation =
