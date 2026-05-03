@@ -1,65 +1,79 @@
 {
   "projectName": "Edward Gets a Body",
-  "overallStatus": "Phase 2.0 Nervous System Health v1 is live; execution remains locked.",
-  "estimatedOverallPercent": 31,
-  "currentPhase": "Phase 2.0 Nervous System Health v1 complete; entering Phase 2.1 Alert Intake / Alert Nerves.",
-  "currentChapter": "Edward Gets Alert Nerves",
+  "overallStatus": "Phase 3A.1 is live in the runtime producer and smoke-passed while flat. Open-trade field proof is pending until the next real live position.",
+  "estimatedOverallPercent": 78,
+  "currentPhase": "Phase 3A.1 Read-only Active Trade Reflex Engine is live in runtime producer; open-trade field proof pending.",
+  "currentChapter": "Edward Gets Reflexes",
+  "liveCapabilities": [
+    "Trade Management Brain",
+    "Live State Engine",
+    "Alert Nerve Path",
+    "Edward Core UI",
+    "Read-only Reflex Engine"
+  ],
+  "pendingProof": [
+    "First real open-trade reflex field check"
+  ],
+  "currentReflexStatus": {
+    "summary": "Phase 3A.1 runtime is live.",
+    "flatBehavior": "Flat behavior passed.",
+    "openTradeProof": "Open-trade field proof pending.",
+    "monitorJobId": "7ee65b136b55",
+    "monitorCadence": "every 5 minutes for ~24 hours",
+    "monitorScope": "public JSON + browser render only; no deploy, no writes, no production mutation",
+    "guardrailBadge": "Manual / Read-only · Auto off",
+    "operatingPrinciple": "Edward may classify and explain. Edward may not act."
+  },
   "completedMilestones": [
-    "Standalone Edward Trading Desk shell exists",
-    "Decision-first cockpit ordering is protected",
-    "Snapshot contract is documented",
-    "Runtime Zod validation rejects invalid snapshots",
-    "Stale, unavailable, and validation-error fallbacks stay conservative",
-    "Trade journal summary and full table are present",
-    "Edward Gets a Body roadmap is documented",
-    "Body-progress panel placement and locked-execution state are covered by targeted tests",
-    "Trade Management Brain v1 is live in the Trading Desk",
-    "tradeManagementPlan renders advisory trade-management reasoning",
-    "Protection plan, add permission, exit pressure, profit/giveback math, Soft Landing impact, and do-not-do guidance are present",
-    "Nervous System Health v1 live with health.json, source freshness, producer status, and audit log."
+    "Trade Management Brain: LIVE",
+    "Live State Engine / Nervous System: LIVE",
+    "Alert Nerve Path / Senses: LIVE and field-confirmed",
+    "Edward Core UI/avatar/status beacon: LIVE",
+    "Read-only Active Trade Reflex Engine: LIVE in runtime producer"
   ],
   "nextMilestones": [
-    "Build TradingView webhook alert intake as first-class event stream.",
-    "Define Phase 2 live state engine / nervous system contract",
-    "Route fresh/stale/unavailable state through a reliable live-state layer",
-    "Map capability unlock criteria for senses, memory, hands, and conscience"
+    "First real open-trade reflex field check",
+    "Continue public JSON + browser render monitor until a real position opens",
+    "Keep Phase 3A evidence read-only until open-trade field proof is confirmed"
   ],
   "blockers": [
-    "No live state engine / nervous system contract yet",
-    "No chart-eyes ingestion layer yet",
-    "No external-context reliability rules yet",
-    "No guarded execution approval path yet"
+    "Open-trade Phase 3A.1 field proof is pending until the next real live position",
+    "No guarded execution approval path exists; execution remains locked"
   ],
   "bodyParts": {
-    "cockpit": {
+    "tradeManagementBrain": {
       "status": "online",
-      "summary": "Trading Desk cockpit is active, decision-first, and now includes advisory trade-management reasoning."
+      "summary": "Phase 1 is live. Edward renders advisory trade-management reasoning."
     },
-    "nervousSystem": {
-      "status": "next",
-      "summary": "Phase 2 live state engine and freshness-aware state routing are next."
+    "liveStateEngine": {
+      "status": "online",
+      "summary": "Phase 2 is live. Runtime state, health, and freshness routing are active."
     },
-    "eyes": {
-      "status": "locked",
-      "summary": "Chart-reading capability is not implemented."
+    "alertNervePath": {
+      "status": "online",
+      "summary": "Phase 2.5 is live and field-confirmed. TradingView scanner alerts reach the cockpit as context only."
     },
-    "ears": {
-      "status": "locked",
-      "summary": "News, X, and internet ingestion are not implemented."
+    "edwardCoreUi": {
+      "status": "online",
+      "summary": "Edward Core avatar/status beacon is live in the cockpit."
     },
-    "memory": {
+    "readOnlyReflexEngine": {
+      "status": "online",
+      "summary": "Phase 3A.1 runtime producer is live and flat-smoke passed; open-trade proof is pending."
+    },
+    "openTradeFieldProof": {
       "status": "partial",
-      "summary": "Trade journal exists; durable learning loop is not implemented."
+      "summary": "Pending first real open-trade reflex field check. Monitor 7ee65b136b55 is active."
     },
     "hands": {
       "status": "locked",
-      "summary": "Order preparation and staging are not implemented."
+      "summary": "Order preparation, staging, placement, and exchange mutation remain unavailable."
     },
     "conscience": {
       "status": "planned",
-      "summary": "Guardrail and approval logic must be explicit before execution."
+      "summary": "Guarded execution approval remains future work and is not active."
     }
   },
   "executionAllowed": false,
-  "reasonExecutionLocked": "Execution is locked until Phase 8 guarded execution is intentionally implemented, validated, audited, and authorized by Edwin."
+  "reasonExecutionLocked": "Manual / Read-only · Auto off. Edward may classify and explain. Edward may not act."
 }

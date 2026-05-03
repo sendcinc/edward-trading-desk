@@ -575,20 +575,45 @@ function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snap
 function EdwardBodyProgressPanel() {
   const progress = edwardBodyProgress;
   const nextMilestone = progress.nextMilestones[0] ?? "No next milestone published.";
+  const reflex = progress.currentReflexStatus;
   return (
-    <section className="panel body-progress-panel" aria-label="Edward Body Progress">
+    <section className="panel body-progress-panel" aria-label="Edward Gets a Body completion">
       <div className="body-progress-header">
-        <PanelTitle icon={<LockKeyhole />} eyebrow={progress.currentPhase} title="Edward Body Progress" />
+        <PanelTitle icon={<LockKeyhole />} eyebrow={progress.currentPhase} title={progress.projectName} />
         <div className={`body-execution-lock ${progress.executionAllowed ? "unlocked" : "locked"}`}>
-          <span>Execution</span>
-          <strong>{progress.executionAllowed ? "Unlocked" : "Locked"}</strong>
+          <span>Guardrail</span>
+          <strong>{reflex.guardrailBadge}</strong>
         </div>
       </div>
 
       <div className="body-progress-summary">
         <Metric label="Current Chapter" value={progress.currentChapter} strong />
-        <Metric label="Overall Body Completion" value={`${progress.estimatedOverallPercent}%`} />
-        <Metric label="Next Milestone" value={nextMilestone} />
+        <Metric label="Edward Gets a Body" value={`${progress.estimatedOverallPercent}% Complete`} />
+        <Metric label="Next Proof" value={nextMilestone} />
+      </div>
+
+      <p className="body-progress-status">{progress.overallStatus}</p>
+
+      <div className="body-status-grid">
+        <div className="body-status-list">
+          <span>Live</span>
+          <ul>
+            {progress.liveCapabilities.map((capability) => <li key={capability}>{capability}</li>)}
+          </ul>
+        </div>
+        <div className="body-status-list pending-proof">
+          <span>Pending proof</span>
+          <ul>
+            {progress.pendingProof.map((proof) => <li key={proof}>{proof}</li>)}
+          </ul>
+        </div>
+        <div className="body-reflex-status">
+          <span>Current Reflex Status</span>
+          <strong>{reflex.summary}</strong>
+          <p>{reflex.flatBehavior} {reflex.openTradeProof}</p>
+          <small>Monitor active: {reflex.monitorJobId} · {reflex.monitorCadence}</small>
+          <small>{reflex.monitorScope}</small>
+        </div>
       </div>
 
       <div className="body-part-grid">
@@ -603,7 +628,7 @@ function EdwardBodyProgressPanel() {
         ))}
       </div>
 
-      <p className="body-lock-reason">{progress.reasonExecutionLocked}</p>
+      <p className="body-lock-reason">{progress.reasonExecutionLocked} {reflex.operatingPrinciple}</p>
     </section>
   );
 }

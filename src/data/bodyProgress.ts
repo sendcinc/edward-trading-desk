@@ -11,6 +11,18 @@ export type EdwardBodyProgress = {
   estimatedOverallPercent: number;
   currentPhase: string;
   currentChapter: string;
+  liveCapabilities: string[];
+  pendingProof: string[];
+  currentReflexStatus: {
+    summary: string;
+    flatBehavior: string;
+    openTradeProof: string;
+    monitorJobId: string;
+    monitorCadence: string;
+    monitorScope: string;
+    guardrailBadge: string;
+    operatingPrinciple: string;
+  };
   completedMilestones: string[];
   nextMilestones: string[];
   blockers: string[];

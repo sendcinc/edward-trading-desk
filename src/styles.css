@@ -701,14 +701,86 @@ h2 {
 }
 
 .body-progress-summary,
-.body-part-grid {
+.body-part-grid,
+.body-status-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
 }
 
+.body-progress-status {
+  margin: 12px 0 0;
+  color: #d9e2f7;
+  line-height: 1.45;
+}
+
+.body-status-grid,
 .body-part-grid {
   margin-top: 12px;
+}
+
+.body-status-list,
+.body-reflex-status {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.body-status-list.pending-proof {
+  background: rgba(255, 209, 102, 0.075);
+  border-color: rgba(255, 209, 102, 0.22);
+}
+
+.body-status-list span,
+.body-reflex-status span {
+  display: block;
+  color: #9ba7bd;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.body-status-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: grid;
+  gap: 6px;
+}
+
+.body-status-list li {
+  color: #f6f8ff;
+  line-height: 1.35;
+}
+
+.body-status-list li::before {
+  content: "•";
+  color: #63e6be;
+  margin-right: 8px;
+}
+
+.body-status-list.pending-proof li::before {
+  color: #ffd166;
+}
+
+.body-reflex-status strong {
+  display: block;
+  margin-top: 10px;
+  color: #f6f8ff;
+}
+
+.body-reflex-status p,
+.body-reflex-status small {
+  display: block;
+  margin: 8px 0 0;
+  color: #c7d0e5;
+  line-height: 1.4;
+}
+
+.body-reflex-status small {
+  color: #9ba7bd;
 }
 
 .body-part-card {
@@ -927,6 +999,14 @@ h2 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
+  .body-progress-summary {
+    grid-template-columns: 1.2fr 0.8fr 1.2fr;
+  }
+
+  .body-status-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.25fr);
+  }
+
   .warning-grid {
     grid-template-columns: 1.08fr 0.92fr;
   }
@@ -994,7 +1074,13 @@ h2 {
   .summary,
   .position-question,
   .decision-action,
-  .guardrail strong {
+  .guardrail strong,
+  .body-progress-status,
+  .body-status-list li,
+  .body-reflex-status p,
+  .body-reflex-status small,
+  .body-execution-lock strong,
+  .body-lock-reason {
     overflow-wrap: anywhere;
   }
 
@@ -1447,6 +1533,10 @@ h2 {
     grid-template-columns: 1.4fr 0.7fr 1.1fr;
   }
 
+  .body-status-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.25fr);
+  }
+
   .body-part-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1484,7 +1574,10 @@ h2 {
   .source-grid,
   .separated-state-bar,
   .separated-state-bar.compact,
-  .management-plan-grid {
+  .management-plan-grid,
+  .body-progress-summary,
+  .body-status-grid,
+  .body-part-grid {
     grid-template-columns: 1fr;
   }
 
