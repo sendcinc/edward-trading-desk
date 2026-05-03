@@ -1613,3 +1613,76 @@ h2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+.thorp-setup-card {
+  border-color: rgba(99, 230, 190, 0.32);
+  background: linear-gradient(180deg, rgba(15, 34, 35, 0.94), rgba(8, 12, 18, 0.96));
+}
+
+.thorp-setup-head,
+.thorp-setup-tags {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.thorp-setup-tags {
+  justify-content: flex-end;
+}
+
+.thorp-recommendation {
+  margin: 14px 0;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 230, 190, 0.22);
+  background: rgba(99, 230, 190, 0.08);
+  overflow-wrap: anywhere;
+}
+
+.thorp-recommendation span {
+  display: block;
+  color: #9ba7bd;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.thorp-recommendation strong {
+  display: block;
+  margin-top: 4px;
+  color: #63e6be;
+  font-size: clamp(1.35rem, 6vw, 2.1rem);
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.thorp-recommendation p {
+  margin: 8px 0 0;
+  color: #d8e4f3;
+}
+
+.thorp-setup-grid {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+}
+
+.thorp-setup-grid .metric,
+.thorp-setup-guardrails .guardrail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 420px) {
+  .thorp-setup-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .thorp-recommendation,
+  .thorp-setup-card {
+    overflow-x: hidden;
+  }
+}

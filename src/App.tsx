@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
 import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
-import type { AlertIntakeResult, DataMode, LatestAlert, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition } from "./domain/tradingDesk";
+import type { AlertIntakeResult, DataMode, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition } from "./domain/tradingDesk";
 import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -92,13 +92,17 @@ export default function App() {
   );
 }
 
-function LatestAlertPanel({ alertIntake }: { alertIntake?: AlertIntakeResult }) {
+export function LatestAlertPanel({ alertIntake }: { alertIntake?: AlertIntakeResult }) {
   const latest = alertIntake?.latestAlert ?? null;
   const unavailable = !alertIntake || alertIntake.webhookStatus === "unavailable";
   const stale = isAlertIntakeStale(alertIntake);
   const status = latest?.status;
   const needsWarning = unavailable || stale || status === "context_only" || status === "invalid" || status === "duplicate";
   const warning = alertWarningText({ unavailable, stale, status });
+
+  if (isRichThorpScannerAlert(latest)) {
+    return <ThorpSetupReadyCard alert={latest} alertIntake={alertIntake} needsWarning={needsWarning} warning={warning} />;
+  }
 
   return (
     <section className={`panel latest-alert-panel ${needsWarning ? "warning" : "ready"}`}>
@@ -125,12 +129,81 @@ function LatestAlertPanel({ alertIntake }: { alertIntake?: AlertIntakeResult }) 
         <Guardrail label="Latest reason" value={latest?.reason ?? "No recent valid alert intake data is available."} danger={needsWarning} />
       </div>
 
+      {latest?.alertType === "THORP_SCORE_READY" && latest.classification !== "thorp_score_ready_rich_scanner_alert" ? (
+        <p className="alert-warning"><AlertTriangle size={16} /> Fresh context/setup review required before any action.</p>
+      ) : null}
       {warning && <p className="alert-warning"><AlertTriangle size={16} /> {warning}</p>}
       {alertIntake?.validationIssues?.length ? (
         <ul className="health-issues">
           {alertIntake.validationIssues.slice(0, 2).map((issue) => <li key={issue}>{issue}</li>)}
         </ul>
       ) : null}
+    </section>
+  );
+}
+
+
+function ThorpSetupReadyCard({
+  alert,
+  alertIntake,
+  needsWarning,
+  warning,
+}: {
+  alert: LatestAlert;
+  alertIntake?: AlertIntakeResult;
+  needsWarning: boolean;
+  warning: string;
+}) {
+  const payload = alert.richScannerPayload!;
+  const recommendation = thorpRecommendationDisplay(alert.scannerRecommendation);
+  return (
+    <section className={`panel latest-alert-panel thorp-setup-card ${needsWarning ? "warning" : "ready"}`}>
+      <div className="latest-alert-head thorp-setup-head">
+        <PanelTitle icon={<BellRing />} eyebrow="Latest Alert / THORP Scanner" title="THORP SETUP READY" />
+        <div className="thorp-setup-tags">
+          <StatusPill label={alertIntake?.webhookStatus ?? "unavailable"} tone={alertIntake?.webhookStatus ?? "unavailable"} />
+          <StatusPill label={recommendation.label} tone={alert.scannerRecommendation ?? "CONTEXT_INCOMPLETE"} />
+        </div>
+      </div>
+
+      <div className="thorp-recommendation">
+        <span>Scanner recommendation</span>
+        <strong>{recommendation.label}</strong>
+        <p>{recommendation.copy}</p>
+      </div>
+
+      <div className="alert-metrics thorp-setup-grid">
+        <Metric label="Symbol" value={alert.normalizedSymbol ?? alert.symbol ?? payload.symbol ?? "Unavailable"} />
+        <Metric label="Timeframe" value={alert.timeframe ?? payload.timeframe ?? "Unavailable"} />
+        <Metric label="Direction" value={formatNullable(payload.direction ?? alert.side)} />
+        <Metric label="Score" value={formatNullable(payload.score)} strong />
+        <Metric label="Bias / Zone" value={formatNullable(payload.bias_zone)} />
+        <Metric label="Battlefield" value={formatNullable(payload.battlefield)} />
+        <Metric label="Trigger" value={formatNullable(payload.trigger)} />
+        <Metric label="Action" value={formatNullable(payload.action)} />
+        <Metric label="Price at alert" value={numOrUnavailable(payload.price_at_alert)} />
+        <Metric label="Scout" value={numOrUnavailable(payload.entries?.scout)} />
+        <Metric label="A1" value={numOrUnavailable(payload.entries?.a1)} />
+        <Metric label="A2" value={numOrUnavailable(payload.entries?.a2)} />
+        <Metric label="Warning" value={numOrUnavailable(payload.risk?.warning)} danger />
+        <Metric label="Hard invalidation" value={numOrUnavailable(payload.risk?.invalidation ?? payload.risk?.hard)} danger />
+        <Metric label="T1" value={numOrUnavailable(payload.targets?.t1)} />
+        <Metric label="T2" value={numOrUnavailable(payload.targets?.t2)} />
+        <Metric label="T3" value={numOrUnavailable(payload.targets?.t3)} />
+        <Metric label="Range H/M/L" value={`${numOrUnavailable(payload.range?.high)} / ${numOrUnavailable(payload.range?.mid)} / ${numOrUnavailable(payload.range?.low)}`} />
+        <Metric label="Rotation" value={formatNullable(payload.rotation)} />
+        <Metric label="Body %" value={payload.body_pct === null || payload.body_pct === undefined ? "Unavailable" : `${num(payload.body_pct)}%`} />
+        <Metric label="Age/status" value={`${formatAge(alert.receivedAt)} / ${alert.status}`} danger={needsWarning} />
+      </div>
+
+      <div className="alert-guardrails thorp-setup-guardrails">
+        <Guardrail label="Setup copy" value={payload.copy ?? "THORP detected a potential setup. This is not an execution command."} danger />
+        <Guardrail label="Execution" value="Alerts do not execute trades." danger />
+        <Guardrail label="Intent" value={`autoExecution ${String(alert.autoExecution)} / executionIntent ${alert.executionIntent}`} danger />
+        <Guardrail label="Queue" value={`${alertIntake?.queueDepth ?? 0} queued reviews`} />
+      </div>
+
+      {warning && <p className="alert-warning"><AlertTriangle size={16} /> {warning}</p>}
     </section>
   );
 }
@@ -780,7 +853,40 @@ function alertWarningText({
   if (status === "context_only") return "Latest alert is context_only and is not a trade signal.";
   if (status === "invalid") return "Latest alert is invalid and was rejected by intake validation.";
   if (status === "duplicate") return "Latest alert is a duplicate; wait for a new valid alert.";
+  if (status === "fresh" || status === "accepted") return "Fresh context/setup review required before any action.";
   return "";
+}
+
+
+function isRichThorpScannerAlert(alert?: LatestAlert | null): alert is LatestAlert & { richScannerPayload: ThorpRichScannerPayload; scannerRecommendation: ThorpScannerRecommendation } {
+  return Boolean(
+    alert?.classification === "thorp_score_ready_rich_scanner_alert" &&
+    alert.payloadCompleteness === "rich_scanner" &&
+    alert.richScannerPayload &&
+    alert.scannerRecommendation,
+  );
+}
+
+function thorpRecommendationDisplay(recommendation?: ThorpScannerRecommendation) {
+  switch (recommendation) {
+    case "REVIEW_NOW": return { label: "REVIEW NOW", copy: "Review now. Confirm current price has not moved away from Scout." };
+    case "WAIT_FOR_RETEST": return { label: "WAIT FOR RETEST", copy: "Wait for retest. Do not chase." };
+    case "SKIP_STALE": return { label: "SKIP — STALE", copy: "Skip. Alert is stale." };
+    case "SKIP_STRETCHED": return { label: "SKIP — STRETCHED", copy: "Skip or wait. Move is already extended." };
+    case "DUPLICATE_NO_ACTION": return { label: "DUPLICATE — NO NEW ACTION", copy: "Duplicate scanner alert. No new action." };
+    case "CONTEXT_INCOMPLETE":
+    default:
+      return { label: "REVIEW CHART — CONTEXT INCOMPLETE", copy: "Setup alert received, but required context is incomplete. Review chart manually." };
+  }
+}
+
+function formatNullable(value?: string | number | null) {
+  if (value === null || value === undefined || value === "") return "Unavailable";
+  return typeof value === "number" ? num(value) : value;
+}
+
+function numOrUnavailable(value?: number | null) {
+  return value === null || value === undefined ? "Unavailable" : num(value);
 }
 
 function dataModeMessage(loadResult: TradingDeskLoadResult) {

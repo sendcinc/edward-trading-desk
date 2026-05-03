@@ -522,3 +522,97 @@ describe("adapter load states", () => {
     }
   });
 });
+
+
+describe("rich THORP scanner alert validation", () => {
+  const richPayload = {
+    type: "THORP_SCORE_READY",
+    schemaVersion: "thorp-rich-scanner.v1",
+    lane: "scanner",
+    system: "THORP_V0_5_8_COMPACT_HUD",
+    symbol: "XRPUSDT.P",
+    tickerid: "PHEMEX:XRPUSDT.P",
+    exchange: "PHEMEX",
+    timeframe: "15",
+    bar_time: 1710000000000,
+    direction: "LONG",
+    decision: "READY | 10",
+    score: 10,
+    bias_zone: "LONG LOWER",
+    battlefield: "GREEN | 11.24%",
+    battlefield_pct: 11.24,
+    trigger: "LOCKED LONG",
+    action: "FRESH LONG OK",
+    setup_state: "FRESH",
+    price_at_alert: 1.3885,
+    entries: { scout: 1.3876, a1: 1.371, a2: 1.3545 },
+    risk: { warning: 1.3483, hard: 1.3403, invalidation: 1.3403 },
+    targets: { t1: 1.4286, t2: 1.4553, t3: 1.5088 },
+    range: { high: 1.5088, mid: 1.4286, low: 1.3483 },
+    rotation: "Rot OK",
+    body_pct: 1.74,
+    auto_execution: false,
+    executionIntent: "none",
+    copy: "THORP detected a potential setup. This is not an execution command.",
+  };
+
+  it("accepts and preserves the rich scanner latest-alert contract", () => {
+    const alertIntake = {
+      ...validAlertIntake(),
+      queueDepth: 0,
+      latestAlert: {
+        receivedAt: "2026-05-03T11:45:00.000Z",
+        alertType: "THORP_SCORE_READY",
+        classification: "thorp_score_ready_rich_scanner_alert",
+        payloadCompleteness: "rich_scanner",
+        scannerRecommendation: "REVIEW_NOW",
+        richScannerPayload: richPayload,
+        symbol: "XRPUSDT.P",
+        normalizedSymbol: "XRPUSDT.P",
+        timeframe: "15",
+        side: "LONG",
+        status: "fresh",
+        payloadHash: "rich123",
+        triggeredReview: false,
+        reviewStatus: "not_applicable",
+        reason: "rich scanner setup",
+        autoExecution: false,
+        executionIntent: "none",
+      },
+    };
+
+    const result = validateAlertIntake(alertIntake);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.alertIntake.latestAlert?.classification).toBe("thorp_score_ready_rich_scanner_alert");
+      expect(result.alertIntake.latestAlert?.payloadCompleteness).toBe("rich_scanner");
+      expect(result.alertIntake.latestAlert?.scannerRecommendation).toBe("REVIEW_NOW");
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.entries.scout).toBe(1.3876);
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.risk.invalidation).toBe(1.3403);
+      expect(result.alertIntake.latestAlert?.triggeredReview).toBe(false);
+      expect(result.alertIntake.queueDepth).toBe(0);
+    }
+  });
+
+  it("rejects rich scanner latest-alerts with executable intent", () => {
+    const result = validateAlertIntake({
+      ...validAlertIntake(),
+      latestAlert: {
+        ...validAlertIntake().latestAlert,
+        alertType: "THORP_SCORE_READY",
+        classification: "thorp_score_ready_rich_scanner_alert",
+        payloadCompleteness: "rich_scanner",
+        scannerRecommendation: "REVIEW_NOW",
+        richScannerPayload: { ...richPayload, auto_execution: true },
+        autoExecution: false,
+        executionIntent: "none",
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues.join("\n")).toContain("richScannerPayload.auto_execution");
+    }
+  });
+});

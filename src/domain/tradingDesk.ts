@@ -20,6 +20,44 @@ export type PaceStatus = "AHEAD" | "BEHIND";
 export type AlertIntakeStatus = string;
 export type LatestAlertStatus = "fresh" | "stale" | "duplicate" | "invalid" | "context_only" | "accepted";
 export type AlertSide = string;
+export type ThorpScannerRecommendation =
+  | "REVIEW_NOW"
+  | "WAIT_FOR_RETEST"
+  | "SKIP_STALE"
+  | "SKIP_STRETCHED"
+  | "DUPLICATE_NO_ACTION"
+  | "CONTEXT_INCOMPLETE";
+
+export type ThorpRichScannerPayload = {
+  type: "THORP_SCORE_READY";
+  schemaVersion: "thorp-rich-scanner.v1";
+  lane: "scanner";
+  system?: string;
+  symbol?: string;
+  tickerid?: string;
+  exchange?: string;
+  timeframe?: string;
+  bar_time?: number | null;
+  direction?: string | null;
+  decision?: string | null;
+  score?: number | null;
+  bias_zone?: string | null;
+  battlefield?: string | null;
+  battlefield_pct?: number | null;
+  trigger?: string | null;
+  action?: string | null;
+  setup_state?: string | null;
+  price_at_alert?: number | null;
+  entries: { scout?: number | null; a1?: number | null; a2?: number | null };
+  risk: { warning?: number | null; hard?: number | null; invalidation?: number | null };
+  targets: { t1?: number | null; t2?: number | null; t3?: number | null };
+  range: { high?: number | null; mid?: number | null; low?: number | null };
+  rotation?: string | null;
+  body_pct?: number | null;
+  auto_execution: false;
+  executionIntent: "none";
+  copy?: string;
+};
 
 export type TradingDeskSnapshot = {
   contractVersion: TradingDeskSnapshotContractVersion;
@@ -353,6 +391,10 @@ export type LatestAlert = {
   triggeredReview: boolean;
   reviewStatus: string;
   reason?: string | null;
+  classification?: string;
+  payloadCompleteness?: "rich_scanner" | string | null;
+  scannerRecommendation?: ThorpScannerRecommendation;
+  richScannerPayload?: ThorpRichScannerPayload;
   autoExecution: false;
   executionIntent: "none";
 };

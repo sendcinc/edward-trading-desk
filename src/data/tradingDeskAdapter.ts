@@ -320,6 +320,38 @@ const tradingDeskHealthSchema = z.object({
   }).optional(),
 });
 
+const thorpRichScannerPayloadSchema = z.object({
+  type: z.literal("THORP_SCORE_READY"),
+  schemaVersion: z.literal("thorp-rich-scanner.v1"),
+  lane: z.literal("scanner"),
+  system: z.string().min(1).optional(),
+  symbol: z.string().min(1).optional(),
+  tickerid: z.string().min(1).optional(),
+  exchange: z.string().min(1).optional(),
+  timeframe: z.string().min(1).optional(),
+  bar_time: z.number().finite().nullable().optional(),
+  direction: z.string().nullable().optional(),
+  decision: z.string().nullable().optional(),
+  score: z.number().finite().nullable().optional(),
+  bias_zone: z.string().nullable().optional(),
+  battlefield: z.string().nullable().optional(),
+  battlefield_pct: z.number().finite().nullable().optional(),
+  trigger: z.string().nullable().optional(),
+  action: z.string().nullable().optional(),
+  setup_state: z.string().nullable().optional(),
+  price_at_alert: z.number().finite().nullable().optional(),
+  entries: z.object({ scout: z.number().finite().nullable().optional(), a1: z.number().finite().nullable().optional(), a2: z.number().finite().nullable().optional() }),
+  risk: z.object({ warning: z.number().finite().nullable().optional(), hard: z.number().finite().nullable().optional(), invalidation: z.number().finite().nullable().optional() }),
+  targets: z.object({ t1: z.number().finite().nullable().optional(), t2: z.number().finite().nullable().optional(), t3: z.number().finite().nullable().optional() }),
+  range: z.object({ high: z.number().finite().nullable().optional(), mid: z.number().finite().nullable().optional(), low: z.number().finite().nullable().optional() }),
+  rotation: z.string().nullable().optional(),
+  body_pct: z.number().finite().nullable().optional(),
+  auto_execution: z.literal(false),
+  executionIntent: z.literal("none"),
+  copy: z.string().optional(),
+});
+const thorpScannerRecommendationSchema = z.enum(["REVIEW_NOW", "WAIT_FOR_RETEST", "SKIP_STALE", "SKIP_STRETCHED", "DUPLICATE_NO_ACTION", "CONTEXT_INCOMPLETE"]);
+
 const latestAlertSchema = z.object({
   receivedAt: z.string().datetime(),
   alertType: z.string().min(1),
@@ -332,6 +364,10 @@ const latestAlertSchema = z.object({
   triggeredReview: z.boolean(),
   reviewStatus: z.string().min(1),
   reason: z.string().nullable().optional(),
+  classification: z.string().min(1).optional(),
+  payloadCompleteness: z.string().nullable().optional(),
+  scannerRecommendation: thorpScannerRecommendationSchema.optional(),
+  richScannerPayload: thorpRichScannerPayloadSchema.optional(),
   autoExecution: z.literal(false),
   executionIntent: z.literal("none"),
 });
