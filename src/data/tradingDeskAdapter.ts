@@ -320,6 +320,9 @@ const tradingDeskHealthSchema = z.object({
   }).optional(),
 });
 
+const nullableNumberSchema = z.number().finite().nullable().optional();
+const nullableStringSchema = z.string().nullable().optional();
+
 const thorpRichScannerPayloadSchema = z.object({
   type: z.literal("THORP_SCORE_READY"),
   schemaVersion: z.literal("thorp-rich-scanner.v1"),
@@ -329,28 +332,29 @@ const thorpRichScannerPayloadSchema = z.object({
   tickerid: z.string().min(1).optional(),
   exchange: z.string().min(1).optional(),
   timeframe: z.string().min(1).optional(),
-  bar_time: z.number().finite().nullable().optional(),
-  direction: z.string().nullable().optional(),
-  decision: z.string().nullable().optional(),
-  score: z.number().finite().nullable().optional(),
-  bias_zone: z.string().nullable().optional(),
-  battlefield: z.string().nullable().optional(),
-  battlefield_pct: z.number().finite().nullable().optional(),
-  trigger: z.string().nullable().optional(),
-  action: z.string().nullable().optional(),
-  setup_state: z.string().nullable().optional(),
-  price_at_alert: z.number().finite().nullable().optional(),
-  entries: z.object({ scout: z.number().finite().nullable().optional(), a1: z.number().finite().nullable().optional(), a2: z.number().finite().nullable().optional() }),
-  risk: z.object({ warning: z.number().finite().nullable().optional(), hard: z.number().finite().nullable().optional(), invalidation: z.number().finite().nullable().optional() }),
-  targets: z.object({ t1: z.number().finite().nullable().optional(), t2: z.number().finite().nullable().optional(), t3: z.number().finite().nullable().optional() }),
-  range: z.object({ high: z.number().finite().nullable().optional(), mid: z.number().finite().nullable().optional(), low: z.number().finite().nullable().optional() }),
-  rotation: z.string().nullable().optional(),
-  body_pct: z.number().finite().nullable().optional(),
+  bar_time: nullableNumberSchema,
+  direction: nullableStringSchema,
+  decision: nullableStringSchema,
+  score: nullableNumberSchema,
+  bias_zone: nullableStringSchema,
+  battlefield: nullableStringSchema,
+  battlefield_pct: nullableNumberSchema,
+  trigger: nullableStringSchema,
+  action: nullableStringSchema,
+  setup_state: nullableStringSchema,
+  price_at_alert: nullableNumberSchema,
+  entries: z.object({ scout: nullableNumberSchema, a1: nullableNumberSchema, a2: nullableNumberSchema }).strict(),
+  risk: z.object({ warning: nullableNumberSchema, hard: nullableNumberSchema, invalidation: nullableNumberSchema }).strict(),
+  targets: z.object({ t1: nullableNumberSchema, t2: nullableNumberSchema, t3: nullableNumberSchema }).strict(),
+  range: z.object({ high: nullableNumberSchema, mid: nullableNumberSchema, low: nullableNumberSchema }).strict(),
+  rotation: nullableStringSchema,
+  body_pct: nullableNumberSchema,
   auto_execution: z.literal(false),
   executionIntent: z.literal("none"),
   copy: z.string().optional(),
-});
+}).strict();
 const thorpScannerRecommendationSchema = z.enum(["REVIEW_NOW", "WAIT_FOR_RETEST", "SKIP_STALE", "SKIP_STRETCHED", "DUPLICATE_NO_ACTION", "CONTEXT_INCOMPLETE"]);
+const RICH_THORP_SCANNER_CLASSIFICATION = "thorp_score_ready_rich_scanner_alert";
 
 const latestAlertSchema = z.object({
   receivedAt: z.string().datetime(),
@@ -370,6 +374,50 @@ const latestAlertSchema = z.object({
   richScannerPayload: thorpRichScannerPayloadSchema.optional(),
   autoExecution: z.literal(false),
   executionIntent: z.literal("none"),
+}).superRefine((alert, ctx) => {
+  const hasRichClassification = alert.classification === RICH_THORP_SCANNER_CLASSIFICATION;
+  const hasRichCompleteness = alert.payloadCompleteness === "rich_scanner";
+  const hasRichRecommendation = alert.scannerRecommendation !== undefined;
+  const hasRichPayload = alert.richScannerPayload !== undefined;
+  const hasAnyRichScannerSignal = hasRichClassification || hasRichCompleteness || hasRichRecommendation || hasRichPayload;
+
+  if (!hasAnyRichScannerSignal) return;
+
+  if (alert.alertType !== "THORP_SCORE_READY") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["alertType"],
+      message: "rich THORP scanner alert must use alertType THORP_SCORE_READY",
+    });
+  }
+  if (!hasRichClassification) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["classification"],
+      message: "rich THORP scanner alert requires classification thorp_score_ready_rich_scanner_alert",
+    });
+  }
+  if (!hasRichCompleteness) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["payloadCompleteness"],
+      message: "rich THORP scanner alert requires payloadCompleteness rich_scanner",
+    });
+  }
+  if (!hasRichRecommendation) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["scannerRecommendation"],
+      message: "rich THORP scanner alert requires scannerRecommendation",
+    });
+  }
+  if (!hasRichPayload) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["richScannerPayload"],
+      message: "rich THORP scanner alert requires richScannerPayload",
+    });
+  }
 });
 
 const alertIntakeSchema = z.object({

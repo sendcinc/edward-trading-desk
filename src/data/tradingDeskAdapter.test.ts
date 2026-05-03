@@ -556,32 +556,41 @@ describe("rich THORP scanner alert validation", () => {
     copy: "THORP detected a potential setup. This is not an execution command.",
   };
 
-  it("accepts and preserves the rich scanner latest-alert contract", () => {
-    const alertIntake = {
-      ...validAlertIntake(),
-      queueDepth: 0,
-      latestAlert: {
-        receivedAt: "2026-05-03T11:45:00.000Z",
-        alertType: "THORP_SCORE_READY",
-        classification: "thorp_score_ready_rich_scanner_alert",
-        payloadCompleteness: "rich_scanner",
-        scannerRecommendation: "REVIEW_NOW",
-        richScannerPayload: richPayload,
-        symbol: "XRPUSDT.P",
-        normalizedSymbol: "XRPUSDT.P",
-        timeframe: "15",
-        side: "LONG",
-        status: "fresh",
-        payloadHash: "rich123",
-        triggeredReview: false,
-        reviewStatus: "not_applicable",
-        reason: "rich scanner setup",
-        autoExecution: false,
-        executionIntent: "none",
-      },
-    };
+  const richAlertIntake = (latestPatch: Record<string, unknown> = {}, payloadPatch: Record<string, unknown> = {}) => ({
+    ...validAlertIntake(),
+    queueDepth: 0,
+    latestAlert: {
+      receivedAt: "2026-05-03T11:45:00.000Z",
+      alertType: "THORP_SCORE_READY",
+      classification: "thorp_score_ready_rich_scanner_alert",
+      payloadCompleteness: "rich_scanner",
+      scannerRecommendation: "REVIEW_NOW",
+      richScannerPayload: { ...richPayload, ...payloadPatch },
+      symbol: "XRPUSDT.P",
+      normalizedSymbol: "XRPUSDT.P",
+      timeframe: "15",
+      side: "LONG",
+      status: "fresh",
+      payloadHash: "rich123",
+      triggeredReview: false,
+      reviewStatus: "not_applicable",
+      reason: "rich scanner setup",
+      autoExecution: false,
+      executionIntent: "none",
+      ...latestPatch,
+    },
+  });
 
+  const expectRejected = (alertIntake: unknown, expectedIssue: string) => {
     const result = validateAlertIntake(alertIntake);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues.join("\n")).toContain(expectedIssue);
+    }
+  };
+
+  it("accepts and preserves the rich scanner latest-alert contract", () => {
+    const result = validateAlertIntake(richAlertIntake());
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -590,29 +599,73 @@ describe("rich THORP scanner alert validation", () => {
       expect(result.alertIntake.latestAlert?.scannerRecommendation).toBe("REVIEW_NOW");
       expect(result.alertIntake.latestAlert?.richScannerPayload?.entries.scout).toBe(1.3876);
       expect(result.alertIntake.latestAlert?.richScannerPayload?.risk.invalidation).toBe(1.3403);
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.targets.t3).toBe(1.5088);
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.range.mid).toBe(1.4286);
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.copy).toContain("not an execution command");
+      expect(result.alertIntake.latestAlert?.autoExecution).toBe(false);
+      expect(result.alertIntake.latestAlert?.executionIntent).toBe("none");
       expect(result.alertIntake.latestAlert?.triggeredReview).toBe(false);
       expect(result.alertIntake.queueDepth).toBe(0);
     }
   });
 
-  it("rejects rich scanner latest-alerts with executable intent", () => {
+  it("keeps legacy static THORP_SCORE_READY wake-up alerts valid without rich fields", () => {
     const result = validateAlertIntake({
       ...validAlertIntake(),
       latestAlert: {
         ...validAlertIntake().latestAlert,
         alertType: "THORP_SCORE_READY",
-        classification: "thorp_score_ready_rich_scanner_alert",
-        payloadCompleteness: "rich_scanner",
-        scannerRecommendation: "REVIEW_NOW",
-        richScannerPayload: { ...richPayload, auto_execution: true },
+        classification: "thorp_score_ready_legacy_alert",
+        payloadCompleteness: "legacy",
+        status: "fresh",
+        triggeredReview: false,
+        reviewStatus: "not_applicable",
+        reason: "legacy wake-up only",
         autoExecution: false,
         executionIntent: "none",
       },
     });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.issues.join("\n")).toContain("richScannerPayload.auto_execution");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.alertIntake.latestAlert?.richScannerPayload).toBeUndefined();
+      expect(result.alertIntake.latestAlert?.scannerRecommendation).toBeUndefined();
     }
+  });
+
+  it("rejects rich scanner latest-alerts with executable intent", () => {
+    expectRejected(richAlertIntake({}, { auto_execution: true }), "richScannerPayload.auto_execution");
+  });
+
+  it("rejects rich classification without payload", () => {
+    expectRejected(richAlertIntake({ richScannerPayload: undefined }), "latestAlert.richScannerPayload");
+  });
+
+  it("rejects rich classification without payloadCompleteness rich_scanner", () => {
+    expectRejected(richAlertIntake({ payloadCompleteness: "legacy" }), "latestAlert.payloadCompleteness");
+  });
+
+  it("rejects rich classification without scannerRecommendation", () => {
+    expectRejected(richAlertIntake({ scannerRecommendation: undefined }), "latestAlert.scannerRecommendation");
+  });
+
+  it("rejects richScannerPayload under non-THORP_SCORE_READY alert", () => {
+    expectRejected(richAlertIntake({ alertType: "THORP_HUD" }), "latestAlert.alertType");
+  });
+
+  it("rejects richScannerPayload when classification is not rich scanner", () => {
+    expectRejected(richAlertIntake({ classification: "thorp_score_ready_legacy_alert" }), "latestAlert.classification");
+  });
+
+  it("rejects richScannerPayload with orderType", () => {
+    expectRejected(richAlertIntake({}, { orderType: "market" }), "richScannerPayload");
+  });
+
+  it("rejects richScannerPayload with qty", () => {
+    expectRejected(richAlertIntake({}, { qty: 100 }), "richScannerPayload");
+  });
+
+  it("rejects richScannerPayload with nested exchangeAction", () => {
+    expectRejected(richAlertIntake({}, { entries: { ...richPayload.entries, exchangeAction: "buy" } }), "richScannerPayload.entries");
   });
 });
