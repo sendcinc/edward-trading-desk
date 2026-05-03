@@ -320,6 +320,42 @@ const tradingDeskHealthSchema = z.object({
   }).optional(),
 });
 
+const nullableNumberSchema = z.number().finite().nullable().optional();
+const nullableStringSchema = z.string().nullable().optional();
+
+const thorpRichScannerPayloadSchema = z.object({
+  type: z.literal("THORP_SCORE_READY"),
+  schemaVersion: z.literal("thorp-rich-scanner.v1"),
+  lane: z.literal("scanner"),
+  system: z.string().min(1).optional(),
+  symbol: z.string().min(1).optional(),
+  tickerid: z.string().min(1).optional(),
+  exchange: z.string().min(1).optional(),
+  timeframe: z.string().min(1).optional(),
+  bar_time: nullableNumberSchema,
+  direction: nullableStringSchema,
+  decision: nullableStringSchema,
+  score: nullableNumberSchema,
+  bias_zone: nullableStringSchema,
+  battlefield: nullableStringSchema,
+  battlefield_pct: nullableNumberSchema,
+  trigger: nullableStringSchema,
+  action: nullableStringSchema,
+  setup_state: nullableStringSchema,
+  price_at_alert: nullableNumberSchema,
+  entries: z.object({ scout: nullableNumberSchema, a1: nullableNumberSchema, a2: nullableNumberSchema }).strict(),
+  risk: z.object({ warning: nullableNumberSchema, hard: nullableNumberSchema, invalidation: nullableNumberSchema }).strict(),
+  targets: z.object({ t1: nullableNumberSchema, t2: nullableNumberSchema, t3: nullableNumberSchema }).strict(),
+  range: z.object({ high: nullableNumberSchema, mid: nullableNumberSchema, low: nullableNumberSchema }).strict(),
+  rotation: nullableStringSchema,
+  body_pct: nullableNumberSchema,
+  auto_execution: z.literal(false),
+  executionIntent: z.literal("none"),
+  copy: z.string().optional(),
+}).strict();
+const thorpScannerRecommendationSchema = z.enum(["REVIEW_NOW", "WAIT_FOR_RETEST", "SKIP_STALE", "SKIP_STRETCHED", "DUPLICATE_NO_ACTION", "CONTEXT_INCOMPLETE"]);
+const RICH_THORP_SCANNER_CLASSIFICATION = "thorp_score_ready_rich_scanner_alert";
+
 const latestAlertSchema = z.object({
   receivedAt: z.string().datetime(),
   alertType: z.string().min(1),
@@ -332,8 +368,56 @@ const latestAlertSchema = z.object({
   triggeredReview: z.boolean(),
   reviewStatus: z.string().min(1),
   reason: z.string().nullable().optional(),
+  classification: z.string().min(1).optional(),
+  payloadCompleteness: z.string().nullable().optional(),
+  scannerRecommendation: thorpScannerRecommendationSchema.optional(),
+  richScannerPayload: thorpRichScannerPayloadSchema.optional(),
   autoExecution: z.literal(false),
   executionIntent: z.literal("none"),
+}).superRefine((alert, ctx) => {
+  const hasRichClassification = alert.classification === RICH_THORP_SCANNER_CLASSIFICATION;
+  const hasRichCompleteness = alert.payloadCompleteness === "rich_scanner";
+  const hasRichRecommendation = alert.scannerRecommendation !== undefined;
+  const hasRichPayload = alert.richScannerPayload !== undefined;
+  const hasAnyRichScannerSignal = hasRichClassification || hasRichCompleteness || hasRichRecommendation || hasRichPayload;
+
+  if (!hasAnyRichScannerSignal) return;
+
+  if (alert.alertType !== "THORP_SCORE_READY") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["alertType"],
+      message: "rich THORP scanner alert must use alertType THORP_SCORE_READY",
+    });
+  }
+  if (!hasRichClassification) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["classification"],
+      message: "rich THORP scanner alert requires classification thorp_score_ready_rich_scanner_alert",
+    });
+  }
+  if (!hasRichCompleteness) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["payloadCompleteness"],
+      message: "rich THORP scanner alert requires payloadCompleteness rich_scanner",
+    });
+  }
+  if (!hasRichRecommendation) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["scannerRecommendation"],
+      message: "rich THORP scanner alert requires scannerRecommendation",
+    });
+  }
+  if (!hasRichPayload) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["richScannerPayload"],
+      message: "rich THORP scanner alert requires richScannerPayload",
+    });
+  }
 });
 
 const alertIntakeSchema = z.object({

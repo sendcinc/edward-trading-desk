@@ -522,3 +522,150 @@ describe("adapter load states", () => {
     }
   });
 });
+
+
+describe("rich THORP scanner alert validation", () => {
+  const richPayload = {
+    type: "THORP_SCORE_READY",
+    schemaVersion: "thorp-rich-scanner.v1",
+    lane: "scanner",
+    system: "THORP_V0_5_8_COMPACT_HUD",
+    symbol: "XRPUSDT.P",
+    tickerid: "PHEMEX:XRPUSDT.P",
+    exchange: "PHEMEX",
+    timeframe: "15",
+    bar_time: 1710000000000,
+    direction: "LONG",
+    decision: "READY | 10",
+    score: 10,
+    bias_zone: "LONG LOWER",
+    battlefield: "GREEN | 11.24%",
+    battlefield_pct: 11.24,
+    trigger: "LOCKED LONG",
+    action: "FRESH LONG OK",
+    setup_state: "FRESH",
+    price_at_alert: 1.3885,
+    entries: { scout: 1.3876, a1: 1.371, a2: 1.3545 },
+    risk: { warning: 1.3483, hard: 1.3403, invalidation: 1.3403 },
+    targets: { t1: 1.4286, t2: 1.4553, t3: 1.5088 },
+    range: { high: 1.5088, mid: 1.4286, low: 1.3483 },
+    rotation: "Rot OK",
+    body_pct: 1.74,
+    auto_execution: false,
+    executionIntent: "none",
+    copy: "THORP detected a potential setup. This is not an execution command.",
+  };
+
+  const richAlertIntake = (latestPatch: Record<string, unknown> = {}, payloadPatch: Record<string, unknown> = {}) => ({
+    ...validAlertIntake(),
+    queueDepth: 0,
+    latestAlert: {
+      receivedAt: "2026-05-03T11:45:00.000Z",
+      alertType: "THORP_SCORE_READY",
+      classification: "thorp_score_ready_rich_scanner_alert",
+      payloadCompleteness: "rich_scanner",
+      scannerRecommendation: "REVIEW_NOW",
+      richScannerPayload: { ...richPayload, ...payloadPatch },
+      symbol: "XRPUSDT.P",
+      normalizedSymbol: "XRPUSDT.P",
+      timeframe: "15",
+      side: "LONG",
+      status: "fresh",
+      payloadHash: "rich123",
+      triggeredReview: false,
+      reviewStatus: "not_applicable",
+      reason: "rich scanner setup",
+      autoExecution: false,
+      executionIntent: "none",
+      ...latestPatch,
+    },
+  });
+
+  const expectRejected = (alertIntake: unknown, expectedIssue: string) => {
+    const result = validateAlertIntake(alertIntake);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues.join("\n")).toContain(expectedIssue);
+    }
+  };
+
+  it("accepts and preserves the rich scanner latest-alert contract", () => {
+    const result = validateAlertIntake(richAlertIntake());
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.alertIntake.latestAlert?.classification).toBe("thorp_score_ready_rich_scanner_alert");
+      expect(result.alertIntake.latestAlert?.payloadCompleteness).toBe("rich_scanner");
+      expect(result.alertIntake.latestAlert?.scannerRecommendation).toBe("REVIEW_NOW");
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.entries.scout).toBe(1.3876);
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.risk.invalidation).toBe(1.3403);
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.targets.t3).toBe(1.5088);
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.range.mid).toBe(1.4286);
+      expect(result.alertIntake.latestAlert?.richScannerPayload?.copy).toContain("not an execution command");
+      expect(result.alertIntake.latestAlert?.autoExecution).toBe(false);
+      expect(result.alertIntake.latestAlert?.executionIntent).toBe("none");
+      expect(result.alertIntake.latestAlert?.triggeredReview).toBe(false);
+      expect(result.alertIntake.queueDepth).toBe(0);
+    }
+  });
+
+  it("keeps legacy static THORP_SCORE_READY wake-up alerts valid without rich fields", () => {
+    const result = validateAlertIntake({
+      ...validAlertIntake(),
+      latestAlert: {
+        ...validAlertIntake().latestAlert,
+        alertType: "THORP_SCORE_READY",
+        classification: "thorp_score_ready_legacy_alert",
+        payloadCompleteness: "legacy",
+        status: "fresh",
+        triggeredReview: false,
+        reviewStatus: "not_applicable",
+        reason: "legacy wake-up only",
+        autoExecution: false,
+        executionIntent: "none",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.alertIntake.latestAlert?.richScannerPayload).toBeUndefined();
+      expect(result.alertIntake.latestAlert?.scannerRecommendation).toBeUndefined();
+    }
+  });
+
+  it("rejects rich scanner latest-alerts with executable intent", () => {
+    expectRejected(richAlertIntake({}, { auto_execution: true }), "richScannerPayload.auto_execution");
+  });
+
+  it("rejects rich classification without payload", () => {
+    expectRejected(richAlertIntake({ richScannerPayload: undefined }), "latestAlert.richScannerPayload");
+  });
+
+  it("rejects rich classification without payloadCompleteness rich_scanner", () => {
+    expectRejected(richAlertIntake({ payloadCompleteness: "legacy" }), "latestAlert.payloadCompleteness");
+  });
+
+  it("rejects rich classification without scannerRecommendation", () => {
+    expectRejected(richAlertIntake({ scannerRecommendation: undefined }), "latestAlert.scannerRecommendation");
+  });
+
+  it("rejects richScannerPayload under non-THORP_SCORE_READY alert", () => {
+    expectRejected(richAlertIntake({ alertType: "THORP_HUD" }), "latestAlert.alertType");
+  });
+
+  it("rejects richScannerPayload when classification is not rich scanner", () => {
+    expectRejected(richAlertIntake({ classification: "thorp_score_ready_legacy_alert" }), "latestAlert.classification");
+  });
+
+  it("rejects richScannerPayload with orderType", () => {
+    expectRejected(richAlertIntake({}, { orderType: "market" }), "richScannerPayload");
+  });
+
+  it("rejects richScannerPayload with qty", () => {
+    expectRejected(richAlertIntake({}, { qty: 100 }), "richScannerPayload");
+  });
+
+  it("rejects richScannerPayload with nested exchangeAction", () => {
+    expectRejected(richAlertIntake({}, { entries: { ...richPayload.entries, exchangeAction: "buy" } }), "richScannerPayload.entries");
+  });
+});
