@@ -191,6 +191,11 @@ describe("Trading Desk shell", () => {
 
   it("renders broker order truth warnings and relabels hard invalidation as THORP invalidation", () => {
     expect(appSource).toContain("BrokerOrderTruthWarnings");
+    expect(appSource).toContain("ActiveThorpPlanLinkage");
+    expect(appSource).toContain("Active THORP plan linked:");
+    expect(appSource).toContain("Plan source");
+    expect(appSource).toContain("Matched level");
+    expect(appSource).toContain("Plan/broker mismatch");
     expect(appSource).toContain("MANUAL ATTENTION / UNPROTECTED RISK");
     expect(appSource).toContain("No broker stop-loss order found. THORP invalidation is a level, not exchange-side protection.");
     expect(appSource).toContain("PENDING ADD CONTRADICTION");

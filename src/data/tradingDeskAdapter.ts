@@ -144,12 +144,33 @@ const ladderEntrySchema = z.object({
 
 
 const thorpLevelsSchema = z.object({
+  scout: z.number().finite().optional(),
   a1: z.number().finite().optional(),
   a2: z.number().finite().optional(),
   hardInvalidation: z.number().finite().optional(),
   t1: z.number().finite().optional(),
   t2: z.number().finite().optional(),
   t3: z.number().finite().optional(),
+});
+
+const activePlanEntryLevelSchema = z.object({
+  level: z.string().min(1),
+  price: z.number().finite(),
+  status: z.string().min(1),
+});
+
+const activeThorpPlanSchema = z.object({
+  contractVersion: z.literal("active-thorp-trade-plan.v1"),
+  symbol: z.string().min(1),
+  direction: directionSchema,
+  status: z.string().min(1),
+  source: z.string().min(1).optional(),
+  createdAt: z.string().datetime().optional(),
+  auto_execution: z.literal(false),
+  executionIntent: z.literal("none"),
+  matchedEntryLevel: z.string().min(1).optional(),
+  entryLevels: z.array(activePlanEntryLevelSchema).optional(),
+  levels: thorpLevelsSchema.optional(),
 });
 
 const brokerProtectionSchema = z.object({
@@ -166,6 +187,8 @@ const riskVisibilitySchema = z.object({
   tpCoverageStatus: z.enum(["NONE", "PARTIAL", "FULL", "UNKNOWN"]).optional(),
   openAddContradiction: z.boolean().optional(),
   activePlanLinked: z.boolean().optional(),
+  matchedEntryLevel: z.string().min(1).optional(),
+  entryLevels: z.array(activePlanEntryLevelSchema).optional(),
   planBrokerMismatch: z.boolean().optional(),
   manualAttentionRequired: z.boolean().optional(),
   reasons: z.array(z.string().min(1)).optional(),
@@ -230,6 +253,8 @@ const tradingPositionSchema = z.object({
   thorpLevels: thorpLevelsSchema.optional(),
   brokerProtection: brokerProtectionSchema.optional(),
   riskVisibility: riskVisibilitySchema.optional(),
+  activePlanLinked: z.boolean().optional(),
+  activeThorpPlan: activeThorpPlanSchema.optional(),
   extendedTarget: z.number().finite().optional(),
   distanceToTP1Pct: z.number().finite().optional(),
   distanceToStopPct: z.number().finite().optional(),
