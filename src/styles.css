@@ -858,6 +858,14 @@ h2 {
   font-size: 1.1rem;
 }
 
+.trade-journal-count {
+  color: #8490b2;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .trade-journal-badge {
   border-radius: 999px;
   padding: 5px 10px;
@@ -1462,6 +1470,42 @@ h2 {
 .trade-journal-details > summary {
   list-style: none;
   cursor: pointer;
+}
+
+.trade-journal-detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.trade-journal-detail-body {
+  display: grid;
+  gap: 12px;
+}
+
+.trade-journal-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  color: #9ba7bd;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.trade-journal-pagination button {
+  border: 1px solid rgba(146, 167, 255, 0.2);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #d9e1f7;
+  background: rgba(28, 37, 68, 0.78);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.trade-journal-pagination button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
 }
 
 .trade-journal-details > summary::-webkit-details-marker {

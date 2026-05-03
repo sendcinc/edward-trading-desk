@@ -17,7 +17,7 @@ describe("trade journal table rows", () => {
     const summary = buildTradeJournalSummary(snapshot);
 
     expect(summary.stats).toEqual({ trades: "6", wins: "4", losses: "2", winRate: "66.7%" });
-    expect(summary.badge).toBe("ALL 6/6");
+    expect(summary.badge).toBe("6 closed trades");
     expect(summary.rows).toHaveLength(5);
     expect(summary.rows.map((row) => row.symbol)).toEqual(["XRPUSDT", "LINKUSDT", "BTCUSDT", "AVAXUSDT", "FETUSDT"]);
     expect(summary.tableRows).toHaveLength(6);

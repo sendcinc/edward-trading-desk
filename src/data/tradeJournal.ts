@@ -40,7 +40,7 @@ export function buildTradeJournalSummary(snapshot: TradingDeskSnapshot, latestLi
   const decisiveTrades = wins + losses;
 
   return {
-    badge: trades.length ? `ALL ${trades.length}/${trades.length}` : "ALL 0/0",
+    badge: trades.length ? `${trades.length} closed trades` : "0 closed trades",
     stats: {
       trades: String(trades.length),
       wins: String(wins),

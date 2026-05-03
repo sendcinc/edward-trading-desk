@@ -23,6 +23,7 @@ import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
 const REFRESH_INTERVAL_SECONDS = 30;
+const TRADE_JOURNAL_PAGE_SIZE = 10;
 
 export default function App() {
   const [loadResult, setLoadResult] = useState<TradingDeskLoadResult | null>(null);
@@ -753,50 +754,68 @@ function EdwardBodyProgressPanel() {
 
 function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const journal = buildTradeJournalSummary(snapshot);
+  const [journalPage, setJournalPage] = useState(0);
+  const journalPageCount = Math.max(1, Math.ceil(journal.tableRows.length / TRADE_JOURNAL_PAGE_SIZE));
+  const safeJournalPage = Math.min(journalPage, journalPageCount - 1);
+  const journalPageStart = safeJournalPage * TRADE_JOURNAL_PAGE_SIZE;
+  const journalDetailRows = journal.tableRows.slice(journalPageStart, journalPageStart + TRADE_JOURNAL_PAGE_SIZE);
+
   return (
     <section className="panel trade-journal-panel">
-      <details className="trade-journal-details" open>
-        <summary className="trade-journal-header">
-          <h2>Trade Journal</h2>
-          <span className="trade-journal-badge">{journal.badge}</span>
+      <div className="trade-journal-header">
+        <h2>Trade Journal</h2>
+        <span className="trade-journal-count">{journal.stats.trades} closed trades</span>
+      </div>
+
+      <div className="trade-journal-stats" aria-label="Trade journal summary">
+        <JournalStat value={journal.stats.trades} label="TRADES" />
+        <JournalStat value={journal.stats.wins} label="WINS" />
+        <JournalStat value={journal.stats.losses} label="LOSSES" />
+        <JournalStat value={journal.stats.winRate} label="WIN RATE" />
+      </div>
+
+      <details className="trade-journal-details">
+        <summary className="trade-journal-detail-toggle">
+          <span className="trade-journal-badge">See Detail</span>
         </summary>
 
-        <div className="trade-journal-stats" aria-label="Trade journal summary">
-          <JournalStat value={journal.stats.trades} label="TRADES" />
-          <JournalStat value={journal.stats.wins} label="WINS" />
-          <JournalStat value={journal.stats.losses} label="LOSSES" />
-          <JournalStat value={journal.stats.winRate} label="WIN RATE" />
-        </div>
+        <div className="trade-journal-detail-body">
+          <div className="trade-journal-pagination" aria-label="Trade journal pagination">
+            <button type="button" aria-label="Previous journal page" disabled={safeJournalPage === 0} onClick={() => setJournalPage((page) => Math.max(0, page - 1))}>Previous</button>
+            <span>Page {safeJournalPage + 1} of {journalPageCount}</span>
+            <button type="button" aria-label="Next journal page" disabled={safeJournalPage >= journalPageCount - 1} onClick={() => setJournalPage((page) => Math.min(journalPageCount - 1, page + 1))}>Next</button>
+          </div>
 
-        <div className="trade-journal-mobile-cards" aria-label="Mobile trade journal cards">
-          {journal.tableRows.map((row) => (
-            <article key={row.tradeId} className={`journal-card ${row.tone}`}>
-              <div><strong>{row.symbol}</strong><span className={`trade-side ${row.side.toLowerCase()}`}>{row.side}</span></div>
-              <p>{row.status} · {row.date}</p>
-              <dl>
-                <dt>P&L</dt><dd>{row.pnl}</dd>
-                <dt>Entry / Exit</dt><dd>{row.entry} / {row.exit}</dd>
-                <dt>Reason</dt><dd>{row.reason}</dd>
-              </dl>
-            </article>
-          ))}
-        </div>
+          <div className="trade-journal-mobile-cards" aria-label="Mobile trade journal cards">
+            {journalDetailRows.map((row) => (
+              <article key={row.tradeId} className={`journal-card ${row.tone}`}>
+                <div><strong>{row.symbol}</strong><span className={`trade-side ${row.side.toLowerCase()}`}>{row.side}</span></div>
+                <p>{row.status} · {row.date}</p>
+                <dl>
+                  <dt>P&L</dt><dd>{row.pnl}</dd>
+                  <dt>Entry / Exit</dt><dd>{row.entry} / {row.exit}</dd>
+                  <dt>Reason</dt><dd>{row.reason}</dd>
+                </dl>
+              </article>
+            ))}
+          </div>
 
-        <div className="trade-journal-table-wrap">
-          <table className="trade-journal-table">
-            <thead>
-              <tr>
-                <th>Trade ID</th><th>Date</th><th>Symbol</th><th>Side</th><th>Status</th><th>Opened</th><th>Closed</th><th>Entry</th><th>Exit</th><th>Size</th><th>P&amp;L</th><th>Fees</th><th>Funding</th><th>Framework</th><th>Reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {journal.tableRows.map((row) => (
-                <tr key={row.tradeId} className={row.tone}>
-                  <td>{row.tradeId}</td><td>{row.date}</td><td>{row.symbol}</td><td><span className={`trade-side ${row.side.toLowerCase()}`}>{row.side}</span></td><td>{row.status}</td><td>{row.opened}</td><td>{row.closed}</td><td>{row.entry}</td><td>{row.exit}</td><td>{row.size}</td><td>{row.pnl}</td><td>{row.fees}</td><td>{row.funding}</td><td>{row.framework}</td><td>{row.reason}</td>
+          <div className="trade-journal-table-wrap">
+            <table className="trade-journal-table">
+              <thead>
+                <tr>
+                  <th>Trade ID</th><th>Date</th><th>Symbol</th><th>Side</th><th>Status</th><th>Opened</th><th>Closed</th><th>Entry</th><th>Exit</th><th>Size</th><th>P&amp;L</th><th>Fees</th><th>Funding</th><th>Framework</th><th>Reason</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {journalDetailRows.map((row) => (
+                  <tr key={row.tradeId} className={row.tone}>
+                    <td>{row.tradeId}</td><td>{row.date}</td><td>{row.symbol}</td><td><span className={`trade-side ${row.side.toLowerCase()}`}>{row.side}</span></td><td>{row.status}</td><td>{row.opened}</td><td>{row.closed}</td><td>{row.entry}</td><td>{row.exit}</td><td>{row.size}</td><td>{row.pnl}</td><td>{row.fees}</td><td>{row.funding}</td><td>{row.framework}</td><td>{row.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </details>
     </section>
