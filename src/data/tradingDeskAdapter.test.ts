@@ -208,6 +208,76 @@ describe("trading desk snapshot validation", () => {
     }
   });
 
+  it("accepts optional active THORP plan linkage fields without requiring them", () => {
+    const snapshot = validSnapshot();
+    snapshot.activePositionFocus = {
+      ...snapshot.activePositionFocus!,
+      activePlanLinked: true,
+      activeThorpPlan: {
+        contractVersion: "active-thorp-trade-plan.v1",
+        symbol: "ETHUSDT",
+        direction: "SHORT",
+        status: "ACTIVE",
+        source: "manual_operator_confirmed_thorp_plan",
+        createdAt: "2026-05-03T18:00:00.000Z",
+        auto_execution: false,
+        executionIntent: "none",
+        matchedEntryLevel: "a1",
+        entryLevels: [
+          { level: "a1", price: 2333.08, status: "FILLED" },
+          { level: "a2", price: 2343.69, status: "PENDING" },
+        ],
+        levels: { scout: 2324.12, a1: 2333.08, a2: 2343.69, hardInvalidation: 2352.78, t1: 2282.83, t2: 2261.63, t3: 2219.24 },
+      },
+      riskVisibility: {
+        unprotectedRisk: true,
+        stopProtectionStatus: "MISSING",
+        tpCoverageStatus: "PARTIAL",
+        openAddContradiction: true,
+        activePlanLinked: true,
+        matchedEntryLevel: "a1",
+        entryLevels: [
+          { level: "a1", price: 2333.08, status: "FILLED" },
+          { level: "a2", price: 2343.69, status: "PENDING" },
+        ],
+        planBrokerMismatch: true,
+        manualAttentionRequired: true,
+        reasons: ["BROKER_STOP_MISSING", "TP2_MISSING", "TP3_MISSING", "ADD_PERMISSION_NO_BUT_OPEN_ADD_ORDER_EXISTS"],
+      },
+    };
+    snapshot.openPositions = [snapshot.activePositionFocus];
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.activePositionFocus?.activeThorpPlan?.matchedEntryLevel).toBe("a1");
+      expect(result.snapshot.activePositionFocus?.riskVisibility?.entryLevels?.[1].status).toBe("PENDING");
+    }
+  });
+
+  it("rejects executable active THORP plan fields", () => {
+    const snapshot = validSnapshot() as Record<string, unknown>;
+    snapshot.activePositionFocus = {
+      ...(snapshot.activePositionFocus as Record<string, unknown>),
+      activeThorpPlan: {
+        contractVersion: "active-thorp-trade-plan.v1",
+        symbol: "ETHUSDT",
+        direction: "SHORT",
+        status: "ACTIVE",
+        auto_execution: true,
+        executionIntent: "none",
+      },
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues.join("\n")).toContain("activeThorpPlan.auto_execution");
+    }
+  });
+
   it("accepts older snapshots without a trade management plan", () => {
     const snapshot = validSnapshot();
     delete snapshot.tradeManagementPlan;

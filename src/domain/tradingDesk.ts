@@ -244,12 +244,33 @@ export type TpCoverageStatus = "NONE" | "PARTIAL" | "FULL" | "UNKNOWN";
 export type RiskProtectionState = "UNPROTECTED" | "PROTECTED" | "UNKNOWN";
 
 export type ThorpLevels = {
+  scout?: number;
   a1?: number;
   a2?: number;
   hardInvalidation?: number;
   t1?: number;
   t2?: number;
   t3?: number;
+};
+
+export type ActivePlanEntryLevel = {
+  level: "scout" | "a1" | "a2" | string;
+  price: number;
+  status: "FILLED" | "PENDING" | "PLANNED" | string;
+};
+
+export type ActiveThorpPlan = {
+  contractVersion: "active-thorp-trade-plan.v1";
+  symbol: string;
+  direction: Direction;
+  status: "ACTIVE" | string;
+  source?: "manual_operator_confirmed_thorp_plan" | "rich_scanner_confirmed_plan" | string;
+  createdAt?: string;
+  auto_execution: false;
+  executionIntent: "none";
+  matchedEntryLevel?: string;
+  entryLevels?: ActivePlanEntryLevel[];
+  levels?: ThorpLevels;
 };
 
 export type BrokerProtection = {
@@ -266,6 +287,8 @@ export type RiskVisibility = {
   tpCoverageStatus?: TpCoverageStatus;
   openAddContradiction?: boolean;
   activePlanLinked?: boolean;
+  matchedEntryLevel?: string;
+  entryLevels?: ActivePlanEntryLevel[];
   planBrokerMismatch?: boolean;
   manualAttentionRequired?: boolean;
   reasons?: string[];
@@ -332,6 +355,8 @@ export type TradingPosition = {
   thorpLevels?: ThorpLevels;
   brokerProtection?: BrokerProtection;
   riskVisibility?: RiskVisibility;
+  activePlanLinked?: boolean;
+  activeThorpPlan?: ActiveThorpPlan;
   extendedTarget?: number;
   distanceToTP1Pct?: number;
   distanceToStopPct?: number;

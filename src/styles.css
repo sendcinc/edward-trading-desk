@@ -1761,6 +1761,39 @@ h2 {
   margin-bottom: 0.35rem;
 }
 
+.active-thorp-plan-link {
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 16px;
+  padding: 0.9rem;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.active-thorp-plan-link.linked {
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.active-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.entry-level-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.entry-level-tag {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  padding: 0.28rem 0.55rem;
+}
+
 .tp-coverage-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
