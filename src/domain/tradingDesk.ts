@@ -68,6 +68,7 @@ export type TradingDeskSnapshot = {
   riskState: RiskState;
   softLandingPace: SoftLandingPace;
   openPositions: TradingPosition[];
+  brokerOrderTruth?: BrokerOrderTruth;
   activePositionFocus?: TradingPosition | null;
   edwardVerdict: EdwardVerdict;
   tradeManagementPlan?: TradeManagementPlan;
@@ -238,6 +239,81 @@ export type SoftLandingPace = {
   sunStatus: PaceStatus;
 };
 
+export type BrokerProtectionStatus = "MISSING" | "PRESENT" | "UNKNOWN";
+export type TpCoverageStatus = "NONE" | "PARTIAL" | "FULL" | "UNKNOWN";
+export type RiskProtectionState = "UNPROTECTED" | "PROTECTED" | "UNKNOWN";
+
+export type ThorpLevels = {
+  a1?: number;
+  a2?: number;
+  hardInvalidation?: number;
+  t1?: number;
+  t2?: number;
+  t3?: number;
+};
+
+export type BrokerProtection = {
+  stopLossPresent: boolean;
+  stopLossPrice?: number | null;
+  takeProfitPrices: number[];
+  openAddPrices: number[];
+  riskProtectionState: RiskProtectionState;
+};
+
+export type RiskVisibility = {
+  unprotectedRisk?: boolean;
+  stopProtectionStatus?: BrokerProtectionStatus;
+  tpCoverageStatus?: TpCoverageStatus;
+  openAddContradiction?: boolean;
+  activePlanLinked?: boolean;
+  planBrokerMismatch?: boolean;
+  manualAttentionRequired?: boolean;
+  reasons?: string[];
+};
+
+export type BrokerOrder = {
+  symbol?: string;
+  side?: string;
+  type?: string;
+  status?: string;
+  price?: number;
+  stopPrice?: number;
+  size?: number;
+  reduceOnly?: boolean | null;
+  source?: "broker";
+};
+
+export type BrokerOrderTruthSymbol = {
+  symbol: string;
+  positionStatus: "OPEN" | "FLAT";
+  positionSide?: Direction;
+  positionSize?: number | null;
+  averageEntryPrice?: number | null;
+  currentPrice?: number | null;
+  unrealizedPnL?: number | null;
+  orders: {
+    stopLoss: BrokerOrder | null;
+    takeProfits: BrokerOrder[];
+    openAdds: BrokerOrder[];
+    other: BrokerOrder[];
+  };
+  coverage: RiskVisibility & {
+    brokerStopPresent: boolean;
+    brokerStopPrice?: number | null;
+    tpPrices: number[];
+    openAddPrices: number[];
+    missingExpectedTpPrices: number[];
+  };
+};
+
+export type BrokerOrderTruth = {
+  contractVersion: "broker-order-truth.v1";
+  generatedAt: string;
+  source: "phemex_private_read_only";
+  auto_execution: false;
+  symbols: BrokerOrderTruthSymbol[];
+};
+
 export type TradingPosition = {
   symbol: string;
   direction: Direction;
@@ -249,7 +325,13 @@ export type TradingPosition = {
   liquidationPrice?: number;
   unrealizedPnL?: number;
   tp1?: number;
+  tp2?: number;
+  tp3?: number;
   stop?: number;
+  stopSource?: "broker" | "hardInvalidation" | string;
+  thorpLevels?: ThorpLevels;
+  brokerProtection?: BrokerProtection;
+  riskVisibility?: RiskVisibility;
   extendedTarget?: number;
   distanceToTP1Pct?: number;
   distanceToStopPct?: number;

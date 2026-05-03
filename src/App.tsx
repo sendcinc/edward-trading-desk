@@ -343,12 +343,13 @@ function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
         <span className={addPermission.tone}>{addPermission.label}</span>
       </div>
       <SeparatedStateBar snapshot={snapshot} />
+      <BrokerOrderTruthWarnings snapshot={snapshot} />
 
       <div className="decision-metric-grid">
         <Metric label="Current Price" value={num(position.currentPrice)} strong />
         <Metric label="Entry Price" value={num(position.entryPrice)} />
         <Metric label="TP1" value={num(position.tp1)} />
-        <Metric label="Stop" value={num(position.stop)} danger />
+        <Metric label={position.stopSource === "hardInvalidation" ? "THORP Invalidation" : "Broker Stop"} value={num(position.stopSource === "hardInvalidation" ? position.thorpLevels?.hardInvalidation ?? position.stop : position.brokerProtection?.stopLossPrice ?? position.stop)} danger />
         <Metric label="Distance to TP1" value={asPct(position.distanceToTP1Pct)} />
         <Metric label="Distance to Stop" value={asPct(position.distanceToStopPct)} danger />
         <Metric label="Estimated Profit at TP1" value={money(position.estimatedProfitAtTP1)} trend={position.estimatedProfitAtTP1} />
@@ -365,6 +366,48 @@ function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
         <Guardrail label="Recheck trigger" value={formatRecheck(snapshot)} />
       </div>
     </section>
+  );
+}
+
+
+function BrokerOrderTruthWarnings({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const position = snapshot.activePositionFocus;
+  const visibility = position?.riskVisibility;
+  const protection = position?.brokerProtection;
+  const thorpInvalidation = position?.thorpLevels?.hardInvalidation ?? (position?.stopSource === "hardInvalidation" ? position.stop : undefined);
+  const addPrices = protection?.openAddPrices ?? [];
+  if (!position || (!visibility && !protection)) return null;
+  const tpPrices = protection?.takeProfitPrices ?? [];
+  const expectedTps = [position.thorpLevels?.t1 ?? position.tp1, position.thorpLevels?.t2 ?? position.tp2, position.thorpLevels?.t3 ?? position.tp3];
+  const found = (target?: number) => typeof target === "number" && tpPrices.some((price) => Math.abs(price - target) <= Math.max(0.01, Math.abs(target) * 0.0015));
+  return (
+    <div className="broker-truth-warnings" aria-label="Broker order truth warnings">
+      {visibility?.unprotectedRisk || visibility?.stopProtectionStatus === "MISSING" ? (
+        <div className="broker-warning critical">
+          <strong>MANUAL ATTENTION / UNPROTECTED RISK</strong>
+          <p>No broker stop-loss order found. THORP invalidation is a level, not exchange-side protection.</p>
+          <Metric label="THORP invalidation" value={num(thorpInvalidation)} danger />
+          <Metric label="Broker stop" value="Not found" danger />
+        </div>
+      ) : protection?.stopLossPresent ? (
+        <div className="broker-warning ok">
+          <strong>Broker stop confirmed</strong>
+          <Metric label="Broker stop" value={num(protection.stopLossPrice ?? undefined)} />
+        </div>
+      ) : null}
+      {visibility?.openAddContradiction ? (
+        <div className="broker-warning critical">
+          <strong>PENDING ADD CONTRADICTION</strong>
+          <p>Edward says DO NOT ADD, but broker has open add order(s): {addPrices.length ? addPrices.map(num).join(", ") : "Unavailable"}.</p>
+        </div>
+      ) : null}
+      <div className="tp-coverage-grid">
+        <Metric label="Broker TP coverage" value={visibility?.tpCoverageStatus ?? "UNKNOWN"} danger={visibility?.tpCoverageStatus !== "FULL"} />
+        <Metric label="TP1" value={found(expectedTps[0]) ? "TP1 found" : "TP1 missing"} danger={!found(expectedTps[0])} />
+        <Metric label="TP2" value={found(expectedTps[1]) ? "TP2 found" : "TP2 missing"} danger={!found(expectedTps[1])} />
+        <Metric label="TP3" value={found(expectedTps[2]) ? "TP3 found" : "TP3 missing"} danger={!found(expectedTps[2])} />
+      </div>
+    </div>
   );
 }
 
@@ -540,6 +583,8 @@ function RiskLadderPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
         <Guardrail label="Filled ladder entries" value={formatLadder(position?.filledLadderEntries)} />
         <Guardrail label="Remaining ladder entries" value={formatLadder(position?.remainingLadderEntries)} />
         <Guardrail label="Planned size split" value={position?.plannedSizeSplit ?? "Not provided in current snapshot contract."} />
+        <Guardrail label="THORP invalidation" value={num(position?.thorpLevels?.hardInvalidation ?? (position?.stopSource === "hardInvalidation" ? position.stop : undefined))} danger />
+        <Guardrail label="Broker stop" value={position?.brokerProtection?.stopLossPresent ? num(position.brokerProtection.stopLossPrice ?? undefined) : "Not found"} danger={!position?.brokerProtection?.stopLossPresent} />
       </div>
     </section>
   );

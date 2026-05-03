@@ -668,4 +668,103 @@ describe("rich THORP scanner alert validation", () => {
   it("rejects richScannerPayload with nested exchangeAction", () => {
     expectRejected(richAlertIntake({}, { entries: { ...richPayload.entries, exchangeAction: "buy" } }), "richScannerPayload.entries");
   });
+
+  it("accepts optional broker order truth while preserving old snapshot compatibility", () => {
+    const oldSnapshot = validateTradingDeskSnapshot(validSnapshot());
+    expect(oldSnapshot.ok).toBe(true);
+
+    const snapshot = validSnapshot();
+    snapshot.activePositionFocus = {
+      ...snapshot.activePositionFocus!,
+      symbol: "ETHUSDT",
+      direction: "SHORT",
+      entryPrice: 2333.08,
+      currentPrice: 2328.25,
+      stop: 2352.78,
+      stopSource: "hardInvalidation",
+      tp1: 2282.83,
+      tp2: 2261.63,
+      tp3: 2219.24,
+      thorpLevels: { a1: 2333.08, a2: 2343.69, hardInvalidation: 2352.78, t1: 2282.83, t2: 2261.63, t3: 2219.24 },
+      brokerProtection: { stopLossPresent: false, stopLossPrice: null, takeProfitPrices: [2282.83], openAddPrices: [2343.69], riskProtectionState: "UNPROTECTED" },
+      riskVisibility: {
+        unprotectedRisk: true,
+        stopProtectionStatus: "MISSING",
+        tpCoverageStatus: "PARTIAL",
+        openAddContradiction: true,
+        activePlanLinked: true,
+        planBrokerMismatch: true,
+        manualAttentionRequired: true,
+        reasons: ["BROKER_STOP_MISSING", "TP2_MISSING", "TP3_MISSING", "ADD_PERMISSION_NO_BUT_OPEN_ADD_ORDER_EXISTS"],
+      },
+    };
+    snapshot.openPositions = [snapshot.activePositionFocus];
+    snapshot.brokerOrderTruth = {
+      contractVersion: "broker-order-truth.v1",
+      generatedAt: "2026-05-03T16:51:47.000Z",
+      source: "phemex_private_read_only",
+      auto_execution: false,
+      symbols: [{
+        symbol: "ETHUSDT",
+        positionStatus: "OPEN",
+        positionSide: "SHORT",
+        positionSize: 2.7,
+        averageEntryPrice: 2333.08,
+        currentPrice: 2328.25,
+        orders: {
+          stopLoss: null,
+          takeProfits: [{ symbol: "ETHUSDT", side: "BUY", type: "MarketIfTouched", status: "Untriggered", price: 2282.83, source: "broker" }],
+          openAdds: [{ symbol: "ETHUSDT", side: "SELL", type: "Limit", status: "New", price: 2343.69, size: 4, source: "broker" }],
+          other: [],
+        },
+        coverage: {
+          brokerStopPresent: false,
+          brokerStopPrice: null,
+          tpPrices: [2282.83],
+          openAddPrices: [2343.69],
+          missingExpectedTpPrices: [2261.63, 2219.24],
+          unprotectedRisk: true,
+          stopProtectionStatus: "MISSING",
+          tpCoverageStatus: "PARTIAL",
+          openAddContradiction: true,
+          activePlanLinked: true,
+          planBrokerMismatch: true,
+          manualAttentionRequired: true,
+          reasons: ["BROKER_STOP_MISSING", "TP2_MISSING", "TP3_MISSING", "ADD_PERMISSION_NO_BUT_OPEN_ADD_ORDER_EXISTS"],
+        },
+      }],
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.activePositionFocus?.stopSource).toBe("hardInvalidation");
+      expect(result.snapshot.activePositionFocus?.brokerProtection?.stopLossPresent).toBe(false);
+      expect(result.snapshot.brokerOrderTruth?.auto_execution).toBe(false);
+      expect(result.snapshot.brokerOrderTruth?.symbols[0].orders.stopLoss).toBeNull();
+    }
+  });
+
+  it("rejects broker order truth with execution-shaped/sensitive order fields", () => {
+    const snapshot = validSnapshot() as Record<string, unknown>;
+    snapshot.brokerOrderTruth = {
+      contractVersion: "broker-order-truth.v1",
+      generatedAt: "2026-05-03T16:51:47.000Z",
+      source: "phemex_private_read_only",
+      auto_execution: false,
+      symbols: [{
+        symbol: "ETHUSDT",
+        positionStatus: "OPEN",
+        orders: { stopLoss: { symbol: "ETHUSDT", side: "SELL", type: "Stop", status: "New", price: 2352.78, orderId: "sensitive" }, takeProfits: [], openAdds: [], other: [] },
+        coverage: { brokerStopPresent: true, tpPrices: [], openAddPrices: [], missingExpectedTpPrices: [] },
+      }],
+    };
+
+    const result = validateTradingDeskSnapshot(snapshot);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues.join("\n")).toContain("brokerOrderTruth");
+    }
+  });
+
 });

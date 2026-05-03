@@ -142,6 +142,76 @@ const ladderEntrySchema = z.object({
   status: z.enum(["FILLED", "PLANNED", "WAITING", "CANCELLED"]).optional(),
 });
 
+
+const thorpLevelsSchema = z.object({
+  a1: z.number().finite().optional(),
+  a2: z.number().finite().optional(),
+  hardInvalidation: z.number().finite().optional(),
+  t1: z.number().finite().optional(),
+  t2: z.number().finite().optional(),
+  t3: z.number().finite().optional(),
+});
+
+const brokerProtectionSchema = z.object({
+  stopLossPresent: z.boolean(),
+  stopLossPrice: z.number().finite().nullable().optional(),
+  takeProfitPrices: z.array(z.number().finite()),
+  openAddPrices: z.array(z.number().finite()),
+  riskProtectionState: z.enum(["UNPROTECTED", "PROTECTED", "UNKNOWN"]),
+});
+
+const riskVisibilitySchema = z.object({
+  unprotectedRisk: z.boolean().optional(),
+  stopProtectionStatus: z.enum(["MISSING", "PRESENT", "UNKNOWN"]).optional(),
+  tpCoverageStatus: z.enum(["NONE", "PARTIAL", "FULL", "UNKNOWN"]).optional(),
+  openAddContradiction: z.boolean().optional(),
+  activePlanLinked: z.boolean().optional(),
+  planBrokerMismatch: z.boolean().optional(),
+  manualAttentionRequired: z.boolean().optional(),
+  reasons: z.array(z.string().min(1)).optional(),
+});
+
+const brokerOrderSchema = z.object({
+  symbol: z.string().min(1).optional(),
+  side: z.string().min(1).optional(),
+  type: z.string().min(1).optional(),
+  status: z.string().min(1).optional(),
+  price: z.number().finite().optional(),
+  stopPrice: z.number().finite().optional(),
+  size: z.number().finite().optional(),
+  reduceOnly: z.boolean().nullable().optional(),
+  source: z.literal("broker").optional(),
+}).strict();
+
+const brokerOrderTruthSchema = z.object({
+  contractVersion: z.literal("broker-order-truth.v1"),
+  generatedAt: z.string().datetime(),
+  source: z.literal("phemex_private_read_only"),
+  auto_execution: z.literal(false),
+  symbols: z.array(z.object({
+    symbol: z.string().min(1),
+    positionStatus: z.enum(["OPEN", "FLAT"]),
+    positionSide: directionSchema.optional(),
+    positionSize: z.number().finite().nullable().optional(),
+    averageEntryPrice: z.number().finite().nullable().optional(),
+    currentPrice: z.number().finite().nullable().optional(),
+    unrealizedPnL: z.number().finite().nullable().optional(),
+    orders: z.object({
+      stopLoss: brokerOrderSchema.nullable(),
+      takeProfits: z.array(brokerOrderSchema),
+      openAdds: z.array(brokerOrderSchema),
+      other: z.array(brokerOrderSchema),
+    }),
+    coverage: riskVisibilitySchema.extend({
+      brokerStopPresent: z.boolean(),
+      brokerStopPrice: z.number().finite().nullable().optional(),
+      tpPrices: z.array(z.number().finite()),
+      openAddPrices: z.array(z.number().finite()),
+      missingExpectedTpPrices: z.array(z.number().finite()),
+    }),
+  })),
+});
+
 const tradingPositionSchema = z.object({
   symbol: z.string().min(1),
   direction: directionSchema,
@@ -153,7 +223,13 @@ const tradingPositionSchema = z.object({
   liquidationPrice: z.number().finite().optional(),
   unrealizedPnL: z.number().finite().optional(),
   tp1: z.number().finite().optional(),
+  tp2: z.number().finite().optional(),
+  tp3: z.number().finite().optional(),
   stop: z.number().finite().optional(),
+  stopSource: z.string().optional(),
+  thorpLevels: thorpLevelsSchema.optional(),
+  brokerProtection: brokerProtectionSchema.optional(),
+  riskVisibility: riskVisibilitySchema.optional(),
   extendedTarget: z.number().finite().optional(),
   distanceToTP1Pct: z.number().finite().optional(),
   distanceToStopPct: z.number().finite().optional(),
@@ -444,6 +520,7 @@ const tradingDeskSnapshotSchema = z.object({
   riskState: riskStateSchema,
   softLandingPace: softLandingPaceSchema,
   openPositions: z.array(tradingPositionSchema),
+  brokerOrderTruth: brokerOrderTruthSchema.optional(),
   activePositionFocus: tradingPositionSchema.nullish(),
   edwardVerdict: edwardVerdictSchema,
   tradeManagementPlan: tradeManagementPlanSchema.optional(),
@@ -510,7 +587,7 @@ export function validateTradingDeskHealth(raw: unknown): HealthValidationResult 
 
 export function validateAlertIntake(raw: unknown): AlertIntakeValidationResult {
   const result = alertIntakeSchema.safeParse(raw);
-  if (result.success) return { ok: true, alertIntake: result.data, issues: [] };
+  if (result.success) return { ok: true, alertIntake: result.data as AlertIntakeResult, issues: [] };
   return {
     ok: false,
     issues: result.error.issues.map((issue) => {
@@ -566,7 +643,7 @@ export function safeUnavailableAlertIntake(message: string): AlertIntakeResult {
 export function validateTradingDeskSnapshot(raw: unknown): SnapshotValidationResult {
   const result = tradingDeskSnapshotSchema.safeParse(normalizeLegacySnapshot(raw));
   if (result.success) {
-    return { ok: true, snapshot: result.data, issues: [] };
+    return { ok: true, snapshot: result.data as TradingDeskSnapshot, issues: [] };
   }
 
   return {
