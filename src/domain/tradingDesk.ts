@@ -268,7 +268,7 @@ export type ActiveThorpPlan = {
   createdAt?: string;
   auto_execution: false;
   executionIntent: "none";
-  matchedEntryLevel?: string;
+  matchedEntryLevel?: string | null;
   entryLevels?: ActivePlanEntryLevel[];
   levels?: ThorpLevels;
 };
@@ -287,7 +287,7 @@ export type RiskVisibility = {
   tpCoverageStatus?: TpCoverageStatus;
   openAddContradiction?: boolean;
   activePlanLinked?: boolean;
-  matchedEntryLevel?: string;
+  matchedEntryLevel?: string | null;
   entryLevels?: ActivePlanEntryLevel[];
   planBrokerMismatch?: boolean;
   manualAttentionRequired?: boolean;

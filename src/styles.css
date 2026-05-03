@@ -50,6 +50,9 @@ select {
   background: linear-gradient(180deg, rgba(20, 24, 37, 0.92), rgba(9, 11, 18, 0.94));
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   border-radius: 18px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .command-header {
@@ -1024,14 +1027,12 @@ h2 {
   .app-shell {
     width: 100%;
     padding: 12px 10px 32px;
-    overflow-x: clip;
   }
 
   .command-header {
     flex-direction: column;
     gap: 14px;
     padding: 16px;
-    overflow: hidden;
   }
 
   .command-title-row {

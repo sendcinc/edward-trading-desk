@@ -159,6 +159,8 @@ const activePlanEntryLevelSchema = z.object({
   status: z.string().min(1),
 });
 
+const matchedEntryLevelSchema = z.enum(["scout", "a1", "a2", "unknown"]).nullable().optional();
+
 const activeThorpPlanSchema = z.object({
   contractVersion: z.literal("active-thorp-trade-plan.v1"),
   symbol: z.string().min(1),
@@ -168,7 +170,7 @@ const activeThorpPlanSchema = z.object({
   createdAt: z.string().datetime().optional(),
   auto_execution: z.literal(false),
   executionIntent: z.literal("none"),
-  matchedEntryLevel: z.string().min(1).optional(),
+  matchedEntryLevel: matchedEntryLevelSchema,
   entryLevels: z.array(activePlanEntryLevelSchema).optional(),
   levels: thorpLevelsSchema.optional(),
 });
@@ -187,7 +189,7 @@ const riskVisibilitySchema = z.object({
   tpCoverageStatus: z.enum(["NONE", "PARTIAL", "FULL", "UNKNOWN"]).optional(),
   openAddContradiction: z.boolean().optional(),
   activePlanLinked: z.boolean().optional(),
-  matchedEntryLevel: z.string().min(1).optional(),
+  matchedEntryLevel: matchedEntryLevelSchema,
   entryLevels: z.array(activePlanEntryLevelSchema).optional(),
   planBrokerMismatch: z.boolean().optional(),
   manualAttentionRequired: z.boolean().optional(),
