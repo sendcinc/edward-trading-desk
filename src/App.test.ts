@@ -18,13 +18,17 @@ describe("Trading Desk shell", () => {
     expect(appSource).not.toContain("Demo remains available as an explicit fallback");
   });
 
-  it("keeps journal cards above a full-field all-trades table", () => {
+  it("keeps journal summary as the default view and moves full detail behind a See Detail toggle", () => {
     expect(appSource.indexOf('className="trade-journal-stats"')).toBeGreaterThan(-1);
-    expect(appSource.indexOf('className="trade-journal-table-wrap"')).toBeGreaterThan(
+    expect(appSource).toContain("<summary");
+    expect(appSource).toContain("See Detail");
+    expect(appSource).not.toContain("<details className=\"trade-journal-details\" open>");
+    expect(appSource).not.toContain("ALL ${trades.length}/${trades.length}");
+    expect(appSource.indexOf('className="trade-journal-detail-body"')).toBeGreaterThan(
       appSource.indexOf('className="trade-journal-stats"'),
     );
     expect(appSource).toContain("trade-journal-mobile-cards");
-    expect(appSource).toContain("journal.tableRows.map");
+    expect(appSource).toContain("journalDetailRows.map");
     for (const header of [
       "Trade ID",
       "Date",
@@ -46,6 +50,14 @@ describe("Trading Desk shell", () => {
     }
     expect(appSource).not.toContain("<th>Confidence</th>");
     expect(appSource).not.toContain("row.confidence");
+  });
+
+  it("paginates trade journal detail rows instead of rendering every trade at once", () => {
+    expect(appSource).toContain("TRADE_JOURNAL_PAGE_SIZE = 10");
+    expect(appSource).toContain("journalDetailRows = journal.tableRows.slice");
+    expect(appSource).toContain("Page {safeJournalPage + 1} of {journalPageCount}");
+    expect(appSource).toContain("Previous journal page");
+    expect(appSource).toContain("Next journal page");
   });
 
   it("integrates the compact Edward Core status into the title metadata row", () => {
