@@ -110,11 +110,13 @@ describe("Trading Desk shell", () => {
 
   it("renders body-progress copy and locked execution state from static progress data", () => {
     expect(appSource).toContain("edwardBodyProgress");
-    expect(appSource).toContain("Edward Body Progress");
-    expect(appSource).toContain("Current Chapter");
-    expect(appSource).toContain("Overall Body Completion");
-    expect(appSource).toContain("Next Milestone");
-    expect(appSource).toContain("progress.executionAllowed ? \"Unlocked\" : \"Locked\"");
+    expect(appSource).toContain("Edward Gets a Body completion");
+    expect(appSource).toContain("progress.projectName");
+    expect(appSource).toContain("Edward Gets a Body");
+    expect(appSource).toContain("% Complete");
+    expect(appSource).toContain("Current Reflex Status");
+    expect(appSource).toContain("Monitor active");
+    expect(appSource).toContain("reflex.guardrailBadge");
     expect(appSource).toContain("progress.reasonExecutionLocked");
     expect(appSource).toContain("Object.entries(progress.bodyParts)");
   });
