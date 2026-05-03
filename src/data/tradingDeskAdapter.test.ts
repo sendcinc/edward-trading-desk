@@ -256,6 +256,102 @@ describe("trading desk snapshot validation", () => {
     }
   });
 
+  it.each([null, "unknown", "scout", "a1", "a2"])(
+    "accepts Phase 3A.3 matchedEntryLevel value %s from runtime coverage",
+    (matchedEntryLevel) => {
+      const snapshot = validSnapshot() as Record<string, unknown>;
+      const focus = {
+        ...(snapshot.activePositionFocus as Record<string, unknown>),
+        activePlanLinked: false,
+        riskVisibility: {
+          unprotectedRisk: true,
+          stopProtectionStatus: "MISSING",
+          tpCoverageStatus: "PARTIAL",
+          openAddContradiction: false,
+          activePlanLinked: false,
+          matchedEntryLevel,
+          entryLevels: [],
+          planBrokerMismatch: true,
+          manualAttentionRequired: true,
+          reasons: ["BROKER_STOP_MISSING"],
+        },
+      };
+      snapshot.activePositionFocus = focus;
+      snapshot.openPositions = [focus];
+      snapshot.brokerOrderTruth = {
+        contractVersion: "broker-order-truth.v1",
+        generatedAt: "2026-05-03T19:40:00.000Z",
+        source: "phemex_private_read_only",
+        auto_execution: false,
+        symbols: [
+          {
+            symbol: "ETHUSDT",
+            positionStatus: "OPEN",
+            positionSide: "SHORT",
+            positionSize: 1,
+            averageEntryPrice: 2333.08,
+            currentPrice: 2320,
+            unrealizedPnL: 12,
+            orders: { stopLoss: null, takeProfits: [], openAdds: [], other: [] },
+            coverage: {
+              brokerStopPresent: false,
+              brokerStopPrice: null,
+              tpPrices: [],
+              openAddPrices: [],
+              missingExpectedTpPrices: [],
+              unprotectedRisk: true,
+              stopProtectionStatus: "MISSING",
+              tpCoverageStatus: "UNKNOWN",
+              openAddContradiction: false,
+              activePlanLinked: false,
+              matchedEntryLevel,
+              entryLevels: [],
+              planBrokerMismatch: true,
+              manualAttentionRequired: true,
+              reasons: ["BROKER_STOP_MISSING"],
+            },
+          },
+        ],
+      };
+
+      const result = validateTradingDeskSnapshot(snapshot);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.snapshot.activePositionFocus?.riskVisibility?.matchedEntryLevel).toBe(matchedEntryLevel);
+        expect(result.snapshot.brokerOrderTruth?.symbols[0]?.coverage.matchedEntryLevel).toBe(matchedEntryLevel);
+        expect(result.snapshot.openPositions[0]?.riskVisibility?.matchedEntryLevel).toBe(matchedEntryLevel);
+      }
+    },
+  );
+
+  it("accepts omitted Phase 3A.3 matchedEntryLevel values from runtime coverage", () => {
+    const snapshot = validSnapshot() as Record<string, unknown>;
+    const focus = {
+      ...(snapshot.activePositionFocus as Record<string, unknown>),
+      riskVisibility: {
+        unprotectedRisk: true,
+        stopProtectionStatus: "MISSING",
+        tpCoverageStatus: "PARTIAL",
+        activePlanLinked: false,
+        entryLevels: [],
+        planBrokerMismatch: true,
+        manualAttentionRequired: true,
+        reasons: ["BROKER_STOP_MISSING"],
+      },
+    };
+    snapshot.activePositionFocus = focus;
+    snapshot.openPositions = [focus];
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.activePositionFocus?.riskVisibility?.matchedEntryLevel).toBeUndefined();
+      expect(result.snapshot.openPositions[0]?.riskVisibility?.matchedEntryLevel).toBeUndefined();
+    }
+  });
+
   it("rejects executable active THORP plan fields", () => {
     const snapshot = validSnapshot() as Record<string, unknown>;
     snapshot.activePositionFocus = {

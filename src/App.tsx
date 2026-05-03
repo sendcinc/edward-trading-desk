@@ -376,6 +376,13 @@ function formatPlanSource(source?: string): string {
   return source.replace(/_/g, " ");
 }
 
+function formatMatchedEntryLevel(level?: string | null): string {
+  if (!level || level === "unknown") return "Unknown";
+  if (level === "a1" || level === "a2") return level.toUpperCase();
+  if (level === "scout") return "Scout";
+  return level;
+}
+
 function ActiveThorpPlanLinkage({ position }: { position: TradingPosition }) {
   const plan = position.activeThorpPlan;
   const visibility = position.riskVisibility;
@@ -387,14 +394,14 @@ function ActiveThorpPlanLinkage({ position }: { position: TradingPosition }) {
       <strong>Active THORP plan linked: {linked ? "Yes" : "No"}</strong>
       <div className="active-plan-grid">
         <Metric label="Plan source" value={formatPlanSource(plan?.source)} />
-        <Metric label="Matched level" value={matched ? matched.toUpperCase() : "Unavailable"} />
+        <Metric label="Matched level" value={formatMatchedEntryLevel(matched)} />
         <Metric label="Plan/broker mismatch" value={visibility?.planBrokerMismatch ? "Yes" : "No"} danger={visibility?.planBrokerMismatch} />
       </div>
       {entryLevels.length > 0 ? (
         <div className="entry-level-tags" aria-label="Matched THORP entry levels">
           {entryLevels.map((entry) => (
             <span className="entry-level-tag" key={`${entry.level}-${entry.price}-${entry.status}`}>
-              {entry.level.toUpperCase()} {entry.status.toLowerCase()} · {num(entry.price)}
+              {formatMatchedEntryLevel(entry.level)} {entry.status.toLowerCase()} · {num(entry.price)}
             </span>
           ))}
         </div>

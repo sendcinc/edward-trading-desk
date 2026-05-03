@@ -195,6 +195,10 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Active THORP plan linked:");
     expect(appSource).toContain("Plan source");
     expect(appSource).toContain("Matched level");
+    expect(appSource).toContain("formatMatchedEntryLevel");
+    expect(appSource).toContain('if (!level || level === "unknown") return "Unknown";');
+    expect(appSource).toContain('if (level === "a1" || level === "a2") return level.toUpperCase();');
+    expect(appSource).toContain('if (level === "scout") return "Scout";');
     expect(appSource).toContain("Plan/broker mismatch");
     expect(appSource).toContain("MANUAL ATTENTION / UNPROTECTED RISK");
     expect(appSource).toContain("No broker stop-loss order found. THORP invalidation is a level, not exchange-side protection.");
