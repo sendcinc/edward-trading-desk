@@ -458,8 +458,12 @@ const thorpRichScannerPayloadSchema = z.object({
   action: nullableStringSchema,
   setup_state: nullableStringSchema,
   price_at_alert: nullableNumberSchema,
+  current_price: nullableNumberSchema,
+  mark_price: nullableNumberSchema,
+  markPrice: nullableNumberSchema,
+  live_mark_price: nullableNumberSchema,
   entries: z.object({ scout: nullableNumberSchema, a1: nullableNumberSchema, a2: nullableNumberSchema }).strict(),
-  risk: z.object({ warning: nullableNumberSchema, hard: nullableNumberSchema, invalidation: nullableNumberSchema }).strict(),
+  risk: z.object({ warning: nullableNumberSchema, hard: nullableNumberSchema, invalidation: nullableNumberSchema, hardInvalidation: nullableNumberSchema }).strict(),
   targets: z.object({ t1: nullableNumberSchema, t2: nullableNumberSchema, t3: nullableNumberSchema }).strict(),
   range: z.object({ high: nullableNumberSchema, mid: nullableNumberSchema, low: nullableNumberSchema }).strict(),
   rotation: nullableStringSchema,
@@ -469,6 +473,16 @@ const thorpRichScannerPayloadSchema = z.object({
   copy: z.string().optional(),
 }).strict();
 const thorpScannerRecommendationSchema = z.enum(["REVIEW_NOW", "WAIT_FOR_RETEST", "SKIP_STALE", "SKIP_STRETCHED", "DUPLICATE_NO_ACTION", "CONTEXT_INCOMPLETE"]);
+const entryTacticsSchema = z.object({
+  contractVersion: z.literal("entry-tactics-brain.v1"),
+  entryTactic: z.enum(["TAKE_SCOUT", "SCOUT_SMALL_ONLY", "A1_A2_RETEST_ONLY", "A2_SNIPER_ONLY", "WAIT_FOR_RETEST", "SKIP_CHASE", "NO_ACTION_STALE"]),
+  positionSplit: z.string().min(1),
+  nextActionSentence: z.string().min(1),
+  riskReason: z.string().min(1),
+  inputs: z.record(z.string(), z.unknown()).optional(),
+  autoExecution: z.literal(false),
+  executionIntent: z.literal("none"),
+}).strict();
 const RICH_THORP_SCANNER_CLASSIFICATION = "thorp_score_ready_rich_scanner_alert";
 
 const latestAlertSchema = z.object({
@@ -487,6 +501,7 @@ const latestAlertSchema = z.object({
   payloadCompleteness: z.string().nullable().optional(),
   scannerRecommendation: thorpScannerRecommendationSchema.optional(),
   richScannerPayload: thorpRichScannerPayloadSchema.optional(),
+  entryTactics: entryTacticsSchema.optional(),
   autoExecution: z.literal(false),
   executionIntent: z.literal("none"),
 }).superRefine((alert, ctx) => {

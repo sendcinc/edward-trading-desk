@@ -380,6 +380,27 @@ describe("THORP rich setup latest-alert card", () => {
     expect(html).toContain("autoExecution false / executionIntent none");
   });
 
+  it("renders entry tactics as dominant operator line under scanner recommendation", () => {
+    const html = renderRich("REVIEW_NOW", {
+      entryTactics: {
+        contractVersion: "entry-tactics-brain.v1",
+        entryTactic: "A1_A2_RETEST_ONLY",
+        positionSplit: "0/40/60",
+        nextActionSentence: "Retest-only short. Do not chase current price. Use A1/A2 ladder; no fill, no trade.",
+        riskReason: "15m is fresh, but 1H is late/no fresh entry and 4H is wait. Retest entries improve RR and avoid chasing below Scout.",
+        autoExecution: false,
+        executionIntent: "none",
+      },
+    });
+
+    expect(html).toContain("Entry tactic");
+    expect(html).toContain("A1/A2 RETEST ONLY");
+    expect(html).toContain("Next action:");
+    expect(html).toContain("Retest-only short. Do not chase current price. Use A1/A2 ladder; no fill, no trade.");
+    expect(html).toContain("0/40/60");
+    expect(html).toContain("15m is fresh");
+  });
+
   it.each([
     ["WAIT_FOR_RETEST", "WAIT FOR RETEST", "Wait for retest. Do not chase."],
     ["SKIP_STALE", "SKIP — STALE", "Skip. Alert is stale."],
