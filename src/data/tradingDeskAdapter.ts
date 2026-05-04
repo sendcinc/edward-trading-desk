@@ -483,6 +483,34 @@ const entryTacticsSchema = z.object({
   autoExecution: z.literal(false),
   executionIntent: z.literal("none"),
 }).strict();
+const setupRankingCandidateSchema = z.object({
+  rank: z.number().int().positive(),
+  symbol: z.string().min(1),
+  direction: z.string().min(1),
+  score: z.number().finite().optional(),
+  setupGrade: z.string().min(1),
+  recommendedFocus: z.string().min(1),
+  entryTactic: z.string().min(1),
+  positionSplit: z.string().min(1).optional(),
+  freshnessStatus: z.string().min(1).optional(),
+  mtfAlignment: z.string().min(1).optional(),
+  rrQuality: z.string().min(1).optional(),
+  chaseRisk: z.string().min(1).optional(),
+  riskReason: z.string().min(1).optional(),
+  nextActionSentence: z.string().min(1).optional(),
+  openPositionState: z.string().min(1).optional(),
+  autoExecution: z.literal(false),
+  executionIntent: z.literal("none"),
+}).strict();
+const setupRankingSchema = z.object({
+  contractVersion: z.literal("setup-ranking-brain.v1"),
+  bestSetup: z.record(z.string(), z.unknown()),
+  rankingSummary: z.string().min(1),
+  bestActionSentence: z.string().min(1),
+  candidates: z.array(setupRankingCandidateSchema),
+  autoExecution: z.literal(false),
+  executionIntent: z.literal("none"),
+}).strict();
 const RICH_THORP_SCANNER_CLASSIFICATION = "thorp_score_ready_rich_scanner_alert";
 
 const latestAlertSchema = z.object({
@@ -563,6 +591,8 @@ const alertIntakeSchema = z.object({
   lastInvalidAlertAt: z.string().datetime().nullable().optional(),
   queueDepth: z.number().int().nonnegative(),
   lastReviewTriggeredAt: z.string().datetime().nullable().optional(),
+  activeBasketCoverage: z.unknown().optional(),
+  setupRanking: setupRankingSchema.optional(),
 });
 
 const tradingDeskSnapshotSchema = z.object({

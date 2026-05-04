@@ -329,7 +329,7 @@ function richAlert(recommendation: ThorpScannerRecommendation, overrides: Partia
   };
 }
 
-function alertIntakeFor(latestAlert: LatestAlert): AlertIntakeResult {
+function alertIntakeFor(latestAlert: LatestAlert, overrides: Partial<AlertIntakeResult> = {}): AlertIntakeResult {
   return {
     contractVersion: "edward-alert-intake.v1",
     generatedAt: "2026-05-03T11:45:03.000Z",
@@ -343,12 +343,13 @@ function alertIntakeFor(latestAlert: LatestAlert): AlertIntakeResult {
     lastInvalidAlertAt: null,
     queueDepth: 0,
     lastReviewTriggeredAt: null,
+    ...overrides,
   };
 }
 
 describe("THORP rich setup latest-alert card", () => {
-  const renderRich = (recommendation: ThorpScannerRecommendation, overrides: Partial<LatestAlert> = {}) =>
-    renderToStaticMarkup(React.createElement(LatestAlertPanel, { alertIntake: alertIntakeFor(richAlert(recommendation, overrides)) }));
+  const renderRich = (recommendation: ThorpScannerRecommendation, overrides: Partial<LatestAlert> = {}, intakeOverrides: Partial<AlertIntakeResult> = {}) =>
+    renderToStaticMarkup(React.createElement(LatestAlertPanel, { alertIntake: alertIntakeFor(richAlert(recommendation, overrides), intakeOverrides) }));
 
   it("renders THORP SETUP READY with REVIEW NOW copy and fields", () => {
     const html = renderRich("REVIEW_NOW");
@@ -401,6 +402,73 @@ describe("THORP rich setup latest-alert card", () => {
     expect(html).toContain("15m is fresh");
   });
 
+  it("renders setup ranking compactly when setupRanking exists", () => {
+    const html = renderRich("WAIT_FOR_RETEST", {}, {
+      setupRanking: {
+        contractVersion: "setup-ranking-brain.v1",
+        bestSetup: {},
+        rankingSummary: "BNB leads; BCH and LINK are watch-only.",
+        bestActionSentence: "Wait for BNB A1/A2 retest. Do not chase BCH/LINK.",
+        candidates: [
+          {
+            rank: 1,
+            symbol: "BNBUSDT.P",
+            direction: "SHORT",
+            setupGrade: "B",
+            recommendedFocus: "PRIMARY",
+            entryTactic: "A1_A2_RETEST_ONLY",
+            positionSplit: "0/40/60",
+            freshnessStatus: "partial",
+            mtfAlignment: "15m+1H aligned, 4H waiting",
+            rrQuality: "good on retest",
+            chaseRisk: "high at current price",
+            riskReason: "15m and 1H align; 4H waits. Retest entries improve RR.",
+            nextActionSentence: "Wait for BNB A1/A2 retest. No fill, no trade.",
+            autoExecution: false,
+            executionIntent: "none",
+          },
+          {
+            rank: 2,
+            symbol: "BCHUSDT.P",
+            direction: "LONG",
+            setupGrade: "C",
+            recommendedFocus: "WATCH_ONLY",
+            entryTactic: "15m-only",
+            autoExecution: false,
+            executionIntent: "none",
+          },
+          {
+            rank: 3,
+            symbol: "LINKUSDT.P",
+            direction: "SHORT",
+            setupGrade: "C",
+            recommendedFocus: "WATCH_ONLY",
+            entryTactic: "1H late",
+            autoExecution: false,
+            executionIntent: "none",
+          },
+        ],
+        autoExecution: false,
+        executionIntent: "none",
+      },
+    });
+
+    expect(html).toContain("Setup ranking");
+    expect(html).toContain("BNB SHORT — PRIMARY — A1/A2 RETEST ONLY");
+    expect(html).toContain("BCH LONG — WATCH ONLY — 15m-only");
+    expect(html).toContain("LINK SHORT — WATCH ONLY — 1H late");
+    expect(html).toContain("Best action:");
+    expect(html).toContain("Wait for BNB A1/A2 retest. Do not chase BCH/LINK.");
+    expect(html).toContain("autoExecution false / executionIntent none");
+  });
+
+  it("does not render setup ranking when setupRanking is absent", () => {
+    const html = renderRich("WAIT_FOR_RETEST");
+
+    expect(html).not.toContain("Setup ranking");
+    expect(html).toContain("WAIT FOR RETEST");
+  });
+
   it.each([
     ["WAIT_FOR_RETEST", "WAIT FOR RETEST", "Wait for retest. Do not chase."],
     ["SKIP_STALE", "SKIP — STALE", "Skip. Alert is stale."],
@@ -446,9 +514,32 @@ describe("THORP rich setup latest-alert card", () => {
   });
 
   it("does not render execution buttons or order affordances", () => {
-    const html = renderRich("REVIEW_NOW").toLowerCase();
+    const html = renderRich("REVIEW_NOW", {}, {
+      setupRanking: {
+        contractVersion: "setup-ranking-brain.v1",
+        bestSetup: {},
+        rankingSummary: "Ranking is advisory only.",
+        bestActionSentence: "Wait for retest. No fill, no trade.",
+        candidates: [
+          {
+            rank: 1,
+            symbol: "BNBUSDT.P",
+            direction: "SHORT",
+            setupGrade: "B",
+            recommendedFocus: "PRIMARY",
+            entryTactic: "A1_A2_RETEST_ONLY",
+            autoExecution: false,
+            executionIntent: "none",
+          },
+        ],
+        autoExecution: false,
+        executionIntent: "none",
+      },
+    }).toLowerCase();
 
     expect(html).not.toContain("<button");
+    expect(html).not.toContain("<a ");
+    expect(html).not.toContain("href=");
     expect(html).not.toContain("buy");
     expect(html).not.toContain("sell");
     expect(html).not.toContain("enter ");

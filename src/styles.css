@@ -1709,7 +1709,8 @@ h2 {
 }
 
 .thorp-recommendation,
-.entry-tactics-callout {
+.entry-tactics-callout,
+.setup-ranking-callout {
   margin: 14px 0;
   padding: 14px;
   border-radius: 14px;
@@ -1723,8 +1724,14 @@ h2 {
   background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(99, 230, 190, 0.08));
 }
 
+.setup-ranking-callout {
+  border-color: rgba(148, 163, 184, 0.34);
+  background: rgba(15, 23, 42, 0.64);
+}
+
 .thorp-recommendation span,
-.entry-tactics-callout span {
+.entry-tactics-callout span,
+.setup-ranking-callout span {
   display: block;
   color: #9ba7bd;
   font-size: 0.72rem;
@@ -1748,9 +1755,28 @@ h2 {
 }
 
 .thorp-recommendation p,
-.entry-tactics-callout p {
+.entry-tactics-callout p,
+.setup-ranking-callout p {
   margin: 8px 0 0;
   color: #d8e4f3;
+}
+
+.setup-ranking-callout ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #f8fafc;
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.setup-ranking-intent {
+  color: #9ba7bd !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .entry-next-action {
@@ -1773,6 +1799,7 @@ h2 {
   }
 
   .thorp-recommendation,
+  .setup-ranking-callout,
   .thorp-setup-card {
     overflow-x: hidden;
   }
