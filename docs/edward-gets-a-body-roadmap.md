@@ -43,6 +43,175 @@ Status: complete and live. Edward now emits and renders advisory trade-managemen
 
 Build a live state engine that can ingest validated Edward snapshots, normalize state, report freshness, and keep the cockpit aware of system health without weakening fallback behavior.
 
+### Phase 2.2 Entry Tactics Brain v1
+
+Status: source-control complete; deployment remains gated until runtime publisher validation is clean and Edwin approves promotion.
+
+Goal: turn each fresh rich scanner alert plus HUD/price context into one read-only entry tactic for that symbol. Edward should say whether to take scout, wait for A1/A2 retest, use A2 sniper only, skip chase, or no-action stale.
+
+Output: optional `entryTactics` on alert objects, with `contractVersion: entry-tactics-brain.v1`, `entryTactic`, `positionSplit`, `nextActionSentence`, `riskReason`, `autoExecution: false`, and `executionIntent: none`.
+
+Placement: render the advisory line near Scanner Recommendation. No buttons, no order links, no execution affordances.
+
+Guardrails:
+- No order placement.
+- No exchange mutation.
+- No TradingView/Pine/alert changes.
+- No webhook/auth/token changes.
+- No `active_trades.json` mutation.
+- Execution remains locked: `autoExecution=false`, `executionIntent=none`.
+
+### Phase 2.3 Setup Ranking Brain v1
+
+Status: planned after Entry Tactics Brain v1.
+
+Problem: Edward currently evaluates each scanner alert mostly in isolation. Edwin needs Edward to compare a fresh alert against other current setups in the active basket so he can choose the cleanest opportunity instead of reacting to whichever alert fired last.
+
+Goal: when a fresh rich scanner alert lands, rank current setup candidates across the active basket and surface which setup is most worth attention.
+
+Inputs:
+- latest rich scanner alerts from `latest-alert.json` / `recentAlerts`
+- `latestBySymbol`
+- `activeBasketCoverage`
+- Entry Tactics Brain output per symbol
+- HUD context for `15m`, `1H`, and `4H` where available
+- live/mark price when available
+- alert price, Scout, A1, A2, warning/hard invalidation, T1/T2/T3
+- alert age/freshness, direction, score, trigger, action, battlefield
+- existing open position state, if any
+
+Runtime output:
+- `setupRanking`: ranked candidates.
+- `bestSetup`: highest ranked setup, or `null` if none qualifies.
+- `rankingSummary`: one plain-English sentence.
+
+Candidate contract:
+- `rank`
+- `symbol`
+- `direction`
+- `setupGrade`: `A`, `B`, `C`, or `SKIP`
+- `recommendedFocus`: `PRIMARY`, `SECONDARY`, `WATCH_ONLY`, or `SKIP`
+- `entryTactic`
+- `positionSplit`
+- `freshnessStatus`
+- `mtfAlignment`
+- `rrQuality`
+- `chaseRisk`
+- `riskReason`
+- `nextActionSentence`
+- `autoExecution: false`
+- `executionIntent: none`
+
+Ranking rules:
+- Fresh rich scanner evidence beats stale evidence.
+- Multi-timeframe alignment beats isolated 15m strength.
+- Entry tactic quality matters: A1/A2 retest with strong RR can outrank scout chase; A2 sniper can outrank market/scout when RR is materially better.
+- If 4H says `WAIT`, downgrade full-entry confidence.
+- If 1H says `IGNORE`, `LATE`, or `NO FRESH ENTRY`, downgrade heavily.
+- If price has already moved too close to T1, downgrade as chase risk.
+- If live price is unavailable, the candidate cannot become `PRIMARY`.
+- If an active position exists, ranking must not encourage a new trade unless explicit exposure rules allow it.
+- If all candidates are weak, output wait/no-trade.
+
+Example BNB/BCH/LINK ranking:
+
+```json
+{
+  "setupRanking": [
+    {
+      "rank": 1,
+      "symbol": "BNBUSDT.P",
+      "direction": "SHORT",
+      "setupGrade": "B",
+      "recommendedFocus": "PRIMARY",
+      "entryTactic": "A1_A2_RETEST_ONLY",
+      "positionSplit": "0/40/60",
+      "freshnessStatus": "fresh",
+      "mtfAlignment": "15m and 1H align; 4H waits",
+      "rrQuality": "better_on_retest",
+      "chaseRisk": "avoid_chase",
+      "riskReason": "15m and 1H align; 4H waits. Retest entries improve RR.",
+      "nextActionSentence": "Wait for BNB A1/A2 retest. Do not chase.",
+      "autoExecution": false,
+      "executionIntent": "none"
+    },
+    {
+      "rank": 2,
+      "symbol": "BCHUSDT.P",
+      "direction": "LONG",
+      "setupGrade": "C",
+      "recommendedFocus": "WATCH_ONLY",
+      "entryTactic": "WAIT_FOR_RETEST",
+      "positionSplit": "0/0/0",
+      "freshnessStatus": "fresh",
+      "mtfAlignment": "15m strong; 1H waits; 4H ignores",
+      "rrQuality": "tactical_only",
+      "chaseRisk": "moderate",
+      "riskReason": "Strong 15m, but higher timeframes do not confirm.",
+      "nextActionSentence": "Watch BCH only; require fresh 1H/4H proof before focus.",
+      "autoExecution": false,
+      "executionIntent": "none"
+    },
+    {
+      "rank": 3,
+      "symbol": "LINKUSDT.P",
+      "direction": "SHORT",
+      "setupGrade": "C",
+      "recommendedFocus": "WATCH_ONLY",
+      "entryTactic": "A1_A2_RETEST_ONLY",
+      "positionSplit": "0/40/60",
+      "freshnessStatus": "fresh",
+      "mtfAlignment": "15m only; 1H late/no fresh entry; 4H waits",
+      "rrQuality": "retest_only",
+      "chaseRisk": "high_if_chasing",
+      "riskReason": "15m is strong, but 1H is late/no fresh entry and 4H waits.",
+      "nextActionSentence": "Do not chase LINK; only reconsider on clean retest and fresh higher-timeframe proof.",
+      "autoExecution": false,
+      "executionIntent": "none"
+    }
+  ],
+  "bestSetup": {
+    "symbol": "BNBUSDT.P",
+    "direction": "SHORT",
+    "recommendedFocus": "PRIMARY"
+  },
+  "rankingSummary": "BNB short is cleaner than BCH long and LINK short because 15m and 1H align while BCH and LINK are mostly 15m-only."
+}
+```
+
+UI placement:
+
+```text
+SETUP RANKING
+1. BNB SHORT — PRIMARY — A1/A2 retest only
+2. BCH LONG — WATCH ONLY — 15m-only
+3. LINK SHORT — LOWER QUALITY — 1H late
+
+BEST ACTION
+Wait for BNB A1/A2 retest. Do not chase BCH/LINK.
+```
+
+Validation requirements:
+- Unit test BNB outranks BCH/LINK due to 15m+1H alignment.
+- Unit test 15m-only READY loses to lower-score MTF-aligned setup.
+- Unit test stale setup downgrades.
+- Unit test chase-risk setup downgrades.
+- Unit test no valid candidates returns wait/no-trade.
+- Unit test active open position blocks `PRIMARY` unless explicitly allowed by exposure rules.
+- Existing runtime tests pass.
+- Existing UI tests pass if UI renders the panel.
+- Snapshot validation passes if runtime producer changes.
+
+Guardrails:
+- Read-only advisory only.
+- No order placement.
+- No exchange mutation.
+- No execution affordances.
+- No TradingView/Pine/alert changes.
+- No webhook/auth/token changes.
+- No deploy without Edwin approval.
+- Preserve `autoExecution=false` and `executionIntent=none`.
+
 ### Phase 3 Watcher Body
 
 Add durable market watching behavior that tracks active positions and watchlist conditions while keeping position management above opportunity scanning.
