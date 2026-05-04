@@ -446,6 +446,18 @@ export type WatchlistItem = {
   status: "READY" | "WATCHLIST" | "CONDITIONAL" | "EXTENDED" | "TOO LATE" | "SKIP";
   direction?: Direction;
   note?: string;
+  normalizedSymbol?: string;
+  phemexSymbol?: string;
+  latestLegacyScannerWakeupAt?: string | null;
+  latestRichScannerAt?: string | null;
+  latestHudHeartbeatAt?: string | null;
+  latestLaneType?: string | null;
+  freshnessStatus?: "fresh" | "stale" | "missing" | "unavailable" | "error" | string;
+  missingEvidenceStatus?: "complete" | "missing" | string;
+  missingEvidence?: string[];
+  duplicateStaleNoActionStatus?: string[];
+  autoExecution?: false;
+  executionIntent?: "none";
 };
 
 export type WatchlistSummary = {

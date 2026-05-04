@@ -358,6 +358,18 @@ const watchlistItemSchema = z.object({
   status: z.enum(["READY", "WATCHLIST", "CONDITIONAL", "EXTENDED", "TOO LATE", "SKIP"]),
   direction: directionSchema.optional(),
   note: z.string().optional(),
+  normalizedSymbol: z.string().min(1).optional(),
+  phemexSymbol: z.string().min(1).optional(),
+  latestLegacyScannerWakeupAt: z.string().datetime().nullable().optional(),
+  latestRichScannerAt: z.string().datetime().nullable().optional(),
+  latestHudHeartbeatAt: z.string().datetime().nullable().optional(),
+  latestLaneType: z.string().nullable().optional(),
+  freshnessStatus: z.string().optional(),
+  missingEvidenceStatus: z.string().optional(),
+  missingEvidence: z.array(z.string()).optional(),
+  duplicateStaleNoActionStatus: z.array(z.string()).optional(),
+  autoExecution: z.literal(false).optional(),
+  executionIntent: z.literal("none").optional(),
 });
 const tradeJournalEntrySchema = z.object({
   tradeId: z.string().optional(),

@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { LatestAlertPanel } from "./App";
-import type { AlertIntakeResult, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation } from "./domain/tradingDesk";
+import { derivePrimaryScanDisplay, LatestAlertPanel } from "./App";
+import type { AlertIntakeResult, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, WatchlistItem } from "./domain/tradingDesk";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(join(currentDir, "App.tsx"), "utf8");
@@ -77,6 +77,65 @@ describe("Trading Desk shell", () => {
     expect(appSource.indexOf("<TopCommandHeader")).toBeLessThan(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />"));
   });
 
+  it("maps Primary Scan rows to operator evidence labels instead of vague trade copy", () => {
+    const missing: WatchlistItem = {
+      symbol: "SOLUSDT.P",
+      status: "SKIP",
+      latestRichScannerAt: null,
+      latestHudHeartbeatAt: null,
+      freshnessStatus: "missing",
+      missingEvidence: ["LEGACY_SCANNER_WAKEUP_MISSING", "RICH_SCANNER_MISSING", "HUD_CONTEXT_MISSING"],
+    };
+    const stale: WatchlistItem = {
+      symbol: "XRPUSDT.P",
+      status: "EXTENDED",
+      latestRichScannerAt: "2026-05-04T14:30:26.000Z",
+      latestHudHeartbeatAt: null,
+      freshnessStatus: "stale",
+      missingEvidence: ["HUD_CONTEXT_MISSING"],
+      duplicateStaleNoActionStatus: ["richScanner:SKIP_STALE", "richScanner:stale"],
+    };
+    const legacyOnly: WatchlistItem = {
+      symbol: "DOGEUSDT.P",
+      status: "EXTENDED",
+      latestLegacyScannerWakeupAt: "2026-05-03T16:15:12.000Z",
+      latestRichScannerAt: null,
+      latestHudHeartbeatAt: null,
+      freshnessStatus: "stale",
+      missingEvidence: ["RICH_SCANNER_MISSING"],
+    };
+
+    expect(derivePrimaryScanDisplay(missing)).toMatchObject({
+      direction: "Direction: unavailable",
+      scanner: "Scanner: waiting for natural fire",
+      hud: "HUD: missing",
+      freshness: "Freshness: missing",
+      decision: "Decision: NO ACTION",
+      reason: "Waiting for natural fire",
+    });
+    expect(derivePrimaryScanDisplay(stale)).toMatchObject({
+      direction: "Direction: unavailable",
+      scanner: "Scanner: rich stale",
+      hud: "HUD: missing",
+      freshness: "Freshness: partial",
+      decision: "Decision: BLOCKED",
+      reason: "HUD context missing",
+    });
+    expect(derivePrimaryScanDisplay(legacyOnly)).toMatchObject({
+      scanner: "Scanner: rich missing",
+      hud: "HUD: missing",
+      decision: "Decision: BLOCKED",
+      reason: "No fresh rich scanner evidence",
+    });
+  });
+
+  it("removes confusing Primary Scan fallbacks and raw status badges from the panel", () => {
+    expect(appSource).not.toContain("No direction");
+    expect(appSource).not.toContain("No note provided");
+    expect(appSource).toContain("derivePrimaryScanDisplay");
+    expect(appSource).toContain("primary-scan-evidence");
+  });
+
   it("renders a decision-first cockpit with refresh, risk ladder, and watchlist surfaces", () => {
     expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
       appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),
@@ -86,7 +145,7 @@ describe("Trading Desk shell", () => {
     );
     expect(appSource).toContain("REFRESH_INTERVAL_SECONDS = 30");
     expect(appSource).toContain("Next refresh");
-    expect(appSource).toContain("Watchlist / Opportunity Scan");
+    expect(appSource).toContain("Active Basket Coverage");
     expect(appSource).toContain("Risk & Ladder Management");
     const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
     const tradeManagementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
