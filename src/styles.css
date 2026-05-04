@@ -1708,7 +1708,8 @@ h2 {
   justify-content: flex-end;
 }
 
-.thorp-recommendation {
+.thorp-recommendation,
+.entry-tactics-callout {
   margin: 14px 0;
   padding: 14px;
   border-radius: 14px;
@@ -1717,7 +1718,13 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-.thorp-recommendation span {
+.entry-tactics-callout {
+  border-color: rgba(251, 191, 36, 0.42);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(99, 230, 190, 0.08));
+}
+
+.thorp-recommendation span,
+.entry-tactics-callout span {
   display: block;
   color: #9ba7bd;
   font-size: 0.72rem;
@@ -1726,7 +1733,8 @@ h2 {
   letter-spacing: 0.08em;
 }
 
-.thorp-recommendation strong {
+.thorp-recommendation strong,
+.entry-tactics-callout strong {
   display: block;
   margin-top: 4px;
   color: #63e6be;
@@ -1735,9 +1743,18 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-.thorp-recommendation p {
+.entry-tactics-callout strong {
+  color: #fbbf24;
+}
+
+.thorp-recommendation p,
+.entry-tactics-callout p {
   margin: 8px 0 0;
   color: #d8e4f3;
+}
+
+.entry-next-action {
+  font-size: 1.02rem;
 }
 
 .thorp-setup-grid {

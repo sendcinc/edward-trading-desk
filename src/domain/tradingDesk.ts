@@ -28,6 +28,26 @@ export type ThorpScannerRecommendation =
   | "DUPLICATE_NO_ACTION"
   | "CONTEXT_INCOMPLETE";
 
+export type EntryTactic =
+  | "TAKE_SCOUT"
+  | "SCOUT_SMALL_ONLY"
+  | "A1_A2_RETEST_ONLY"
+  | "A2_SNIPER_ONLY"
+  | "WAIT_FOR_RETEST"
+  | "SKIP_CHASE"
+  | "NO_ACTION_STALE";
+
+export type EntryTacticsPlan = {
+  contractVersion: "entry-tactics-brain.v1";
+  entryTactic: EntryTactic;
+  positionSplit: string;
+  nextActionSentence: string;
+  riskReason: string;
+  inputs?: Record<string, unknown>;
+  autoExecution: false;
+  executionIntent: "none";
+};
+
 export type ThorpRichScannerPayload = {
   type: "THORP_SCORE_READY";
   schemaVersion: "thorp-rich-scanner.v1";
@@ -48,8 +68,12 @@ export type ThorpRichScannerPayload = {
   action?: string | null;
   setup_state?: string | null;
   price_at_alert?: number | null;
+  current_price?: number | null;
+  mark_price?: number | null;
+  markPrice?: number | null;
+  live_mark_price?: number | null;
   entries: { scout?: number | null; a1?: number | null; a2?: number | null };
-  risk: { warning?: number | null; hard?: number | null; invalidation?: number | null };
+  risk: { warning?: number | null; hard?: number | null; invalidation?: number | null; hardInvalidation?: number | null };
   targets: { t1?: number | null; t2?: number | null; t3?: number | null };
   range: { high?: number | null; mid?: number | null; low?: number | null };
   rotation?: string | null;
@@ -514,6 +538,7 @@ export type LatestAlert = {
   payloadCompleteness?: "rich_scanner" | string | null;
   scannerRecommendation?: ThorpScannerRecommendation;
   richScannerPayload?: ThorpRichScannerPayload;
+  entryTactics?: EntryTacticsPlan;
   autoExecution: false;
   executionIntent: "none";
 };

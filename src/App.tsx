@@ -173,6 +173,16 @@ function ThorpSetupReadyCard({
         <p>{recommendation.copy}</p>
       </div>
 
+      {alert.entryTactics ? (
+        <div className="entry-tactics-callout">
+          <span>Entry tactic</span>
+          <strong>{entryTacticDisplay(alert.entryTactics.entryTactic)}</strong>
+          <p className="entry-next-action"><b>Next action:</b> {alert.entryTactics.nextActionSentence}</p>
+          <p><b>Split:</b> {alert.entryTactics.positionSplit}</p>
+          <p><b>Risk reason:</b> {alert.entryTactics.riskReason}</p>
+        </div>
+      ) : null}
+
       <div className="alert-metrics thorp-setup-grid">
         <Metric label="Symbol" value={alert.normalizedSymbol ?? alert.symbol ?? payload.symbol ?? "Unavailable"} />
         <Metric label="Timeframe" value={alert.timeframe ?? payload.timeframe ?? "Unavailable"} />
@@ -187,7 +197,7 @@ function ThorpSetupReadyCard({
         <Metric label="A1" value={numOrUnavailable(payload.entries?.a1)} />
         <Metric label="A2" value={numOrUnavailable(payload.entries?.a2)} />
         <Metric label="Warning" value={numOrUnavailable(payload.risk?.warning)} danger />
-        <Metric label="Hard invalidation" value={numOrUnavailable(payload.risk?.invalidation ?? payload.risk?.hard)} danger />
+        <Metric label="Hard invalidation" value={numOrUnavailable(payload.risk?.invalidation ?? payload.risk?.hardInvalidation ?? payload.risk?.hard)} danger />
         <Metric label="T1" value={numOrUnavailable(payload.targets?.t1)} />
         <Metric label="T2" value={numOrUnavailable(payload.targets?.t2)} />
         <Metric label="T3" value={numOrUnavailable(payload.targets?.t3)} />
@@ -1042,6 +1052,19 @@ function thorpRecommendationDisplay(recommendation?: ThorpScannerRecommendation)
     case "CONTEXT_INCOMPLETE":
     default:
       return { label: "REVIEW CHART — CONTEXT INCOMPLETE", copy: "Setup alert received, but required context is incomplete. Review chart manually." };
+  }
+}
+
+function entryTacticDisplay(tactic: string) {
+  switch (tactic) {
+    case "TAKE_SCOUT": return "TAKE SCOUT";
+    case "SCOUT_SMALL_ONLY": return "SCOUT SMALL ONLY";
+    case "A1_A2_RETEST_ONLY": return "A1/A2 RETEST ONLY";
+    case "A2_SNIPER_ONLY": return "A2 SNIPER ONLY";
+    case "WAIT_FOR_RETEST": return "WAIT FOR RETEST";
+    case "SKIP_CHASE": return "SKIP CHASE";
+    case "NO_ACTION_STALE": return "NO ACTION — STALE";
+    default: return tactic.replace(/_/g, " ");
   }
 }
 
