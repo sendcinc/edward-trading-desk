@@ -183,6 +183,8 @@ function ThorpSetupReadyCard({
         </div>
       ) : null}
 
+      {alertIntake?.setupRanking ? <SetupRankingPanel ranking={alertIntake.setupRanking} /> : null}
+
       <div className="alert-metrics thorp-setup-grid">
         <Metric label="Symbol" value={alert.normalizedSymbol ?? alert.symbol ?? payload.symbol ?? "Unavailable"} />
         <Metric label="Timeframe" value={alert.timeframe ?? payload.timeframe ?? "Unavailable"} />
@@ -216,6 +218,24 @@ function ThorpSetupReadyCard({
 
       {warning && <p className="alert-warning"><AlertTriangle size={16} /> {warning}</p>}
     </section>
+  );
+}
+
+function SetupRankingPanel({ ranking }: { ranking: NonNullable<AlertIntakeResult["setupRanking"]> }) {
+
+  return (
+    <div className="setup-ranking-callout">
+      <span>Setup ranking</span>
+      <ul>
+        {ranking.candidates.slice(0, 3).map((candidate) => (
+          <li key={`${candidate.rank}-${candidate.symbol}`}>
+            {formatSetupRankingSymbol(candidate.symbol)} {candidate.direction} — {setupRankingFocusDisplay(candidate.recommendedFocus)} — {entryTacticDisplay(candidate.entryTactic)}
+          </li>
+        ))}
+      </ul>
+      <p><b>Best action:</b> {ranking.bestActionSentence}</p>
+      <p className="setup-ranking-intent">autoExecution {String(ranking.autoExecution)} / executionIntent {ranking.executionIntent}</p>
+    </div>
   );
 }
 
@@ -1066,6 +1086,14 @@ function entryTacticDisplay(tactic: string) {
     case "NO_ACTION_STALE": return "NO ACTION — STALE";
     default: return tactic.replace(/_/g, " ");
   }
+}
+
+function setupRankingFocusDisplay(focus: string) {
+  return focus.replace(/_/g, " ");
+}
+
+function formatSetupRankingSymbol(symbol: string) {
+  return symbol.replace(/USDT\.P$/i, "");
 }
 
 function formatNullable(value?: string | number | null) {

@@ -722,7 +722,7 @@ describe("rich THORP scanner alert validation", () => {
     copy: "THORP detected a potential setup. This is not an execution command.",
   };
 
-  const richAlertIntake = (latestPatch: Record<string, unknown> = {}, payloadPatch: Record<string, unknown> = {}) => ({
+  const richAlertIntake = (latestPatch: Record<string, unknown> = {}, payloadPatch: Record<string, unknown> = {}, intakePatch: Record<string, unknown> = {}) => ({
     ...validAlertIntake(),
     queueDepth: 0,
     latestAlert: {
@@ -745,6 +745,7 @@ describe("rich THORP scanner alert validation", () => {
       executionIntent: "none",
       ...latestPatch,
     },
+    ...intakePatch,
   });
 
   const expectRejected = (alertIntake: unknown, expectedIssue: string) => {
@@ -773,6 +774,93 @@ describe("rich THORP scanner alert validation", () => {
       expect(result.alertIntake.latestAlert?.triggeredReview).toBe(false);
       expect(result.alertIntake.queueDepth).toBe(0);
     }
+  });
+
+  it("accepts and preserves optional setup ranking with locked execution intent", () => {
+    const result = validateAlertIntake(richAlertIntake({}, {}, {
+      setupRanking: {
+        contractVersion: "setup-ranking-brain.v1",
+        bestSetup: {},
+        rankingSummary: "BNB leads; BCH and LINK are watch-only.",
+        bestActionSentence: "Wait for BNB A1/A2 retest. Do not chase BCH/LINK.",
+        candidates: [
+          {
+            rank: 1,
+            symbol: "BNBUSDT.P",
+            direction: "SHORT",
+            setupGrade: "B",
+            recommendedFocus: "PRIMARY",
+            entryTactic: "A1_A2_RETEST_ONLY",
+            positionSplit: "0/40/60",
+            freshnessStatus: "partial",
+            mtfAlignment: "15m+1H aligned, 4H waiting",
+            rrQuality: "good on retest",
+            chaseRisk: "high at current price",
+            riskReason: "15m and 1H align; 4H waits. Retest entries improve RR.",
+            nextActionSentence: "Wait for BNB A1/A2 retest. No fill, no trade.",
+            autoExecution: false,
+            executionIntent: "none",
+          },
+        ],
+        autoExecution: false,
+        executionIntent: "none",
+      },
+    }));
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.alertIntake.setupRanking?.contractVersion).toBe("setup-ranking-brain.v1");
+      expect(result.alertIntake.setupRanking?.candidates[0]?.symbol).toBe("BNBUSDT.P");
+      expect(result.alertIntake.setupRanking?.autoExecution).toBe(false);
+      expect(result.alertIntake.setupRanking?.executionIntent).toBe("none");
+      expect(result.alertIntake.setupRanking?.candidates[0]?.autoExecution).toBe(false);
+      expect(result.alertIntake.setupRanking?.candidates[0]?.executionIntent).toBe("none");
+    }
+  });
+
+  it("rejects setup ranking with executable intent", () => {
+    expectRejected(
+      richAlertIntake({}, {}, {
+        setupRanking: {
+          contractVersion: "setup-ranking-brain.v1",
+          bestSetup: {},
+          rankingSummary: "unsafe",
+          bestActionSentence: "unsafe",
+          candidates: [],
+          autoExecution: true,
+          executionIntent: "market",
+        },
+      }),
+      "setupRanking.autoExecution",
+    );
+  });
+
+  it("rejects setup ranking candidates with executable intent", () => {
+    expectRejected(
+      richAlertIntake({}, {}, {
+        setupRanking: {
+          contractVersion: "setup-ranking-brain.v1",
+          bestSetup: {},
+          rankingSummary: "unsafe",
+          bestActionSentence: "unsafe",
+          candidates: [
+            {
+              rank: 1,
+              symbol: "BNBUSDT.P",
+              direction: "SHORT",
+              setupGrade: "B",
+              recommendedFocus: "PRIMARY",
+              entryTactic: "A1_A2_RETEST_ONLY",
+              autoExecution: true,
+              executionIntent: "market",
+            },
+          ],
+          autoExecution: false,
+          executionIntent: "none",
+        },
+      }),
+      "setupRanking.candidates.0.autoExecution",
+    );
   });
 
   it("keeps legacy static THORP_SCORE_READY wake-up alerts valid without rich fields", () => {

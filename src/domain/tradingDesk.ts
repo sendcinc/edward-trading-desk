@@ -48,6 +48,36 @@ export type EntryTacticsPlan = {
   executionIntent: "none";
 };
 
+export type SetupRankingCandidate = {
+  rank: number;
+  symbol: string;
+  direction: string;
+  score?: number;
+  setupGrade: string;
+  recommendedFocus: string;
+  entryTactic: string;
+  positionSplit?: string;
+  freshnessStatus?: string;
+  mtfAlignment?: string;
+  rrQuality?: string;
+  chaseRisk?: string;
+  riskReason?: string;
+  nextActionSentence?: string;
+  openPositionState?: string;
+  autoExecution: false;
+  executionIntent: "none";
+};
+
+export type SetupRankingPlan = {
+  contractVersion: "setup-ranking-brain.v1";
+  bestSetup: Record<string, unknown>;
+  rankingSummary: string;
+  bestActionSentence: string;
+  candidates: SetupRankingCandidate[];
+  autoExecution: false;
+  executionIntent: "none";
+};
+
 export type ThorpRichScannerPayload = {
   type: "THORP_SCORE_READY";
   schemaVersion: "thorp-rich-scanner.v1";
@@ -556,6 +586,8 @@ export type AlertIntakeResult = {
   lastInvalidAlertAt?: string | null;
   queueDepth: number;
   lastReviewTriggeredAt?: string | null;
+  activeBasketCoverage?: unknown;
+  setupRanking?: SetupRankingPlan;
   validationIssues?: string[];
 };
 
