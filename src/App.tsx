@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
 import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
-import type { AlertIntakeResult, DataMode, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition } from "./domain/tradingDesk";
+import type { AlertIntakeResult, DataMode, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
 import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -702,12 +702,65 @@ function PortfolioCommandBar({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
+export function derivePrimaryScanDisplay(item: WatchlistItem) {
+  const hasRich = Boolean(item.latestRichScannerAt);
+  const hasHud = Boolean(item.latestHudHeartbeatAt);
+  const richFresh = hasRich && item.freshnessStatus === "fresh";
+  const hudFresh = hasHud && item.latestLaneType === "hud_context" && item.freshnessStatus === "fresh";
+  const hasLegacy = Boolean(item.latestLegacyScannerWakeupAt);
+  const scanner = hasRich
+    ? `Scanner: ${richFresh ? "rich fresh" : "rich stale"}`
+    : hasLegacy || hasHud
+      ? "Scanner: rich missing"
+      : "Scanner: waiting for natural fire";
+  const hud = hasHud ? `HUD: ${hudFresh ? "fresh" : "stale"}` : "HUD: missing";
+  const freshness = `Freshness: ${derivePrimaryScanFreshness({ hasRich, hasHud, richFresh, hudFresh })}`;
+  return {
+    direction: `Direction: ${item.direction ?? "unavailable"}`,
+    scanner,
+    hud,
+    freshness,
+    decision: `Decision: ${derivePrimaryScanDecision(item.status)}`,
+    decisionTone: derivePrimaryScanDecision(item.status),
+    reason: derivePrimaryScanReason(item, { hasRich, hasHud, hasLegacy, richFresh, hudFresh }),
+  };
+}
+
+function derivePrimaryScanFreshness({ hasRich, hasHud, richFresh, hudFresh }: { hasRich: boolean; hasHud: boolean; richFresh: boolean; hudFresh: boolean }) {
+  if (richFresh && hudFresh) return "fresh";
+  if (!hasRich && !hasHud) return "missing";
+  if (hasRich && hasHud) return "stale";
+  return "partial";
+}
+
+function derivePrimaryScanDecision(status: WatchlistItem["status"]) {
+  if (status === "READY") return "READY";
+  if (status === "WATCHLIST" || status === "CONDITIONAL") return "CONDITIONAL";
+  if (status === "SKIP") return "NO ACTION";
+  return "BLOCKED";
+}
+
+function derivePrimaryScanReason(
+  item: WatchlistItem,
+  evidence: { hasRich: boolean; hasHud: boolean; hasLegacy: boolean; richFresh: boolean; hudFresh: boolean },
+) {
+  const missing = new Set(item.missingEvidence ?? []);
+  if (!evidence.hasRich && !evidence.hasHud && !evidence.hasLegacy) return "Waiting for natural fire";
+  if (missing.has("HUD_CONTEXT_MISSING")) return "HUD context missing";
+  if (evidence.hasRich && !evidence.richFresh) return "Rich proof stale";
+  if (missing.has("RICH_SCANNER_MISSING") || item.duplicateStaleNoActionStatus?.some((status) => status.includes("richScanner:stale") || status.includes("SKIP_STALE"))) {
+    return "No fresh rich scanner evidence";
+  }
+  if (evidence.richFresh && evidence.hudFresh) return "Fresh scanner + HUD evidence available";
+  return item.note ?? "No fresh rich scanner evidence";
+}
+
 function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snapshot: TradingDeskSnapshot; compact?: boolean; prominent?: boolean }) {
   const summary = snapshot.watchlistSummary;
   const noOpenPosition = !snapshot.activePositionFocus;
   return (
     <section className={`panel watchlist-panel ${prominent || noOpenPosition ? "prominent" : ""} ${compact ? "compact" : ""}`}>
-      <PanelTitle icon={<ListChecks />} eyebrow="Watchlist / Opportunity Scan" title={noOpenPosition ? "Primary Scan" : "Secondary Scan"} />
+      <PanelTitle icon={<ListChecks />} eyebrow="Active Basket Coverage" title={noOpenPosition ? "Primary Scan" : "Secondary Scan"} />
       <div className="watch-summary">
         <Metric label="Ready" value={summary.ready.toString()} />
         <Metric label="Conditional" value={summary.conditional.toString()} />
@@ -716,16 +769,24 @@ function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snap
       </div>
       <p className="summary">{summary.summary}</p>
       <div className="watchlist-items">
-        {snapshot.watchlist.map((item) => (
-          <div className="watch-item" key={item.symbol}>
-            <div>
-              <strong>{item.symbol}</strong>
-              <span>{item.direction ?? "No direction"}</span>
+        {snapshot.watchlist.map((item) => {
+          const display = derivePrimaryScanDisplay(item);
+          return (
+            <div className="watch-item primary-scan-item" key={item.symbol}>
+              <div className="primary-scan-header">
+                <strong>{item.symbol}</strong>
+                <StatusPill label={display.decision} tone={display.decisionTone} />
+              </div>
+              <div className="primary-scan-evidence">
+                <span>{display.direction}</span>
+                <span>{display.scanner}</span>
+                <span>{display.hud}</span>
+                <span>{display.freshness}</span>
+              </div>
+              <p><strong>Reason:</strong> {display.reason}</p>
             </div>
-            <StatusPill label={item.status} tone={item.status} />
-            <p>{item.note ?? "No note provided."}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

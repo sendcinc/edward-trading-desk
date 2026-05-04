@@ -363,6 +363,8 @@ h2 {
 .status-pill.error,
 .status-pill.too-late,
 .status-pill.skip,
+.status-pill.blocked,
+.status-pill.no-action,
 .overexposed,
 .critical,
 .danger strong,
@@ -1451,6 +1453,33 @@ h2 {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.primary-scan-item {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+.primary-scan-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.primary-scan-evidence {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.primary-scan-evidence span {
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #9ba7bd;
+  font-size: 0.76rem;
+  font-weight: 800;
 }
 
 .watch-item strong {
