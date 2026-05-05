@@ -656,6 +656,38 @@ const alertIntakeSchema = z.object({
   freshAlertReview: freshAlertReviewSchema.optional(),
 });
 
+const managementBindingTimeframeSchema = z.object({
+  status: z.enum(["fresh", "stale", "missing", "wrong_symbol", "unreadable"]),
+  symbol: z.string().min(1).nullable().optional(),
+  timeframe: z.string().min(1).optional(),
+  decision: z.string().nullable().optional(),
+  action: z.string().nullable().optional(),
+  score: z.number().finite().nullable().optional(),
+  timestamp: z.string().nullable().optional(),
+  ageSeconds: z.number().finite().nullable().optional(),
+  reason: z.string().min(1).optional(),
+}).strict();
+const managementBindingSchema = z.object({
+  state: z.enum(["idle", "verified", "degraded", "blocked", "unavailable"]),
+  source: z.literal("broker_open_position"),
+  activePositionSymbol: z.string().min(1).nullable(),
+  activePositionSide: z.string().min(1).nullable(),
+  normalizedSymbol: z.string().min(1).nullable(),
+  timeframes: z.object({
+    "15m": managementBindingTimeframeSchema.optional(),
+    "1H": managementBindingTimeframeSchema.optional(),
+    "4H": managementBindingTimeframeSchema.optional(),
+  }).strict(),
+  managementConfidence: z.enum(["HIGH", "DEGRADED", "BLOCKED", "IDLE"]),
+  addPermission: z.enum(["ALLOWED", "BLOCKED", "NOT_APPLICABLE"]),
+  addReason: z.string().min(1),
+  nextAction: z.string().min(1),
+  mismatchWarning: z.string().nullable().optional(),
+  readOnly: z.literal(true),
+  autoExecution: z.literal(false),
+  executionIntent: z.literal("none"),
+}).strict();
+
 const tradingDeskSnapshotSchema = z.object({
   contractVersion: z.literal(TRADING_DESK_SNAPSHOT_CONTRACT_VERSION),
   timestamp: z.string().datetime(),
@@ -670,6 +702,7 @@ const tradingDeskSnapshotSchema = z.object({
   edwardVerdict: edwardVerdictSchema,
   tradeManagementPlan: tradeManagementPlanSchema.optional(),
   liveTradeState: liveTradeStateSchema.optional(),
+  managementBinding: managementBindingSchema.optional(),
   tradeObjective: tradeObjectiveSchema.optional(),
   marketMovement: marketMovementSchema.optional(),
   wrongBehavior: wrongBehaviorSchema,
