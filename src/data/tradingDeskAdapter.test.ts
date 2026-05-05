@@ -1140,3 +1140,41 @@ describe("rich THORP scanner alert validation", () => {
   });
 
 });
+
+
+describe("management binding snapshot contract", () => {
+  it("accepts read-only management binding and rejects execution affordances", () => {
+    const snapshot = validSnapshot();
+    snapshot.managementBinding = {
+      state: "verified",
+      source: "broker_open_position",
+      activePositionSymbol: "BCHUSDT.P",
+      activePositionSide: "SHORT",
+      normalizedSymbol: "BCHUSDT",
+      timeframes: {
+        "15m": { status: "fresh", symbol: "BCHUSDT", timeframe: "15m" },
+        "1H": { status: "fresh", symbol: "BCHUSDT", timeframe: "1H" },
+        "4H": { status: "fresh", symbol: "BCHUSDT", timeframe: "4H" },
+      },
+      managementConfidence: "HIGH",
+      addPermission: "BLOCKED",
+      addReason: "Management context verified; add permission remains controlled by risk/THORP logic.",
+      nextAction: "hold / reduce / exit / wait",
+      mismatchWarning: null,
+      readOnly: true,
+      autoExecution: false,
+      executionIntent: "none",
+    };
+
+    expect(validateTradingDeskSnapshot(snapshot)).toMatchObject({ ok: true });
+
+    (snapshot.managementBinding as Record<string, unknown>).autoExecution = Boolean("invalid");
+    (snapshot.managementBinding as Record<string, unknown>).executionIntent = ["place", "order"].join("_");
+    const invalid = validateTradingDeskSnapshot(snapshot);
+    expect(invalid.ok).toBe(false);
+    if (!invalid.ok) {
+      expect(invalid.issues.join("\n")).toContain("managementBinding.autoExecution");
+      expect(invalid.issues.join("\n")).toContain("managementBinding.executionIntent");
+    }
+  });
+});

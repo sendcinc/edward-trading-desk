@@ -141,6 +141,38 @@ export type SetupRankingPlan = {
   executionIntent: "none";
 };
 
+export type ManagementBindingState = "idle" | "verified" | "degraded" | "blocked" | "unavailable";
+export type ManagementBindingConfidence = "HIGH" | "DEGRADED" | "BLOCKED" | "IDLE";
+export type ManagementBindingAddPermission = "ALLOWED" | "BLOCKED" | "NOT_APPLICABLE";
+export type ManagementBindingTimeframeStatus = "fresh" | "stale" | "missing" | "wrong_symbol" | "unreadable";
+export type ManagementBindingTimeframe = {
+  status: ManagementBindingTimeframeStatus;
+  symbol?: string | null;
+  timeframe?: string;
+  decision?: string | null;
+  action?: string | null;
+  score?: number | null;
+  timestamp?: string | null;
+  ageSeconds?: number | null;
+  reason?: string;
+};
+export type ManagementBinding = {
+  state: ManagementBindingState;
+  source: "broker_open_position";
+  activePositionSymbol: string | null;
+  activePositionSide: Direction | string | null;
+  normalizedSymbol: string | null;
+  timeframes: Partial<Record<"15m" | "1H" | "4H", ManagementBindingTimeframe>>;
+  managementConfidence: ManagementBindingConfidence;
+  addPermission: ManagementBindingAddPermission;
+  addReason: string;
+  nextAction: string;
+  mismatchWarning?: string | null;
+  readOnly: true;
+  autoExecution: false;
+  executionIntent: "none";
+};
+
 export type ThorpRichScannerPayload = {
   type: "THORP_SCORE_READY";
   schemaVersion: "thorp-rich-scanner.v1";
@@ -190,6 +222,7 @@ export type TradingDeskSnapshot = {
   edwardVerdict: EdwardVerdict;
   tradeManagementPlan?: TradeManagementPlan;
   liveTradeState?: LiveTradeState;
+  managementBinding?: ManagementBinding;
   tradeObjective?: TradeObjective;
   marketMovement?: MarketMovement;
   wrongBehavior: WrongBehavior;

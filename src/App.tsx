@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
 import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
-import type { AlertIntakeResult, DataMode, FreshAlertReview, FreshAlertReviewTimeframe, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
+import type { AlertIntakeResult, DataMode, FreshAlertReview, FreshAlertReviewTimeframe, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
 import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -77,6 +77,7 @@ export default function App() {
       />
       <DataStateBanner loadResult={loadResult} />
       <TradeDecisionCard snapshot={snapshot} />
+      <ActiveTradeManagementPanel binding={snapshot.managementBinding} />
       <TradeManagementPlanPanel snapshot={snapshot} />
       <EdwardHealthPanel health={loadResult.health} />
       <LatestAlertPanel alertIntake={loadResult.alertIntake} />
@@ -92,6 +93,70 @@ export default function App() {
       <TradeJournalPanel snapshot={snapshot} />
     </main>
   );
+}
+
+export function ActiveTradeManagementPanel({ binding }: { binding?: ManagementBinding }) {
+  const effective = binding ?? {
+    state: "unavailable",
+    source: "broker_open_position",
+    activePositionSymbol: null,
+    activePositionSide: null,
+    normalizedSymbol: null,
+    timeframes: {},
+    managementConfidence: "BLOCKED",
+    addPermission: "BLOCKED",
+    addReason: "Add blocked: management binding unavailable.",
+    nextAction: "No action.",
+    mismatchWarning: null,
+    readOnly: true,
+    autoExecution: false,
+    executionIntent: "none",
+  } satisfies ManagementBinding;
+  const danger = effective.state === "blocked" || effective.managementConfidence === "BLOCKED" || effective.addPermission === "BLOCKED";
+  const symbol = effective.normalizedSymbol ?? effective.activePositionSymbol ?? "No active position";
+  const side = effective.activePositionSide ?? "—";
+  const title = effective.state === "idle"
+    ? "No active position — management binding idle."
+    : effective.normalizedSymbol || effective.activePositionSymbol
+      ? `${symbol} ${side} — Active Position Management`
+      : "Active Position Management binding unavailable";
+
+  return (
+    <section className={`panel active-trade-management-panel ${danger ? "warning" : "ready"}`}>
+      <div className="latest-alert-head">
+        <PanelTitle icon={<ShieldCheck />} eyebrow="Active Trade Management / Management Binding" title={title} />
+        <StatusPill label={effective.managementConfidence} tone={effective.managementConfidence.toLowerCase()} />
+      </div>
+      <div className="alert-metrics">
+        <Metric label="Active position" value={effective.state === "idle" ? "No open broker position" : `${symbol} ${side}`} strong />
+        <Metric label="Source" value="broker open position" />
+        <Metric label="15m" value={formatManagementTimeframe(effective, "15m")} danger={managementTimeframeDanger(effective, "15m")} />
+        <Metric label="1H" value={formatManagementTimeframe(effective, "1H")} danger={managementTimeframeDanger(effective, "1H")} />
+        <Metric label="4H" value={formatManagementTimeframe(effective, "4H")} danger={managementTimeframeDanger(effective, "4H")} />
+        <Metric label="Add permission" value={effective.addPermission} danger={effective.addPermission !== "ALLOWED"} />
+        <Metric label="Next action" value={effective.nextAction} strong />
+      </div>
+      <div className="alert-guardrails">
+        <Guardrail label="Binding state" value={effective.state} danger={danger} />
+        <Guardrail label="Add reason" value={effective.addReason} danger={effective.addPermission === "BLOCKED"} />
+        <Guardrail label="Execution guardrail" value={`readOnly ${String(effective.readOnly)} / autoExecution ${String(effective.autoExecution)} / executionIntent ${effective.executionIntent}`} danger={!effective.readOnly || effective.autoExecution || effective.executionIntent !== "none"} />
+      </div>
+      {effective.mismatchWarning ? <p className="alert-warning"><AlertTriangle size={16} /> {effective.mismatchWarning}</p> : null}
+    </section>
+  );
+}
+
+function formatManagementTimeframe(binding: ManagementBinding, timeframe: "15m" | "1H" | "4H") {
+  const row = binding.timeframes[timeframe];
+  if (!row) return binding.state === "idle" ? "idle" : "missing";
+  const symbol = row.symbol ? ` / ${row.symbol}` : "";
+  const reason = row.reason ? ` — ${row.reason}` : "";
+  return `${row.status}${symbol}${reason}`;
+}
+
+function managementTimeframeDanger(binding: ManagementBinding, timeframe: "15m" | "1H" | "4H") {
+  const status = binding.timeframes[timeframe]?.status;
+  return binding.state !== "idle" && status !== "fresh";
 }
 
 export function FreshAlertReviewPanel({ alertIntake }: { alertIntake?: AlertIntakeResult }) {

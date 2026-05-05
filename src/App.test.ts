@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { derivePrimaryScanDisplay, FreshAlertReviewPanel, LatestAlertPanel } from "./App";
-import type { AlertIntakeResult, FreshAlertReview, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, WatchlistItem } from "./domain/tradingDesk";
+import { derivePrimaryScanDisplay, ActiveTradeManagementPanel, FreshAlertReviewPanel, LatestAlertPanel } from "./App";
+import type { AlertIntakeResult, FreshAlertReview, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, WatchlistItem } from "./domain/tradingDesk";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(join(currentDir, "App.tsx"), "utf8");
@@ -632,5 +632,53 @@ describe("Fresh Alert Review panel", () => {
     expect(html).toContain("Warning: original chart context not restored / fail-closed");
     expect(html).toContain("unavailable");
     expect(html).toContain("LOW");
+  });
+});
+
+
+describe("Active Trade Management Binding panel", () => {
+  const baseBinding: ManagementBinding = {
+    state: "verified",
+    source: "broker_open_position",
+    activePositionSymbol: "BCHUSDT.P",
+    activePositionSide: "SHORT",
+    normalizedSymbol: "BCHUSDT",
+    timeframes: {
+      "15m": { status: "fresh", symbol: "BCHUSDT", timeframe: "15m" },
+      "1H": { status: "fresh", symbol: "BCHUSDT", timeframe: "1H" },
+      "4H": { status: "fresh", symbol: "BCHUSDT", timeframe: "4H" },
+    },
+    managementConfidence: "HIGH",
+    addPermission: "BLOCKED",
+    addReason: "Management context verified; add permission remains controlled by risk/THORP logic.",
+    nextAction: "hold / reduce / exit / wait",
+    mismatchWarning: null,
+    readOnly: true,
+    autoExecution: false,
+    executionIntent: "none",
+  };
+
+  it("renders active-position management separately from alert context", () => {
+    const html = renderToStaticMarkup(React.createElement(ActiveTradeManagementPanel, { binding: baseBinding }));
+
+    expect(html).toContain("Active Trade Management / Management Binding");
+    expect(html).toContain("BCHUSDT SHORT");
+    expect(html).toContain("broker open position");
+    expect(html).toContain("15m");
+    expect(html).toContain("1H");
+    expect(html).toContain("4H");
+    expect(html).toContain("HIGH");
+    expect(html).toContain("BLOCKED");
+    expect(html).toContain("autoExecution false");
+    expect(html).toContain("executionIntent none");
+    expect(html).not.toContain("Place order");
+    expect(html).not.toContain("Cancel order");
+  });
+
+  it("shows context mismatch no action when active position and visible detail differ", () => {
+    const html = renderToStaticMarkup(React.createElement(ActiveTradeManagementPanel, { binding: { ...baseBinding, state: "blocked", managementConfidence: "BLOCKED", mismatchWarning: "Context mismatch — no action.", addReason: "Active position is BCHUSDT but 15m context is XRPUSDT.", timeframes: { ...baseBinding.timeframes, "15m": { status: "wrong_symbol", symbol: "XRPUSDT", reason: "Active position is BCHUSDT but 15m context is XRPUSDT." } } } }));
+
+    expect(html).toContain("Context mismatch — no action.");
+    expect(html).toContain("Active position is BCHUSDT but 15m context is XRPUSDT.");
   });
 });
