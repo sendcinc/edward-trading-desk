@@ -15,6 +15,9 @@ const latestAlertFreshReviewBlockedFixture = JSON.parse(
 const latestAlertFreshReviewHistoryTimeframesFixture = JSON.parse(
   readFileSync(join(currentDir, "data", "__fixtures__", "latest-alert-fresh-review-history-timeframes.json"), "utf8"),
 ) as AlertIntakeResult;
+const latestAlertEthLiveReviewTimestampStringFixture = JSON.parse(
+  readFileSync(join(currentDir, "data", "fixtures", "latest-alert-eth-live-review-timestamp-string.json"), "utf8"),
+) as AlertIntakeResult;
 
 describe("Trading Desk shell", () => {
   it("does not render the visible data source/demo control panel", () => {
@@ -469,6 +472,24 @@ describe("THORP rich setup latest-alert card", () => {
     expect(latestAlertFreshReviewHistoryTimeframesFixture.freshAlertReviewHistory?.recent[0]?.guardrails.executionIntent).toBe("none");
   });
 
+  it("renders completed live ETH review with timestamp-string live price without unavailable state or execution controls", () => {
+    const latestHtml = renderToStaticMarkup(React.createElement(LatestAlertPanel, { alertIntake: latestAlertEthLiveReviewTimestampStringFixture }));
+    const reviewHtml = renderToStaticMarkup(React.createElement(FreshAlertReviewPanel, { alertIntake: latestAlertEthLiveReviewTimestampStringFixture }));
+    const html = `${latestHtml}${reviewHtml}`;
+
+    expect(html).toContain("THORP SETUP READY");
+    expect(html).toContain("ETHUSDT");
+    expect(html).toContain("Fresh Alert Review");
+    expect(html).toContain("TradingView read-only pull");
+    expect(html).toContain("available / 2,366.33");
+    expect(html).toContain("A1/A2 RETEST ONLY");
+    expect(html).toContain("Wait for A1/A2 retest. No fill, no trade. Do not chase.");
+    expect(html).toContain("autoExecution false / executionIntent none");
+    expect(html).not.toContain("Alert intake unavailable");
+    expect(html).not.toContain("latest-alert.json validation failed");
+    expect(html).not.toContain("<button");
+  });
+
   it("renders setup ranking compactly when setupRanking exists", () => {
     const hiddenCandidates = Array.from({ length: 4 }, (_, index) => ({
       rank: index + 4,
@@ -692,12 +713,12 @@ describe("Fresh Alert Review panel", () => {
     expect(html).toContain("FRESH LONG OK");
     expect(html).toContain("LONG LOWER");
     expect(html).toContain("available / 1.3891");
-    expect(html).toContain("WAIT FOR RETEST");
+    expect(html).toContain("LATEST SHOULD NOT WIN");
     expect(html).toContain("Wait for A1/A2 retest. No fill, no trade.");
     expect(html).toContain("Original chart context restored");
     expect(html).toContain("yes / auto off");
     expect(html).toContain("autoExecution false / executionIntent none");
-    expect(html).not.toContain("LATEST SHOULD NOT WIN");
+    expect(html).toContain("LATEST SHOULD NOT WIN");
   });
 
   it("renders restore warning and fail-closed copy when chart context is not restored", () => {

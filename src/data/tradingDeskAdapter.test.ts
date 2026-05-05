@@ -21,6 +21,9 @@ const latestAlertFreshReviewBlockedFixture = JSON.parse(
 const latestAlertFreshReviewHistoryTimeframesFixture = JSON.parse(
   readFileSync("src/data/__fixtures__/latest-alert-fresh-review-history-timeframes.json", "utf8"),
 );
+const latestAlertEthLiveReviewTimestampStringFixture = JSON.parse(
+  readFileSync("src/data/fixtures/latest-alert-eth-live-review-timestamp-string.json", "utf8"),
+);
 const generatedRuntimeArtifactDir = process.env.EDWARD_CONTRACT_SMOKE_DIR;
 
 const validSnapshot = () => structuredClone(demoTradingDeskSnapshot);
@@ -256,6 +259,37 @@ describe("alert intake validation", () => {
       expect(firstReview.guardrails.autoExecution).toBe(false);
       expect(firstReview.guardrails.executionIntent).toBe("none");
       expect(result.alertIntake.queueDepth).toBe(0);
+    }
+  });
+
+  it("accepts ETH live Fresh Alert Review timestamp strings at every latest-alert nesting point", () => {
+    const result = validateAlertIntake(latestAlertEthLiveReviewTimestampStringFixture);
+
+    if (!result.ok) {
+      throw new Error(result.issues.slice(0, 40).join("\n"));
+    }
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const reviews = [
+        result.alertIntake.latestAlert?.freshAlertReview,
+        result.alertIntake.latestBySymbol.ETHUSDT?.freshAlertReview,
+        result.alertIntake.latestBySymbolTimeframe.ETHUSDT?.["15"]?.freshAlertReview,
+        result.alertIntake.recentAlerts[0]?.freshAlertReview,
+        result.alertIntake.freshAlertReviewHistory?.lastSuccessfulBySymbol.ETHUSDT,
+      ];
+      for (const review of reviews) {
+        expect(review?.tradingViewReadState).toBe("completed");
+        expect(review?.livePrice.status).toBe("available");
+        expect(review?.livePrice.price).toBe(2366.33);
+        expect(review?.livePrice.timestamp).toBe("1777996800");
+        expect(review?.timeframes["15m"].status).toBe("fresh");
+        expect(review?.timeframes["1H"].status).toBe("stale");
+        expect(review?.timeframes["4H"].status).toBe("stale");
+        expect(review?.entryTactics?.entryTactic).toBe("A1_A2_RETEST_ONLY");
+        expect(review?.guardrails.readOnly).toBe(true);
+        expect(review?.guardrails.autoExecution).toBe(false);
+        expect(review?.guardrails.executionIntent).toBe("none");
+      }
     }
   });
 

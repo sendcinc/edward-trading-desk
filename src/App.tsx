@@ -160,7 +160,7 @@ function managementTimeframeDanger(binding: ManagementBinding, timeframe: "15m" 
 }
 
 export function FreshAlertReviewPanel({ alertIntake }: { alertIntake?: AlertIntakeResult }) {
-  const review = alertIntake?.freshAlertReview ?? alertIntake?.latestAlert?.freshAlertReview ?? null;
+  const review = alertIntake?.latestAlert?.freshAlertReview ?? alertIntake?.freshAlertReview ?? null;
   if (!review) return null;
 
   const restoreOk = review.originalChartContextCaptured && review.originalChartContextRestored;
@@ -1275,7 +1275,9 @@ function formatBodyPartName(part: string) {
 }
 
 function formatTime(timestamp: string) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(timestamp));
+  const parsedTimestamp = /^\d+(?:\.\d+)?$/.test(timestamp) ? Number(timestamp) * 1000 : Date.parse(timestamp);
+  if (!Number.isFinite(parsedTimestamp)) return timestamp;
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(parsedTimestamp));
 }
 
 function formatAge(timestamp: string) {

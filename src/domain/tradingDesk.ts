@@ -92,6 +92,10 @@ export type FreshAlertReview = {
   alertAgeSeconds?: number | null;
   originalChartContextCaptured: boolean;
   originalChartContextRestored: boolean;
+  originalChartContext?: {
+    symbol?: string | null;
+    timeframe?: string | null;
+  };
   timeframes: {
     "15m": FreshAlertReviewTimeframe;
     "1H": FreshAlertReviewTimeframe;
