@@ -9,6 +9,9 @@ import type { AlertIntakeResult, FreshAlertReview, LatestAlert, ManagementBindin
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(join(currentDir, "App.tsx"), "utf8");
+const latestAlertFreshReviewBlockedFixture = JSON.parse(
+  readFileSync(join(currentDir, "data", "__fixtures__", "latest-alert-fresh-review-blocked.json"), "utf8"),
+) as AlertIntakeResult;
 
 describe("Trading Desk shell", () => {
   it("does not render the visible data source/demo control panel", () => {
@@ -428,6 +431,21 @@ describe("THORP rich setup latest-alert card", () => {
     expect(html).toContain("SKIP — STALE");
     expect(html).not.toContain("THORP SETUP READY");
     expect(html).not.toContain("REVIEW NOW");
+  });
+
+  it("does not render fresh/actionable state for production-shaped blocked Fresh Alert Review fixture", () => {
+    const latestHtml = renderToStaticMarkup(React.createElement(LatestAlertPanel, { alertIntake: latestAlertFreshReviewBlockedFixture }));
+    const reviewHtml = renderToStaticMarkup(React.createElement(FreshAlertReviewPanel, { alertIntake: latestAlertFreshReviewBlockedFixture }));
+    const html = `${latestHtml}${reviewHtml}`;
+
+    expect(html).toContain("STALE CONTEXT — NO ACTION");
+    expect(html).toContain("Stale context — no action.");
+    expect(html).toContain("SKIP — STALE");
+    expect(html).toContain("blocked_stale_alert / alert_stale_before_chart_context");
+    expect(html).toContain("unavailable_not_attempted_due_to_stale_alert");
+    expect(html).not.toContain("THORP SETUP READY");
+    expect(html).not.toContain("REVIEW NOW");
+    expect(html).not.toContain("auto on");
   });
 
   it("renders setup ranking compactly when setupRanking exists", () => {

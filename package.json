@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:contract-smoke": "vitest run src/data/tradingDeskAdapter.test.ts src/App.test.ts -t \"production-shaped blocked\""
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
