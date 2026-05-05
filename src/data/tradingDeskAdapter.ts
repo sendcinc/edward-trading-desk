@@ -483,6 +483,65 @@ const entryTacticsSchema = z.object({
   autoExecution: z.literal(false),
   executionIntent: z.literal("none"),
 }).strict();
+const freshAlertReviewTimeframeSchema = z.object({
+  status: z.enum(["fresh", "stale", "missing", "unavailable", "failed"]),
+  source: z.literal("tradingview_read"),
+  decision: z.string().min(1).nullable(),
+  score: z.number().finite().nullable(),
+  biasZone: z.string().nullable(),
+  battlefield: z.string().nullable(),
+  trigger: z.string().nullable(),
+  action: z.string().nullable(),
+  scout: z.number().finite().nullable(),
+  a1: z.number().finite().nullable(),
+  a2: z.number().finite().nullable(),
+  warning: z.number().finite().nullable(),
+  hardInvalidation: z.number().finite().nullable(),
+  t1: z.number().finite().nullable(),
+  t2: z.number().finite().nullable(),
+  t3: z.number().finite().nullable(),
+  extractedAt: z.string().datetime().nullable(),
+  rawRowsHash: z.string().min(1).nullable().optional(),
+}).strict();
+const setupRankingImpactSchema = z.object({
+  autoExecution: z.literal(false),
+  executionIntent: z.literal("none"),
+}).passthrough();
+const freshAlertReviewSchema = z.object({
+  contractVersion: z.literal("fresh-alert-3tf-review.v1"),
+  symbol: z.string().min(1),
+  normalizedSymbol: z.string().min(1),
+  tradingViewReadAttempted: z.literal(true),
+  tradingViewRefreshAttempted: z.literal(false),
+  tradingViewMutationAttempted: z.literal(false),
+  alertReceivedAt: z.string().datetime().nullable().optional(),
+  reviewStartedAt: z.string().datetime().nullable().optional(),
+  reviewCompletedAt: z.string().datetime().nullable().optional(),
+  alertAgeSeconds: z.number().finite().nullable().optional(),
+  originalChartContextCaptured: z.boolean(),
+  originalChartContextRestored: z.boolean(),
+  timeframes: z.object({
+    "15m": freshAlertReviewTimeframeSchema,
+    "1H": freshAlertReviewTimeframeSchema,
+    "4H": freshAlertReviewTimeframeSchema,
+  }).strict(),
+  livePrice: z.object({
+    status: z.enum(["available", "unavailable", "failed"]),
+    price: z.number().finite().nullable(),
+    timestamp: z.string().datetime().nullable(),
+  }).strict(),
+  entryTactics: entryTacticsSchema.optional(),
+  setupRankingImpact: setupRankingImpactSchema.optional(),
+  finalRecommendation: z.string().min(1),
+  nextActionSentence: z.string().min(1),
+  riskReason: z.string().min(1),
+  confidence: z.enum(["high", "medium", "low"]),
+  guardrails: z.object({
+    readOnly: z.literal(true),
+    autoExecution: z.literal(false),
+    executionIntent: z.literal("none"),
+  }).strict(),
+}).strict();
 const setupRankingCandidateSchema = z.object({
   rank: z.number().int().positive(),
   symbol: z.string().min(1),
@@ -530,6 +589,7 @@ const latestAlertSchema = z.object({
   scannerRecommendation: thorpScannerRecommendationSchema.optional(),
   richScannerPayload: thorpRichScannerPayloadSchema.optional(),
   entryTactics: entryTacticsSchema.optional(),
+  freshAlertReview: freshAlertReviewSchema.optional(),
   autoExecution: z.literal(false),
   executionIntent: z.literal("none"),
 }).superRefine((alert, ctx) => {
@@ -593,6 +653,7 @@ const alertIntakeSchema = z.object({
   lastReviewTriggeredAt: z.string().datetime().nullable().optional(),
   activeBasketCoverage: z.unknown().optional(),
   setupRanking: setupRankingSchema.optional(),
+  freshAlertReview: freshAlertReviewSchema.optional(),
 });
 
 const tradingDeskSnapshotSchema = z.object({

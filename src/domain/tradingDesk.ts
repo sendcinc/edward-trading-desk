@@ -48,6 +48,69 @@ export type EntryTacticsPlan = {
   executionIntent: "none";
 };
 
+export type FreshAlertReviewTimeframeStatus = "fresh" | "stale" | "missing" | "unavailable" | "failed";
+export type FreshAlertReviewConfidence = "high" | "medium" | "low";
+
+export type FreshAlertReviewTimeframe = {
+  status: FreshAlertReviewTimeframeStatus;
+  source: "tradingview_read";
+  decision: string | null;
+  score: number | null;
+  biasZone: string | null;
+  battlefield: string | null;
+  trigger: string | null;
+  action: string | null;
+  scout: number | null;
+  a1: number | null;
+  a2: number | null;
+  warning: number | null;
+  hardInvalidation: number | null;
+  t1: number | null;
+  t2: number | null;
+  t3: number | null;
+  extractedAt: string | null;
+  rawRowsHash?: string | null;
+};
+
+export type FreshAlertReview = {
+  contractVersion: "fresh-alert-3tf-review.v1";
+  symbol: string;
+  normalizedSymbol: string;
+  tradingViewReadAttempted: true;
+  tradingViewRefreshAttempted: false;
+  tradingViewMutationAttempted: false;
+  alertReceivedAt?: string | null;
+  reviewStartedAt?: string | null;
+  reviewCompletedAt?: string | null;
+  alertAgeSeconds?: number | null;
+  originalChartContextCaptured: boolean;
+  originalChartContextRestored: boolean;
+  timeframes: {
+    "15m": FreshAlertReviewTimeframe;
+    "1H": FreshAlertReviewTimeframe;
+    "4H": FreshAlertReviewTimeframe;
+  };
+  livePrice: {
+    status: "available" | "unavailable" | "failed";
+    price: number | null;
+    timestamp: string | null;
+  };
+  entryTactics?: EntryTacticsPlan;
+  setupRankingImpact?: Record<string, unknown> & {
+    autoExecution: false;
+    executionIntent: "none";
+  };
+  finalRecommendation: string;
+  nextActionSentence: string;
+  riskReason: string;
+  confidence: FreshAlertReviewConfidence;
+  guardrails: {
+    readOnly: true;
+    autoExecution: false;
+    executionIntent: "none";
+  };
+};
+
 export type SetupRankingCandidate = {
   rank: number;
   symbol: string;
@@ -569,6 +632,7 @@ export type LatestAlert = {
   scannerRecommendation?: ThorpScannerRecommendation;
   richScannerPayload?: ThorpRichScannerPayload;
   entryTactics?: EntryTacticsPlan;
+  freshAlertReview?: FreshAlertReview;
   autoExecution: false;
   executionIntent: "none";
 };
@@ -588,6 +652,7 @@ export type AlertIntakeResult = {
   lastReviewTriggeredAt?: string | null;
   activeBasketCoverage?: unknown;
   setupRanking?: SetupRankingPlan;
+  freshAlertReview?: FreshAlertReview;
   validationIssues?: string[];
 };
 

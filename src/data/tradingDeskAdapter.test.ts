@@ -64,6 +64,60 @@ const validAlertIntake = () => ({
   queueDepth: 1,
   lastReviewTriggeredAt: new Date().toISOString(),
 });
+const validFreshAlertReview = () => ({
+  contractVersion: "fresh-alert-3tf-review.v1",
+  symbol: "XRPUSDT.P",
+  normalizedSymbol: "XRPUSDT.P",
+  tradingViewReadAttempted: true,
+  tradingViewRefreshAttempted: false,
+  tradingViewMutationAttempted: false,
+  originalChartContextCaptured: true,
+  originalChartContextRestored: true,
+  timeframes: {
+    "15m": freshReviewTimeframe("fresh"),
+    "1H": freshReviewTimeframe("stale"),
+    "4H": freshReviewTimeframe("missing"),
+  },
+  livePrice: { status: "available", price: 1.3891, timestamp: "2026-05-04T12:00:03.000Z" },
+  entryTactics: {
+    contractVersion: "entry-tactics-brain.v1",
+    entryTactic: "A1_A2_RETEST_ONLY",
+    positionSplit: "0/40/60",
+    nextActionSentence: "Wait for A1/A2 retest. No fill, no trade.",
+    riskReason: "15m is fresh, but higher timeframe confirmation is incomplete.",
+    autoExecution: false,
+    executionIntent: "none",
+  },
+  setupRankingImpact: {
+    rankingDelta: "improved",
+    autoExecution: false,
+    executionIntent: "none",
+  },
+  finalRecommendation: "WAIT FOR RETEST",
+  nextActionSentence: "Wait for A1/A2 retest. No fill, no trade.",
+  riskReason: "15m is fresh, but higher timeframe confirmation is incomplete.",
+  confidence: "medium",
+  guardrails: { readOnly: true, autoExecution: false, executionIntent: "none" },
+});
+const freshReviewTimeframe = (status: "fresh" | "stale" | "missing" | "unavailable" | "failed") => ({
+  status,
+  source: "tradingview_read",
+  decision: status === "fresh" ? "READY | 10" : "WAIT",
+  score: status === "fresh" ? 10 : 4,
+  biasZone: "LONG LOWER",
+  battlefield: "GREEN | 11.24%",
+  trigger: "LOCKED LONG",
+  action: status === "fresh" ? "FRESH LONG OK" : "NO ACTION",
+  scout: 1.3876,
+  a1: 1.371,
+  a2: 1.3545,
+  warning: 1.3483,
+  hardInvalidation: 1.3403,
+  t1: 1.4286,
+  t2: 1.4553,
+  t3: 1.5088,
+  extractedAt: "2026-05-04T12:00:00.000Z",
+});
 
 describe("alert intake validation", () => {
   it("accepts the latest alert intake contract", () => {
@@ -94,6 +148,70 @@ describe("alert intake validation", () => {
       expect(result.issues.join("\n")).toContain("latestAlert.receivedAt");
       expect(result.issues.join("\n")).toContain("latestAlert.autoExecution");
       expect(result.issues.join("\n")).toContain("latestAlert.executionIntent");
+    }
+  });
+
+  it("accepts top-level and latest-alert freshAlertReview contracts", () => {
+    const review = validFreshAlertReview();
+    const result = validateAlertIntake({
+      ...validAlertIntake(),
+      freshAlertReview: review,
+      latestAlert: {
+        ...validAlertIntake().latestAlert,
+        freshAlertReview: { ...review, finalRecommendation: "LATEST REVIEW" },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.alertIntake.freshAlertReview?.contractVersion).toBe("fresh-alert-3tf-review.v1");
+      expect(result.alertIntake.freshAlertReview?.timeframes["15m"].source).toBe("tradingview_read");
+      expect(result.alertIntake.latestAlert?.freshAlertReview?.finalRecommendation).toBe("LATEST REVIEW");
+      expect(result.alertIntake.freshAlertReview?.guardrails.autoExecution).toBe(false);
+      expect(result.alertIntake.freshAlertReview?.guardrails.executionIntent).toBe("none");
+      expect(result.alertIntake.freshAlertReview?.setupRankingImpact?.autoExecution).toBe(false);
+      expect(result.alertIntake.freshAlertReview?.setupRankingImpact?.executionIntent).toBe("none");
+    }
+  });
+
+  it("rejects freshAlertReview execution guardrail violations", () => {
+    const result = validateAlertIntake({
+      ...validAlertIntake(),
+      freshAlertReview: {
+        ...validFreshAlertReview(),
+        tradingViewMutationAttempted: true,
+        setupRankingImpact: { autoExecution: true, executionIntent: "market" },
+        guardrails: { readOnly: false, autoExecution: true, executionIntent: "market" },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const issues = result.issues.join("\n");
+      expect(issues).toContain("freshAlertReview.tradingViewMutationAttempted");
+      expect(issues).toContain("freshAlertReview.setupRankingImpact.autoExecution");
+      expect(issues).toContain("freshAlertReview.setupRankingImpact.executionIntent");
+      expect(issues).toContain("freshAlertReview.guardrails.readOnly");
+      expect(issues).toContain("freshAlertReview.guardrails.autoExecution");
+      expect(issues).toContain("freshAlertReview.guardrails.executionIntent");
+    }
+  });
+
+  it("rejects nested latest-alert freshAlertReview guardrail violations", () => {
+    const result = validateAlertIntake({
+      ...validAlertIntake(),
+      latestAlert: {
+        ...validAlertIntake().latestAlert,
+        freshAlertReview: {
+          ...validFreshAlertReview(),
+          guardrails: { readOnly: true, autoExecution: true, executionIntent: "none" },
+        },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues.join("\n")).toContain("latestAlert.freshAlertReview.guardrails.autoExecution");
     }
   });
 });
