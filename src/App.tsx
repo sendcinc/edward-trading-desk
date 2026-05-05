@@ -175,6 +175,7 @@ export function FreshAlertReviewPanel({ alertIntake }: { alertIntake?: AlertInta
         <Metric label="Source" value="TradingView read-only pull" strong />
         <Metric label="Live price" value={formatLivePrice(review)} danger={review.livePrice.status !== "available"} />
         <Metric label="Final recommendation" value={review.finalRecommendation} strong />
+        <Metric label="Read state" value={review.tradingViewReadBlockedReason ? `${review.tradingViewReadState} / ${review.tradingViewReadBlockedReason}` : review.tradingViewReadState} danger={review.tradingViewReadState !== "completed"} />
         <Metric label="Read-only" value={`yes / auto ${review.guardrails.autoExecution ? "on" : "off"}`} danger={!review.guardrails.readOnly || review.guardrails.autoExecution} />
       </div>
 

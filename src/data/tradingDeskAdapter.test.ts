@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { demoTradingDeskSnapshot } from "./demoSnapshot";
 import {
@@ -13,6 +14,10 @@ import {
 } from "./tradingDeskAdapter";
 
 import { TRADING_DESK_SNAPSHOT_CONTRACT_VERSION } from "../domain/tradingDesk";
+
+const latestAlertFreshReviewBlockedFixture = JSON.parse(
+  readFileSync("src/data/__fixtures__/latest-alert-fresh-review-blocked.json", "utf8"),
+);
 
 const validSnapshot = () => structuredClone(demoTradingDeskSnapshot);
 const validHealth = () => ({
@@ -194,6 +199,47 @@ describe("alert intake validation", () => {
       expect(issues).toContain("freshAlertReview.guardrails.readOnly");
       expect(issues).toContain("freshAlertReview.guardrails.autoExecution");
       expect(issues).toContain("freshAlertReview.guardrails.executionIntent");
+    }
+  });
+
+  it("accepts production-shaped blocked Fresh Alert Review at every latest-alert nesting point", () => {
+    const result = validateAlertIntake(latestAlertFreshReviewBlockedFixture);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const topReview = result.alertIntake.latestAlert?.freshAlertReview;
+      const bySymbolReview = result.alertIntake.latestBySymbol.SOLUSDT?.freshAlertReview;
+      const byTimeframeReview = result.alertIntake.latestBySymbolTimeframe.SOLUSDT?.["15"]?.freshAlertReview;
+
+      for (const review of [topReview, bySymbolReview, byTimeframeReview]) {
+        expect(review?.status).toBe("blocked");
+        expect(review?.tradingViewReadAttempted).toBe(false);
+        expect(review?.tradingViewReadState).toBe("blocked_stale_alert");
+        expect(review?.tradingViewReadBlockedReason).toBe("alert_stale_before_chart_context");
+        expect(review?.livePrice.reason).toBe("unavailable_not_attempted_due_to_stale_alert");
+        expect(review?.guardrails.readOnly).toBe(true);
+        expect(review?.guardrails.autoExecution).toBe(false);
+        expect(review?.guardrails.executionIntent).toBe("none");
+      }
+      expect(result.alertIntake.freshAlertReviewHistory?.current?.status).toBe("blocked");
+      expect(result.alertIntake.freshAlertReviewHistory?.blockedBySymbol.SOLUSDT?.tradingViewReadState).toBe("blocked_stale_alert");
+    }
+  });
+
+  it("rejects production-shaped Fresh Alert Review fixture when execution guardrails are mutated", () => {
+    const fixture = structuredClone(latestAlertFreshReviewBlockedFixture);
+    fixture.latestAlert.freshAlertReview.guardrails.autoExecution = true;
+    fixture.latestAlert.freshAlertReview.guardrails.executionIntent = "market";
+    fixture.latestAlert.freshAlertReview.tradingViewMutationAttempted = true;
+
+    const result = validateAlertIntake(fixture);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const issues = result.issues.join("\n");
+      expect(issues).toContain("latestAlert.freshAlertReview.tradingViewMutationAttempted");
+      expect(issues).toContain("latestAlert.freshAlertReview.guardrails.autoExecution");
+      expect(issues).toContain("latestAlert.freshAlertReview.guardrails.executionIntent");
     }
   });
 

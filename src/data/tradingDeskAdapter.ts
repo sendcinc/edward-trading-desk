@@ -519,6 +519,7 @@ const freshAlertReviewSchema = z.object({
   tradingViewRefreshAttempted: z.literal(false),
   tradingViewMutationAttempted: z.literal(false),
   alertReceivedAt: z.string().datetime().nullable().optional(),
+  payloadHash: z.string().min(1).optional(),
   reviewStartedAt: z.string().datetime().nullable().optional(),
   reviewCompletedAt: z.string().datetime().nullable().optional(),
   alertAgeSeconds: z.number().finite().nullable().optional(),
@@ -547,6 +548,13 @@ const freshAlertReviewSchema = z.object({
     executionIntent: z.literal("none"),
   }).strict(),
 }).strict();
+const freshAlertReviewHistorySchema = z.object({
+  current: freshAlertReviewSchema.nullable().optional(),
+  lastSuccessfulBySymbol: z.record(z.string(), freshAlertReviewSchema).default({}),
+  blockedBySymbol: z.record(z.string(), freshAlertReviewSchema).default({}),
+  recent: z.array(freshAlertReviewSchema).default([]),
+}).strict();
+
 const setupRankingCandidateSchema = z.object({
   rank: z.number().int().positive(),
   symbol: z.string().min(1),
@@ -658,7 +666,8 @@ const alertIntakeSchema = z.object({
   lastReviewTriggeredAt: z.string().datetime().nullable().optional(),
   activeBasketCoverage: z.unknown().optional(),
   setupRanking: setupRankingSchema.optional(),
-  freshAlertReview: freshAlertReviewSchema.optional(),
+  freshAlertReview: freshAlertReviewSchema.nullable().optional(),
+  freshAlertReviewHistory: freshAlertReviewHistorySchema.optional(),
 });
 
 const managementBindingTimeframeSchema = z.object({

@@ -677,6 +677,13 @@ export type LatestAlert = {
   executionIntent: "none";
 };
 
+export type FreshAlertReviewHistory = {
+  current?: FreshAlertReview | null;
+  lastSuccessfulBySymbol: Record<string, FreshAlertReview>;
+  blockedBySymbol: Record<string, FreshAlertReview>;
+  recent: FreshAlertReview[];
+};
+
 export type AlertIntakeResult = {
   contractVersion: "edward-alert-intake.v1";
   generatedAt: string;
@@ -692,7 +699,8 @@ export type AlertIntakeResult = {
   lastReviewTriggeredAt?: string | null;
   activeBasketCoverage?: unknown;
   setupRanking?: SetupRankingPlan;
-  freshAlertReview?: FreshAlertReview;
+  freshAlertReview?: FreshAlertReview | null;
+  freshAlertReviewHistory?: FreshAlertReviewHistory;
   validationIssues?: string[];
 };
 
