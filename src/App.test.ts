@@ -12,6 +12,9 @@ const appSource = readFileSync(join(currentDir, "App.tsx"), "utf8");
 const latestAlertFreshReviewBlockedFixture = JSON.parse(
   readFileSync(join(currentDir, "data", "__fixtures__", "latest-alert-fresh-review-blocked.json"), "utf8"),
 ) as AlertIntakeResult;
+const latestAlertFreshReviewHistoryTimeframesFixture = JSON.parse(
+  readFileSync(join(currentDir, "data", "__fixtures__", "latest-alert-fresh-review-history-timeframes.json"), "utf8"),
+) as AlertIntakeResult;
 
 describe("Trading Desk shell", () => {
   it("does not render the visible data source/demo control panel", () => {
@@ -445,7 +448,25 @@ describe("THORP rich setup latest-alert card", () => {
     expect(html).toContain("unavailable_not_attempted_due_to_stale_alert");
     expect(html).not.toContain("THORP SETUP READY");
     expect(html).not.toContain("REVIEW NOW");
-    expect(html).not.toContain("auto on");
+    expect(html).not.toContain("<button");
+  });
+
+  it("keeps generated history-timeframe fixture blocked/no-action without execution controls", () => {
+    const latestHtml = renderToStaticMarkup(React.createElement(LatestAlertPanel, { alertIntake: latestAlertFreshReviewHistoryTimeframesFixture }));
+    const reviewHtml = renderToStaticMarkup(React.createElement(FreshAlertReviewPanel, { alertIntake: latestAlertFreshReviewHistoryTimeframesFixture }));
+    const html = `${latestHtml}${reviewHtml}`;
+
+    expect(html).toContain("STALE CONTEXT — NO ACTION");
+    expect(html).toContain("Stale context — no action.");
+    expect(html).toContain("SKIP — STALE");
+    expect(html).toContain("blocked_stale_alert / alert_stale_before_chart_context");
+    expect(html).not.toContain("THORP SETUP READY");
+    expect(html).not.toContain("REVIEW NOW");
+    expect(html).not.toContain("Actionable");
+    expect(html).not.toContain("<button");
+    expect(latestAlertFreshReviewHistoryTimeframesFixture.freshAlertReviewHistory?.recent[0]?.timeframes["15m"]?.source).toBe("tradingview_read");
+    expect(latestAlertFreshReviewHistoryTimeframesFixture.freshAlertReviewHistory?.recent[0]?.guardrails.autoExecution).toBe(false);
+    expect(latestAlertFreshReviewHistoryTimeframesFixture.freshAlertReviewHistory?.recent[0]?.guardrails.executionIntent).toBe("none");
   });
 
   it("renders setup ranking compactly when setupRanking exists", () => {

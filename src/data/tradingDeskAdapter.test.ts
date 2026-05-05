@@ -18,6 +18,10 @@ import { TRADING_DESK_SNAPSHOT_CONTRACT_VERSION } from "../domain/tradingDesk";
 const latestAlertFreshReviewBlockedFixture = JSON.parse(
   readFileSync("src/data/__fixtures__/latest-alert-fresh-review-blocked.json", "utf8"),
 );
+const latestAlertFreshReviewHistoryTimeframesFixture = JSON.parse(
+  readFileSync("src/data/__fixtures__/latest-alert-fresh-review-history-timeframes.json", "utf8"),
+);
+const generatedRuntimeArtifactDir = process.env.EDWARD_CONTRACT_SMOKE_DIR;
 
 const validSnapshot = () => structuredClone(demoTradingDeskSnapshot);
 const validHealth = () => ({
@@ -207,16 +211,15 @@ describe("alert intake validation", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      const topReview = result.alertIntake.latestAlert?.freshAlertReview;
-      const bySymbolReview = result.alertIntake.latestBySymbol.SOLUSDT?.freshAlertReview;
-      const byTimeframeReview = result.alertIntake.latestBySymbolTimeframe.SOLUSDT?.["15"]?.freshAlertReview;
-
-      for (const review of [topReview, bySymbolReview, byTimeframeReview]) {
+      const latestReview = result.alertIntake.latestAlert?.freshAlertReview;
+      const symbolReview = result.alertIntake.latestBySymbol.SOLUSDT?.freshAlertReview;
+      const timeframeReview = result.alertIntake.latestBySymbolTimeframe.SOLUSDT?.["15"]?.freshAlertReview;
+      for (const review of [latestReview, symbolReview, timeframeReview]) {
         expect(review?.status).toBe("blocked");
         expect(review?.tradingViewReadAttempted).toBe(false);
         expect(review?.tradingViewReadState).toBe("blocked_stale_alert");
         expect(review?.tradingViewReadBlockedReason).toBe("alert_stale_before_chart_context");
-        expect(review?.livePrice.reason).toBe("unavailable_not_attempted_due_to_stale_alert");
+        expect(review?.tradingViewMutationAttempted).toBe(false);
         expect(review?.guardrails.readOnly).toBe(true);
         expect(review?.guardrails.autoExecution).toBe(false);
         expect(review?.guardrails.executionIntent).toBe("none");
@@ -224,6 +227,47 @@ describe("alert intake validation", () => {
       expect(result.alertIntake.freshAlertReviewHistory?.current?.status).toBe("blocked");
       expect(result.alertIntake.freshAlertReviewHistory?.blockedBySymbol.SOLUSDT?.tradingViewReadState).toBe("blocked_stale_alert");
     }
+  });
+
+  it("accepts production-shaped Fresh Alert Review history timeframe rows from generated runtime latest-alert", () => {
+    const result = validateAlertIntake(latestAlertFreshReviewHistoryTimeframesFixture);
+
+    if (!result.ok) {
+      throw new Error(result.issues.slice(0, 40).join("\n"));
+    }
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const recent = result.alertIntake.freshAlertReviewHistory?.recent ?? [];
+      expect(recent.length).toBeGreaterThan(0);
+      const firstReview = recent[0];
+      const fifteenMinuteRow = firstReview.timeframes["15m"];
+      expect(fifteenMinuteRow.status).toBe("unavailable");
+      expect(fifteenMinuteRow.source).toBe("tradingview_read");
+      expect(fifteenMinuteRow.trigger).toBeNull();
+      expect(fifteenMinuteRow.scout).toBeNull();
+      expect(fifteenMinuteRow.a1).toBeNull();
+      expect(fifteenMinuteRow.a2).toBeNull();
+      expect(fifteenMinuteRow.warning).toBeNull();
+      expect(fifteenMinuteRow.hardInvalidation).toBeNull();
+      expect(fifteenMinuteRow.t1).toBeNull();
+      expect(firstReview.status).toBe("blocked");
+      expect(firstReview.tradingViewReadState).toBe("blocked_stale_alert");
+      expect(firstReview.tradingViewMutationAttempted).toBe(false);
+      expect(firstReview.guardrails.autoExecution).toBe(false);
+      expect(firstReview.guardrails.executionIntent).toBe("none");
+      expect(result.alertIntake.queueDepth).toBe(0);
+    }
+  });
+
+  it("can validate freshly generated runtime latest-alert artifacts before deploy when EDWARD_CONTRACT_SMOKE_DIR is set", () => {
+    if (!generatedRuntimeArtifactDir) {
+      expect(generatedRuntimeArtifactDir).toBeUndefined();
+      return;
+    }
+    const artifact = JSON.parse(readFileSync(`${generatedRuntimeArtifactDir}/latest-alert.json`, "utf8"));
+    const result = validateAlertIntake(artifact);
+
+    expect(result.ok).toBe(true);
   });
 
   it("rejects production-shaped Fresh Alert Review fixture when execution guardrails are mutated", () => {

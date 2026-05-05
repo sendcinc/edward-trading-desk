@@ -483,25 +483,28 @@ const entryTacticsSchema = z.object({
   autoExecution: z.literal(false),
   executionIntent: z.literal("none"),
 }).strict();
+const optionalNullableStringSchema = z.string().nullable().optional().transform((value) => value ?? null);
+const optionalNullableNumberSchema = z.number().finite().nullable().optional().transform((value) => value ?? null);
+const optionalNullableDateTimeSchema = z.string().datetime().nullable().optional().transform((value) => value ?? null);
 const freshAlertReviewTimeframeSchema = z.object({
   status: z.enum(["fresh", "stale", "missing", "unavailable", "failed"]),
   source: z.literal("tradingview_read"),
-  decision: z.string().min(1).nullable(),
-  score: z.number().finite().nullable(),
-  biasZone: z.string().nullable(),
-  battlefield: z.string().nullable(),
-  trigger: z.string().nullable(),
-  action: z.string().nullable(),
-  scout: z.number().finite().nullable(),
-  a1: z.number().finite().nullable(),
-  a2: z.number().finite().nullable(),
-  warning: z.number().finite().nullable(),
-  hardInvalidation: z.number().finite().nullable(),
-  t1: z.number().finite().nullable(),
-  t2: z.number().finite().nullable(),
-  t3: z.number().finite().nullable(),
-  extractedAt: z.string().datetime().nullable(),
-  rawRowsHash: z.string().min(1).nullable().optional(),
+  decision: optionalNullableStringSchema,
+  score: optionalNullableNumberSchema,
+  biasZone: optionalNullableStringSchema,
+  battlefield: optionalNullableStringSchema,
+  trigger: optionalNullableStringSchema,
+  action: optionalNullableStringSchema,
+  scout: optionalNullableNumberSchema,
+  a1: optionalNullableNumberSchema,
+  a2: optionalNullableNumberSchema,
+  warning: optionalNullableNumberSchema,
+  hardInvalidation: optionalNullableNumberSchema,
+  t1: optionalNullableNumberSchema,
+  t2: optionalNullableNumberSchema,
+  t3: optionalNullableNumberSchema,
+  extractedAt: optionalNullableDateTimeSchema,
+  rawRowsHash: optionalNullableStringSchema,
 }).strict();
 const setupRankingImpactSchema = z.object({
   autoExecution: z.literal(false),
@@ -548,11 +551,15 @@ const freshAlertReviewSchema = z.object({
     executionIntent: z.literal("none"),
   }).strict(),
 }).strict();
+const freshAlertReviewHistoryEntrySchema = freshAlertReviewSchema.extend({
+  nextActionSentence: z.string().min(1).optional(),
+  riskReason: z.string().min(1).optional(),
+});
 const freshAlertReviewHistorySchema = z.object({
   current: freshAlertReviewSchema.nullable().optional(),
   lastSuccessfulBySymbol: z.record(z.string(), freshAlertReviewSchema).default({}),
   blockedBySymbol: z.record(z.string(), freshAlertReviewSchema).default({}),
-  recent: z.array(freshAlertReviewSchema).default([]),
+  recent: z.array(freshAlertReviewHistoryEntrySchema).default([]),
 }).strict();
 
 const setupRankingCandidateSchema = z.object({
