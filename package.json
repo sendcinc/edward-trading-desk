@@ -9,7 +9,7 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:contract-smoke": "vitest run src/data/tradingDeskAdapter.test.ts src/App.test.ts -t \"production-shaped blocked\""
+    "test:contract-smoke": "vitest run src/data/tradingDeskAdapter.test.ts src/App.test.ts -t \"production-shaped|history timeframe|history-timeframe|freshly generated runtime\""
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",

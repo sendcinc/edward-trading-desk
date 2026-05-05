@@ -86,6 +86,7 @@ export type FreshAlertReview = {
   tradingViewRefreshAttempted: false;
   tradingViewMutationAttempted: false;
   alertReceivedAt?: string | null;
+  payloadHash?: string;
   reviewStartedAt?: string | null;
   reviewCompletedAt?: string | null;
   alertAgeSeconds?: number | null;
@@ -677,11 +678,16 @@ export type LatestAlert = {
   executionIntent: "none";
 };
 
+export type FreshAlertReviewHistoryEntry = Omit<FreshAlertReview, "nextActionSentence" | "riskReason"> & {
+  nextActionSentence?: string;
+  riskReason?: string;
+};
+
 export type FreshAlertReviewHistory = {
   current?: FreshAlertReview | null;
   lastSuccessfulBySymbol: Record<string, FreshAlertReview>;
   blockedBySymbol: Record<string, FreshAlertReview>;
-  recent: FreshAlertReview[];
+  recent: FreshAlertReviewHistoryEntry[];
 };
 
 export type AlertIntakeResult = {
