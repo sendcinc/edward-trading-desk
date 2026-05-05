@@ -402,7 +402,45 @@ describe("THORP rich setup latest-alert card", () => {
     expect(html).toContain("15m is fresh");
   });
 
+  it("does not render fresh/actionable badge when review is stale and fail-closed", () => {
+    const html = renderRich("REVIEW_NOW", {
+      status: "stale",
+      entryTactics: {
+        contractVersion: "entry-tactics-brain.v1",
+        entryTactic: "NO_ACTION_STALE",
+        positionSplit: "no entry",
+        nextActionSentence: "No action. Alert became stale during TradingView review.",
+        riskReason: "Fresh alert review exceeded the stale threshold.",
+        autoExecution: false,
+        executionIntent: "none",
+      },
+      freshAlertReview: freshReview({
+        status: "blocked",
+        tradingViewReadAttempted: false,
+        tradingViewReadState: "blocked_stale_alert",
+        tradingViewReadBlockedReason: "alert_stale_before_chart_context",
+        finalRecommendation: "NO_ACTION_STALE",
+      }),
+    });
+
+    expect(html).toContain("STALE CONTEXT — NO ACTION");
+    expect(html).toContain("Stale context — no action.");
+    expect(html).toContain("SKIP — STALE");
+    expect(html).not.toContain("THORP SETUP READY");
+    expect(html).not.toContain("REVIEW NOW");
+  });
+
   it("renders setup ranking compactly when setupRanking exists", () => {
+    const hiddenCandidates = Array.from({ length: 4 }, (_, index) => ({
+      rank: index + 4,
+      symbol: `ALT${index}USDT.P`,
+      direction: "LONG",
+      setupGrade: "C",
+      recommendedFocus: "WATCH_ONLY",
+      entryTactic: "WAIT_FOR_RETEST",
+      autoExecution: false as const,
+      executionIntent: "none" as const,
+    }));
     const html = renderRich("WAIT_FOR_RETEST", {}, {
       setupRanking: {
         contractVersion: "setup-ranking-brain.v1",
@@ -447,6 +485,7 @@ describe("THORP rich setup latest-alert card", () => {
             autoExecution: false,
             executionIntent: "none",
           },
+          ...hiddenCandidates,
         ],
         autoExecution: false,
         executionIntent: "none",
@@ -454,6 +493,7 @@ describe("THORP rich setup latest-alert card", () => {
     });
 
     expect(html).toContain("Setup ranking");
+    expect(html).toContain("7 candidates considered; showing top 3.");
     expect(html).toContain("BNB SHORT — PRIMARY — A1/A2 RETEST ONLY");
     expect(html).toContain("BCH LONG — WATCH ONLY — 15m-only");
     expect(html).toContain("LINK SHORT — WATCH ONLY — 1H late");
@@ -471,7 +511,7 @@ describe("THORP rich setup latest-alert card", () => {
 
   it.each([
     ["WAIT_FOR_RETEST", "WAIT FOR RETEST", "Wait for retest. Do not chase."],
-    ["SKIP_STALE", "SKIP — STALE", "Skip. Alert is stale."],
+    ["SKIP_STALE", "SKIP — STALE", "Stale context — no action."],
     ["SKIP_STRETCHED", "SKIP — STRETCHED", "Skip or wait. Move is already extended."],
     ["DUPLICATE_NO_ACTION", "DUPLICATE — NO NEW ACTION", "Duplicate scanner alert. No new action."],
     ["CONTEXT_INCOMPLETE", "REVIEW CHART — CONTEXT INCOMPLETE", "Setup alert received, but required context is incomplete. Review chart manually."],
@@ -573,7 +613,10 @@ function freshReview(overrides: Partial<FreshAlertReview> = {}): FreshAlertRevie
     contractVersion: "fresh-alert-3tf-review.v1",
     symbol: "XRPUSDT.P",
     normalizedSymbol: "XRPUSDT.P",
+    status: "completed",
     tradingViewReadAttempted: true,
+    tradingViewReadState: "completed",
+    tradingViewReadBlockedReason: null,
     tradingViewRefreshAttempted: false,
     tradingViewMutationAttempted: false,
     originalChartContextCaptured: true,
@@ -583,7 +626,7 @@ function freshReview(overrides: Partial<FreshAlertReview> = {}): FreshAlertRevie
       "1H": freshReviewTimeframe("stale"),
       "4H": freshReviewTimeframe("missing"),
     },
-    livePrice: { status: "available", price: 1.3891, timestamp: "2026-05-04T12:00:03.000Z" },
+    livePrice: { status: "available", reason: null, price: 1.3891, timestamp: "2026-05-04T12:00:03.000Z" },
     finalRecommendation: "WAIT FOR RETEST",
     nextActionSentence: "Wait for A1/A2 retest. No fill, no trade.",
     riskReason: "15m is fresh, but higher timeframe confirmation is incomplete.",
@@ -623,7 +666,7 @@ describe("Fresh Alert Review panel", () => {
       freshAlertReview: freshReview({
         originalChartContextCaptured: true,
         originalChartContextRestored: false,
-        livePrice: { status: "unavailable", price: null, timestamp: null },
+        livePrice: { status: "unavailable", reason: "unavailable_not_attempted_due_to_stale_alert", price: null, timestamp: null },
         confidence: "low",
       }),
     });
