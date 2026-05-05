@@ -486,6 +486,15 @@ const entryTacticsSchema = z.object({
 const optionalNullableStringSchema = z.string().nullable().optional().transform((value) => value ?? null);
 const optionalNullableNumberSchema = z.number().finite().nullable().optional().transform((value) => value ?? null);
 const optionalNullableDateTimeSchema = z.string().datetime().nullable().optional().transform((value) => value ?? null);
+const freshAlertReviewLivePriceTimestampSchema = z.union([
+  z.string().datetime(),
+  z.string().regex(/^\d+(?:\.\d+)?$/),
+  z.number().finite(),
+]).nullable().optional().transform((value) => value == null ? null : String(value));
+const freshAlertReviewChartContextSchema = z.object({
+  symbol: z.string().min(1).nullable().optional(),
+  timeframe: z.string().min(1).nullable().optional(),
+}).strict();
 const freshAlertReviewTimeframeSchema = z.object({
   status: z.enum(["fresh", "stale", "missing", "unavailable", "failed"]),
   source: z.literal("tradingview_read"),
@@ -528,6 +537,7 @@ const freshAlertReviewSchema = z.object({
   alertAgeSeconds: z.number().finite().nullable().optional(),
   originalChartContextCaptured: z.boolean(),
   originalChartContextRestored: z.boolean(),
+  originalChartContext: freshAlertReviewChartContextSchema.optional(),
   timeframes: z.object({
     "15m": freshAlertReviewTimeframeSchema,
     "1H": freshAlertReviewTimeframeSchema,
@@ -537,7 +547,7 @@ const freshAlertReviewSchema = z.object({
     status: z.enum(["available", "unavailable", "failed"]),
     reason: z.string().nullable().optional(),
     price: z.number().finite().nullable(),
-    timestamp: z.string().datetime().nullable(),
+    timestamp: freshAlertReviewLivePriceTimestampSchema,
   }).strict(),
   entryTactics: entryTacticsSchema.optional(),
   setupRankingImpact: setupRankingImpactSchema.optional(),
