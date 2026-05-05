@@ -384,8 +384,16 @@ h2 {
   margin-top: 14px;
 }
 
+.fresh-alert-review-panel {
+  margin-top: 14px;
+}
+
 .latest-alert-panel.warning {
   border-color: rgba(255, 209, 102, 0.46);
+}
+
+.fresh-alert-review-panel.warning {
+  border-color: rgba(255, 209, 102, 0.54);
 }
 
 .latest-alert-head {
@@ -406,6 +414,83 @@ h2 {
   display: grid;
   gap: 10px;
   margin-top: 14px;
+}
+
+.fresh-alert-review-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.fresh-alert-timeframes {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.fresh-alert-timeframe-row {
+  display: grid;
+  grid-template-columns: minmax(82px, 0.7fr) repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+  align-items: stretch;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fresh-alert-timeframe-row.warning {
+  border-color: rgba(255, 209, 102, 0.34);
+}
+
+.fresh-alert-timeframe-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fresh-alert-timeframe-main > strong {
+  font-size: 1.1rem;
+}
+
+.fresh-alert-callouts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.fresh-alert-callouts > div {
+  min-width: 0;
+  padding: 13px;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 230, 190, 0.18);
+  background: rgba(99, 230, 190, 0.07);
+}
+
+.fresh-alert-callouts > div.danger {
+  border-color: rgba(255, 122, 144, 0.34);
+  background: rgba(255, 122, 144, 0.08);
+}
+
+.fresh-alert-callouts span {
+  display: block;
+  color: #9ba7bd;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.fresh-alert-callouts strong {
+  display: block;
+  margin-top: 6px;
+  color: #f6f8ff;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .alert-warning {
@@ -1794,6 +1879,10 @@ h2 {
 }
 
 @media (max-width: 420px) {
+  .fresh-alert-timeframe-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .thorp-setup-grid {
     grid-template-columns: minmax(0, 1fr);
   }

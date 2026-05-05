@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
 import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
-import type { AlertIntakeResult, DataMode, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
+import type { AlertIntakeResult, DataMode, FreshAlertReview, FreshAlertReviewTimeframe, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
 import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -80,6 +80,7 @@ export default function App() {
       <TradeManagementPlanPanel snapshot={snapshot} />
       <EdwardHealthPanel health={loadResult.health} />
       <LatestAlertPanel alertIntake={loadResult.alertIntake} />
+      <FreshAlertReviewPanel alertIntake={loadResult.alertIntake} />
       <WatchlistPanel snapshot={snapshot} />
       <EdwardVerdictPanel snapshot={snapshot} />
       <RiskLadderPanel snapshot={snapshot} />
@@ -91,6 +92,76 @@ export default function App() {
       <TradeJournalPanel snapshot={snapshot} />
     </main>
   );
+}
+
+export function FreshAlertReviewPanel({ alertIntake }: { alertIntake?: AlertIntakeResult }) {
+  const review = alertIntake?.freshAlertReview ?? alertIntake?.latestAlert?.freshAlertReview ?? null;
+  if (!review) return null;
+
+  const restoreOk = review.originalChartContextCaptured && review.originalChartContextRestored;
+  return (
+    <section className={`panel fresh-alert-review-panel ${restoreOk ? "ready" : "warning"}`}>
+      <div className="latest-alert-head">
+        <PanelTitle icon={<ListChecks />} eyebrow="Fresh Alert Review" title={`${review.normalizedSymbol} 3TF HUD Pull`} />
+        <StatusPill label={review.confidence.toUpperCase()} tone={review.confidence} />
+      </div>
+
+      <div className="fresh-alert-review-summary">
+        <Metric label="Source" value="TradingView read-only pull" strong />
+        <Metric label="Live price" value={formatLivePrice(review)} danger={review.livePrice.status !== "available"} />
+        <Metric label="Final recommendation" value={review.finalRecommendation} strong />
+        <Metric label="Read-only" value={`yes / auto ${review.guardrails.autoExecution ? "on" : "off"}`} danger={!review.guardrails.readOnly || review.guardrails.autoExecution} />
+      </div>
+
+      <div className="fresh-alert-timeframes" aria-label="3TF check rows">
+        {(["15m", "1H", "4H"] as const).map((timeframe) => (
+          <FreshAlertTimeframeRow key={timeframe} label={timeframe} review={review.timeframes[timeframe]} />
+        ))}
+      </div>
+
+      <div className="fresh-alert-callouts">
+        <div>
+          <span>Next action</span>
+          <strong>{review.nextActionSentence}</strong>
+        </div>
+        <div>
+          <span>Risk reason</span>
+          <strong>{review.riskReason}</strong>
+        </div>
+        <div className={restoreOk ? "" : "danger"}>
+          <span>Restore</span>
+          <strong>{restoreOk ? "Original chart context restored" : "Warning: original chart context not restored / fail-closed"}</strong>
+        </div>
+      </div>
+
+      <div className="alert-guardrails">
+        <Guardrail label="TradingView mutation" value={review.tradingViewMutationAttempted ? "attempted" : "not attempted"} danger={review.tradingViewMutationAttempted} />
+        <Guardrail label="Execution guardrail" value={`readOnly ${String(review.guardrails.readOnly)} / autoExecution ${String(review.guardrails.autoExecution)} / executionIntent ${review.guardrails.executionIntent}`} danger={!review.guardrails.readOnly || review.guardrails.autoExecution || review.guardrails.executionIntent !== "none"} />
+      </div>
+    </section>
+  );
+}
+
+function FreshAlertTimeframeRow({ label, review }: { label: "15m" | "1H" | "4H"; review: FreshAlertReviewTimeframe }) {
+  const stale = review.status !== "fresh";
+  return (
+    <div className={`fresh-alert-timeframe-row ${stale ? "warning" : "fresh"}`}>
+      <div className="fresh-alert-timeframe-main">
+        <strong>{label}</strong>
+        <StatusPill label={review.status} tone={review.status} />
+      </div>
+      <Metric label="Score" value={numOrUnavailable(review.score)} danger={stale} />
+      <Metric label="Decision" value={formatNullable(review.decision)} />
+      <Metric label="Action" value={formatNullable(review.action)} />
+      <Metric label="Bias" value={formatNullable(review.biasZone)} />
+    </div>
+  );
+}
+
+function formatLivePrice(review: FreshAlertReview) {
+  const price = review.livePrice.status === "available" ? numOrUnavailable(review.livePrice.price) : "Unavailable";
+  const timestamp = review.livePrice.timestamp ? ` @ ${formatTime(review.livePrice.timestamp)}` : "";
+  return `${review.livePrice.status}${price === "Unavailable" ? "" : ` / ${price}`}${timestamp}`;
 }
 
 export function LatestAlertPanel({ alertIntake }: { alertIntake?: AlertIntakeResult }) {

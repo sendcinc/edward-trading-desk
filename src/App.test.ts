@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { derivePrimaryScanDisplay, LatestAlertPanel } from "./App";
-import type { AlertIntakeResult, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, WatchlistItem } from "./domain/tradingDesk";
+import { derivePrimaryScanDisplay, FreshAlertReviewPanel, LatestAlertPanel } from "./App";
+import type { AlertIntakeResult, FreshAlertReview, LatestAlert, ThorpRichScannerPayload, ThorpScannerRecommendation, WatchlistItem } from "./domain/tradingDesk";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(join(currentDir, "App.tsx"), "utf8");
@@ -545,5 +545,92 @@ describe("THORP rich setup latest-alert card", () => {
     expect(html).not.toContain("enter ");
     expect(html).not.toContain("exit ");
     expect(html).not.toContain("order");
+  });
+});
+
+const freshReviewTimeframe = (status: FreshAlertReview["timeframes"]["15m"]["status"] = "fresh") => ({
+  status,
+  source: "tradingview_read" as const,
+  decision: status === "fresh" ? "READY | 10" : "WAIT",
+  score: status === "fresh" ? 10 : 4,
+  biasZone: "LONG LOWER",
+  battlefield: "GREEN | 11.24%",
+  trigger: "LOCKED LONG",
+  action: status === "fresh" ? "FRESH LONG OK" : "NO ACTION",
+  scout: 1.3876,
+  a1: 1.371,
+  a2: 1.3545,
+  warning: 1.3483,
+  hardInvalidation: 1.3403,
+  t1: 1.4286,
+  t2: 1.4553,
+  t3: 1.5088,
+  extractedAt: "2026-05-04T12:00:00.000Z",
+});
+
+function freshReview(overrides: Partial<FreshAlertReview> = {}): FreshAlertReview {
+  return {
+    contractVersion: "fresh-alert-3tf-review.v1",
+    symbol: "XRPUSDT.P",
+    normalizedSymbol: "XRPUSDT.P",
+    tradingViewReadAttempted: true,
+    tradingViewRefreshAttempted: false,
+    tradingViewMutationAttempted: false,
+    originalChartContextCaptured: true,
+    originalChartContextRestored: true,
+    timeframes: {
+      "15m": freshReviewTimeframe("fresh"),
+      "1H": freshReviewTimeframe("stale"),
+      "4H": freshReviewTimeframe("missing"),
+    },
+    livePrice: { status: "available", price: 1.3891, timestamp: "2026-05-04T12:00:03.000Z" },
+    finalRecommendation: "WAIT FOR RETEST",
+    nextActionSentence: "Wait for A1/A2 retest. No fill, no trade.",
+    riskReason: "15m is fresh, but higher timeframe confirmation is incomplete.",
+    confidence: "medium",
+    guardrails: { readOnly: true, autoExecution: false, executionIntent: "none" },
+    ...overrides,
+  };
+}
+
+describe("Fresh Alert Review panel", () => {
+  it("renders TradingView read-only pull source and 3TF rows", () => {
+    const latestAlert = richAlert("REVIEW_NOW", { freshAlertReview: freshReview({ finalRecommendation: "LATEST SHOULD NOT WIN" }) });
+    const html = renderToStaticMarkup(React.createElement(FreshAlertReviewPanel, {
+      alertIntake: alertIntakeFor(latestAlert, { freshAlertReview: freshReview() }),
+    }));
+
+    expect(html).toContain("Fresh Alert Review");
+    expect(html).toContain("XRPUSDT.P 3TF HUD Pull");
+    expect(html).toContain("TradingView read-only pull");
+    expect(html).toContain("15m");
+    expect(html).toContain("1H");
+    expect(html).toContain("4H");
+    expect(html).toContain("READY | 10");
+    expect(html).toContain("FRESH LONG OK");
+    expect(html).toContain("LONG LOWER");
+    expect(html).toContain("available / 1.3891");
+    expect(html).toContain("WAIT FOR RETEST");
+    expect(html).toContain("Wait for A1/A2 retest. No fill, no trade.");
+    expect(html).toContain("Original chart context restored");
+    expect(html).toContain("yes / auto off");
+    expect(html).toContain("autoExecution false / executionIntent none");
+    expect(html).not.toContain("LATEST SHOULD NOT WIN");
+  });
+
+  it("renders restore warning and fail-closed copy when chart context is not restored", () => {
+    const latestAlert = richAlert("REVIEW_NOW", {
+      freshAlertReview: freshReview({
+        originalChartContextCaptured: true,
+        originalChartContextRestored: false,
+        livePrice: { status: "unavailable", price: null, timestamp: null },
+        confidence: "low",
+      }),
+    });
+    const html = renderToStaticMarkup(React.createElement(FreshAlertReviewPanel, { alertIntake: alertIntakeFor(latestAlert) }));
+
+    expect(html).toContain("Warning: original chart context not restored / fail-closed");
+    expect(html).toContain("unavailable");
+    expect(html).toContain("LOW");
   });
 });
