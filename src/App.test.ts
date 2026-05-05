@@ -347,6 +347,50 @@ function alertIntakeFor(latestAlert: LatestAlert, overrides: Partial<AlertIntake
   };
 }
 
+const freshAlertReview: NonNullable<AlertIntakeResult["freshAlertReview"]> = {
+  contractVersion: "fresh-alert-3tf-review.v1",
+  symbol: "XRPUSDT.P",
+  normalizedSymbol: "XRPUSDT.P",
+  sourceAlertHash: "rich-REVIEW_NOW",
+  alertReceivedAt: "2026-05-03T11:45:00.000Z",
+  reviewStartedAt: "2026-05-03T11:45:02.000Z",
+  reviewCompletedAt: "2026-05-03T11:45:05.000Z",
+  alertAgeSeconds: 5,
+  status: "3TF_CONTEXT_READY",
+  timeframes: {
+    "15m": { status: "fresh", decision: "READY", score: 10, action: "FRESH LONG OK", trigger: "LOCKED LONG", timestamp: "2026-05-03T11:45:00.000Z" },
+    "1H": { status: "stale", decision: "LATE", score: 6, action: "WAIT", trigger: "NONE", timestamp: "2026-05-03T10:00:00.000Z" },
+    "4H": { status: "missing", decision: null, score: null, action: null, trigger: null, timestamp: null },
+  },
+  livePrice: { status: "available", price: 1.3885, timestamp: "2026-05-03T11:45:05.000Z" },
+  entryTactics: {
+    contractVersion: "entry-tactics-brain.v1",
+    entryTactic: "WAIT_FOR_RETEST",
+    positionSplit: "0/40/60",
+    nextActionSentence: "Wait for retest. No fill, no trade.",
+    riskReason: "1H is stale and 4H context is missing.",
+    autoExecution: false,
+    executionIntent: "none",
+  },
+  setupRankingImpact: {
+    rankingRecomputedAfterEntryTactics: true,
+    candidateRank: 1,
+    candidateFocus: "PRIMARY",
+    candidateGrade: "B",
+    bestSetupSymbol: "XRPUSDT.P",
+  },
+  finalRecommendation: "WAIT_FOR_RETEST",
+  nextActionSentence: "Wait for retest. No fill, no trade.",
+  riskReason: "1H is stale and 4H context is missing.",
+  confidence: "medium",
+  guardrails: {
+    autoExecution: false,
+    executionIntent: "none",
+    readOnly: true,
+    tradingViewRefreshAttempted: false,
+  },
+};
+
 describe("THORP rich setup latest-alert card", () => {
   const renderRich = (recommendation: ThorpScannerRecommendation, overrides: Partial<LatestAlert> = {}, intakeOverrides: Partial<AlertIntakeResult> = {}) =>
     renderToStaticMarkup(React.createElement(LatestAlertPanel, { alertIntake: alertIntakeFor(richAlert(recommendation, overrides), intakeOverrides) }));
@@ -469,6 +513,27 @@ describe("THORP rich setup latest-alert card", () => {
     expect(html).toContain("WAIT FOR RETEST");
   });
 
+  it("renders fresh alert review panel when present", () => {
+    const html = renderRich("REVIEW_NOW", {}, { freshAlertReview });
+
+    expect(html).toContain("FRESH ALERT REVIEW");
+    expect(html).toContain("WAIT FOR RETEST");
+    expect(html).toContain("15m fresh FRESH LONG OK / 1H stale WAIT / 4H wait");
+    expect(html).toContain("1.3885");
+    expect(html).toContain("Next:");
+    expect(html).toContain("Reason:");
+    expect(html).toContain("Setup ranking impact:");
+    expect(html).toContain("ranking recomputed / rank 1 / PRIMARY / grade B / best XRP");
+    expect(html).toContain("autoExecution false / executionIntent none / readOnly true");
+  });
+
+  it("stays safe when fresh alert review is absent", () => {
+    const html = renderRich("REVIEW_NOW");
+
+    expect(html).not.toContain("FRESH ALERT REVIEW");
+    expect(html).toContain("THORP SETUP READY");
+  });
+
   it.each([
     ["WAIT_FOR_RETEST", "WAIT FOR RETEST", "Wait for retest. Do not chase."],
     ["SKIP_STALE", "SKIP — STALE", "Skip. Alert is stale."],
@@ -515,6 +580,7 @@ describe("THORP rich setup latest-alert card", () => {
 
   it("does not render execution buttons or order affordances", () => {
     const html = renderRich("REVIEW_NOW", {}, {
+      freshAlertReview,
       setupRanking: {
         contractVersion: "setup-ranking-brain.v1",
         bestSetup: {},

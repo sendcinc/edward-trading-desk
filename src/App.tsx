@@ -130,6 +130,8 @@ export function LatestAlertPanel({ alertIntake }: { alertIntake?: AlertIntakeRes
         <Guardrail label="Latest reason" value={latest?.reason ?? "No recent valid alert intake data is available."} danger={needsWarning} />
       </div>
 
+      {alertIntake?.freshAlertReview ? <FreshAlertReviewPanel review={alertIntake.freshAlertReview} /> : null}
+
       {latest?.alertType === "THORP_SCORE_READY" && latest.classification !== "thorp_score_ready_rich_scanner_alert" ? (
         <p className="alert-warning"><AlertTriangle size={16} /> Fresh context/setup review required before any action.</p>
       ) : null}
@@ -183,6 +185,8 @@ function ThorpSetupReadyCard({
         </div>
       ) : null}
 
+      {alertIntake?.freshAlertReview ? <FreshAlertReviewPanel review={alertIntake.freshAlertReview} /> : null}
+
       {alertIntake?.setupRanking ? <SetupRankingPanel ranking={alertIntake.setupRanking} /> : null}
 
       <div className="alert-metrics thorp-setup-grid">
@@ -218,6 +222,35 @@ function ThorpSetupReadyCard({
 
       {warning && <p className="alert-warning"><AlertTriangle size={16} /> {warning}</p>}
     </section>
+  );
+}
+
+function FreshAlertReviewPanel({ review }: { review: NonNullable<AlertIntakeResult["freshAlertReview"]> }) {
+  const rankingImpact = [
+    review.setupRankingImpact.rankingRecomputedAfterEntryTactics ? "ranking recomputed" : "ranking unchanged",
+    review.setupRankingImpact.candidateRank ? `rank ${review.setupRankingImpact.candidateRank}` : undefined,
+    review.setupRankingImpact.candidateFocus ? setupRankingFocusDisplay(review.setupRankingImpact.candidateFocus) : undefined,
+    review.setupRankingImpact.candidateGrade ? `grade ${review.setupRankingImpact.candidateGrade}` : undefined,
+    review.setupRankingImpact.bestSetupSymbol ? `best ${formatSetupRankingSymbol(review.setupRankingImpact.bestSetupSymbol)}` : undefined,
+  ].filter(Boolean).join(" / ");
+
+  return (
+    <div className="fresh-alert-review-callout">
+      <span>FRESH ALERT REVIEW</span>
+      <strong>{entryTacticDisplay(review.finalRecommendation)}</strong>
+      <div className="fresh-alert-review-grid" aria-label="Fresh alert review details">
+        <Metric label="3TF check" value={formatFreshAlertTimeframes(review)} />
+        <Metric label="Live price" value={formatFreshLivePrice(review)} />
+        <Metric label="Status" value={freshAlertStatusDisplay(review.status)} />
+        <Metric label="Confidence" value={review.confidence.toUpperCase()} />
+      </div>
+      <p><b>Next:</b> {review.nextActionSentence}</p>
+      <p><b>Reason:</b> {review.riskReason}</p>
+      <p><b>Setup ranking impact:</b> {rankingImpact || "Unavailable"}</p>
+      <p className="setup-ranking-intent">
+        autoExecution {String(review.guardrails.autoExecution)} / executionIntent {review.guardrails.executionIntent} / readOnly {String(review.guardrails.readOnly)}
+      </p>
+    </div>
   );
 }
 
@@ -1025,6 +1058,24 @@ function formatAlertSide(alert?: LatestAlert | null) {
   if (!alert?.side) return "Unavailable";
   if (alert.side === "none") return "None";
   return alert.side.toUpperCase();
+}
+
+function formatFreshAlertTimeframes(review: NonNullable<AlertIntakeResult["freshAlertReview"]>) {
+  return (["15m", "1H", "4H"] as const).map((timeframe) => {
+    const context = review.timeframes[timeframe];
+    const status = context.status === "missing" || context.status === "unavailable" ? "wait" : context.status;
+    const detail = context.action ?? context.decision;
+    return `${timeframe} ${status}${detail ? ` ${detail}` : ""}`;
+  }).join(" / ");
+}
+
+function formatFreshLivePrice(review: NonNullable<AlertIntakeResult["freshAlertReview"]>) {
+  if (review.livePrice.status !== "available") return "Unavailable";
+  return review.livePrice.price === null || review.livePrice.price === undefined ? "Available" : num(review.livePrice.price);
+}
+
+function freshAlertStatusDisplay(status: NonNullable<AlertIntakeResult["freshAlertReview"]>["status"]) {
+  return status.replace(/^3TF_/, "3TF ").replace(/_/g, " ");
 }
 
 function isAlertIntakeStale(alertIntake?: AlertIntakeResult) {

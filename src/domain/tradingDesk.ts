@@ -78,6 +78,64 @@ export type SetupRankingPlan = {
   executionIntent: "none";
 };
 
+export type FreshAlertReviewStatus =
+  | "FRESH_ALERT_REVIEW_PENDING_CONTEXT"
+  | "WAITING_FOR_3TF_HEARTBEAT"
+  | "3TF_CONTEXT_STALE"
+  | "3TF_CONTEXT_READY";
+
+export type FreshAlertReviewTimeframeStatus = "fresh" | "stale" | "missing" | "unavailable";
+export type FreshAlertFinalRecommendation = EntryTactic | "WAIT_FOR_CONTEXT";
+
+export type FreshAlertReviewTimeframe = {
+  status: FreshAlertReviewTimeframeStatus;
+  decision?: string | null;
+  score?: number | null;
+  action?: string | null;
+  trigger?: string | null;
+  timestamp?: string | null;
+};
+
+export type FreshAlertReview = {
+  contractVersion: "fresh-alert-3tf-review.v1";
+  symbol: string;
+  normalizedSymbol?: string;
+  sourceAlertHash?: string | null;
+  alertReceivedAt: string;
+  reviewStartedAt: string;
+  reviewCompletedAt: string;
+  alertAgeSeconds: number;
+  status: FreshAlertReviewStatus;
+  timeframes: {
+    "15m": FreshAlertReviewTimeframe;
+    "1H": FreshAlertReviewTimeframe;
+    "4H": FreshAlertReviewTimeframe;
+  };
+  livePrice: {
+    status: "available" | "unavailable";
+    price?: number | null;
+    timestamp?: string | null;
+  };
+  entryTactics: EntryTacticsPlan;
+  setupRankingImpact: {
+    rankingRecomputedAfterEntryTactics: boolean;
+    candidateRank?: number | null;
+    candidateFocus?: string | null;
+    candidateGrade?: string | null;
+    bestSetupSymbol?: string | null;
+  };
+  finalRecommendation: FreshAlertFinalRecommendation;
+  nextActionSentence: string;
+  riskReason: string;
+  confidence: "high" | "medium" | "low";
+  guardrails: {
+    autoExecution: false;
+    executionIntent: "none";
+    readOnly: true;
+    tradingViewRefreshAttempted: false;
+  };
+};
+
 export type ThorpRichScannerPayload = {
   type: "THORP_SCORE_READY";
   schemaVersion: "thorp-rich-scanner.v1";
@@ -588,6 +646,7 @@ export type AlertIntakeResult = {
   lastReviewTriggeredAt?: string | null;
   activeBasketCoverage?: unknown;
   setupRanking?: SetupRankingPlan;
+  freshAlertReview?: FreshAlertReview;
   validationIssues?: string[];
 };
 

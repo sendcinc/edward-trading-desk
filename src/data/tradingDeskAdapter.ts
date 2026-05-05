@@ -511,6 +511,53 @@ const setupRankingSchema = z.object({
   autoExecution: z.literal(false),
   executionIntent: z.literal("none"),
 }).strict();
+const freshAlertReviewTimeframeSchema = z.object({
+  status: z.enum(["fresh", "stale", "missing", "unavailable"]),
+  decision: z.string().nullable().optional(),
+  score: z.number().finite().nullable().optional(),
+  action: z.string().nullable().optional(),
+  trigger: z.string().nullable().optional(),
+  timestamp: z.string().datetime().nullable().optional(),
+}).strict();
+const freshAlertReviewSchema = z.object({
+  contractVersion: z.literal("fresh-alert-3tf-review.v1"),
+  symbol: z.string().min(1),
+  normalizedSymbol: z.string().min(1).optional(),
+  sourceAlertHash: z.string().min(1).nullable().optional(),
+  alertReceivedAt: z.string().datetime(),
+  reviewStartedAt: z.string().datetime(),
+  reviewCompletedAt: z.string().datetime(),
+  alertAgeSeconds: z.number().finite().nonnegative(),
+  status: z.enum(["FRESH_ALERT_REVIEW_PENDING_CONTEXT", "WAITING_FOR_3TF_HEARTBEAT", "3TF_CONTEXT_STALE", "3TF_CONTEXT_READY"]),
+  timeframes: z.object({
+    "15m": freshAlertReviewTimeframeSchema,
+    "1H": freshAlertReviewTimeframeSchema,
+    "4H": freshAlertReviewTimeframeSchema,
+  }).strict(),
+  livePrice: z.object({
+    status: z.enum(["available", "unavailable"]),
+    price: z.number().finite().nullable().optional(),
+    timestamp: z.string().datetime().nullable().optional(),
+  }).strict(),
+  entryTactics: entryTacticsSchema,
+  setupRankingImpact: z.object({
+    rankingRecomputedAfterEntryTactics: z.boolean(),
+    candidateRank: z.number().int().positive().nullable().optional(),
+    candidateFocus: z.string().nullable().optional(),
+    candidateGrade: z.string().nullable().optional(),
+    bestSetupSymbol: z.string().nullable().optional(),
+  }).strict(),
+  finalRecommendation: z.enum(["TAKE_SCOUT", "SCOUT_SMALL_ONLY", "A1_A2_RETEST_ONLY", "A2_SNIPER_ONLY", "WAIT_FOR_RETEST", "SKIP_CHASE", "NO_ACTION_STALE", "WAIT_FOR_CONTEXT"]),
+  nextActionSentence: z.string().min(1),
+  riskReason: z.string().min(1),
+  confidence: z.enum(["high", "medium", "low"]),
+  guardrails: z.object({
+    autoExecution: z.literal(false),
+    executionIntent: z.literal("none"),
+    readOnly: z.literal(true),
+    tradingViewRefreshAttempted: z.literal(false),
+  }).strict(),
+}).strict();
 const RICH_THORP_SCANNER_CLASSIFICATION = "thorp_score_ready_rich_scanner_alert";
 
 const latestAlertSchema = z.object({
@@ -593,6 +640,7 @@ const alertIntakeSchema = z.object({
   lastReviewTriggeredAt: z.string().datetime().nullable().optional(),
   activeBasketCoverage: z.unknown().optional(),
   setupRanking: setupRankingSchema.optional(),
+  freshAlertReview: freshAlertReviewSchema.optional(),
 });
 
 const tradingDeskSnapshotSchema = z.object({
