@@ -1710,6 +1710,7 @@ h2 {
 
 .thorp-recommendation,
 .entry-tactics-callout,
+.fresh-alert-review-callout,
 .setup-ranking-callout {
   margin: 14px 0;
   padding: 14px;
@@ -1729,8 +1730,14 @@ h2 {
   background: rgba(15, 23, 42, 0.64);
 }
 
+.fresh-alert-review-callout {
+  border-color: rgba(129, 140, 248, 0.38);
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.14), rgba(20, 184, 166, 0.08));
+}
+
 .thorp-recommendation span,
 .entry-tactics-callout span,
+.fresh-alert-review-callout span,
 .setup-ranking-callout span {
   display: block;
   color: #9ba7bd;
@@ -1741,7 +1748,8 @@ h2 {
 }
 
 .thorp-recommendation strong,
-.entry-tactics-callout strong {
+.entry-tactics-callout strong,
+.fresh-alert-review-callout strong {
   display: block;
   margin-top: 4px;
   color: #63e6be;
@@ -1756,9 +1764,17 @@ h2 {
 
 .thorp-recommendation p,
 .entry-tactics-callout p,
+.fresh-alert-review-callout p,
 .setup-ranking-callout p {
   margin: 8px 0 0;
   color: #d8e4f3;
+}
+
+.fresh-alert-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .setup-ranking-callout ul {
@@ -1799,6 +1815,7 @@ h2 {
   }
 
   .thorp-recommendation,
+  .fresh-alert-review-callout,
   .setup-ranking-callout,
   .thorp-setup-card {
     overflow-x: hidden;

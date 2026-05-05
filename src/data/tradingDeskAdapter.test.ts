@@ -756,6 +756,51 @@ describe("rich THORP scanner alert validation", () => {
     }
   };
 
+  const freshAlertReview = (guardrailPatch: Record<string, unknown> = {}) => ({
+    contractVersion: "fresh-alert-3tf-review.v1",
+    symbol: "XRPUSDT.P",
+    normalizedSymbol: "XRPUSDT.P",
+    sourceAlertHash: "rich123",
+    alertReceivedAt: "2026-05-03T11:45:00.000Z",
+    reviewStartedAt: "2026-05-03T11:45:02.000Z",
+    reviewCompletedAt: "2026-05-03T11:45:05.000Z",
+    alertAgeSeconds: 5,
+    status: "3TF_CONTEXT_READY",
+    timeframes: {
+      "15m": { status: "fresh", decision: "READY", score: 10, action: "FRESH LONG OK", trigger: "LOCKED LONG", timestamp: "2026-05-03T11:45:00.000Z" },
+      "1H": { status: "stale", decision: "LATE", score: 6, action: "WAIT", trigger: "NONE", timestamp: "2026-05-03T10:00:00.000Z" },
+      "4H": { status: "missing", decision: null, score: null, action: null, trigger: null, timestamp: null },
+    },
+    livePrice: { status: "available", price: 1.3885, timestamp: "2026-05-03T11:45:05.000Z" },
+    entryTactics: {
+      contractVersion: "entry-tactics-brain.v1",
+      entryTactic: "WAIT_FOR_RETEST",
+      positionSplit: "0/40/60",
+      nextActionSentence: "Wait for retest. No fill, no trade.",
+      riskReason: "1H is stale and 4H context is missing.",
+      autoExecution: false,
+      executionIntent: "none",
+    },
+    setupRankingImpact: {
+      rankingRecomputedAfterEntryTactics: true,
+      candidateRank: 1,
+      candidateFocus: "PRIMARY",
+      candidateGrade: "B",
+      bestSetupSymbol: "XRPUSDT.P",
+    },
+    finalRecommendation: "WAIT_FOR_RETEST",
+    nextActionSentence: "Wait for retest. No fill, no trade.",
+    riskReason: "1H is stale and 4H context is missing.",
+    confidence: "medium",
+    guardrails: {
+      autoExecution: false,
+      executionIntent: "none",
+      readOnly: true,
+      tradingViewRefreshAttempted: false,
+      ...guardrailPatch,
+    },
+  });
+
   it("accepts and preserves the rich scanner latest-alert contract", () => {
     const result = validateAlertIntake(richAlertIntake());
 
@@ -816,6 +861,30 @@ describe("rich THORP scanner alert validation", () => {
       expect(result.alertIntake.setupRanking?.candidates[0]?.autoExecution).toBe(false);
       expect(result.alertIntake.setupRanking?.candidates[0]?.executionIntent).toBe("none");
     }
+  });
+
+  it("accepts and preserves top-level fresh alert review v1 with locked guardrails", () => {
+    const result = validateAlertIntake(richAlertIntake({}, {}, { freshAlertReview: freshAlertReview() }));
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.alertIntake.freshAlertReview?.contractVersion).toBe("fresh-alert-3tf-review.v1");
+      expect(result.alertIntake.freshAlertReview?.timeframes["15m"].status).toBe("fresh");
+      expect(result.alertIntake.freshAlertReview?.finalRecommendation).toBe("WAIT_FOR_RETEST");
+      expect(result.alertIntake.freshAlertReview?.guardrails.autoExecution).toBe(false);
+      expect(result.alertIntake.freshAlertReview?.guardrails.executionIntent).toBe("none");
+      expect(result.alertIntake.freshAlertReview?.guardrails.readOnly).toBe(true);
+      expect(result.alertIntake.freshAlertReview?.guardrails.tradingViewRefreshAttempted).toBe(false);
+    }
+  });
+
+  it.each([
+    ["autoExecution", true, "freshAlertReview.guardrails.autoExecution"],
+    ["executionIntent", "market", "freshAlertReview.guardrails.executionIntent"],
+    ["readOnly", false, "freshAlertReview.guardrails.readOnly"],
+    ["tradingViewRefreshAttempted", true, "freshAlertReview.guardrails.tradingViewRefreshAttempted"],
+  ])("rejects fresh alert review unsafe guardrail %s", (field, value, expectedIssue) => {
+    expectRejected(richAlertIntake({}, {}, { freshAlertReview: freshAlertReview({ [field]: value }) }), expectedIssue);
   });
 
   it("rejects setup ranking with executable intent", () => {
