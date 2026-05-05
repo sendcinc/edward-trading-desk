@@ -225,8 +225,14 @@ function FreshAlertTimeframeRow({ label, review }: { label: "15m" | "1H" | "4H";
 
 function formatLivePrice(review: FreshAlertReview) {
   const price = review.livePrice.status === "available" ? numOrUnavailable(review.livePrice.price) : "Unavailable";
+  const reason = review.livePrice.reason ? ` / ${review.livePrice.reason}` : "";
   const timestamp = review.livePrice.timestamp ? ` @ ${formatTime(review.livePrice.timestamp)}` : "";
-  return `${review.livePrice.status}${price === "Unavailable" ? "" : ` / ${price}`}${timestamp}`;
+  return `${review.livePrice.status}${price === "Unavailable" ? reason : ` / ${price}`}${timestamp}`;
+}
+
+function isStaleOrBlockedReview(review?: FreshAlertReview | null) {
+  if (!review) return false;
+  return review.status === "stale" || review.status === "blocked" || review.tradingViewReadState === "blocked_stale_alert" || review.finalRecommendation === "NO_ACTION_STALE" || review.entryTactics?.entryTactic === "NO_ACTION_STALE";
 }
 
 export function LatestAlertPanel({ alertIntake }: { alertIntake?: AlertIntakeResult }) {
@@ -292,16 +298,22 @@ function ThorpSetupReadyCard({
   warning: string;
 }) {
   const payload = alert.richScannerPayload!;
-  const recommendation = thorpRecommendationDisplay(alert.scannerRecommendation);
+  const review = alert.freshAlertReview ?? alertIntake?.freshAlertReview ?? null;
+  const staleReview = isStaleOrBlockedReview(review);
+  const staleContext = alert.status === "stale" || alert.scannerRecommendation === "SKIP_STALE" || alert.entryTactics?.entryTactic === "NO_ACTION_STALE" || staleReview;
+  const recommendation = staleContext ? { label: "SKIP — STALE", copy: "Stale context — no action." } : thorpRecommendationDisplay(alert.scannerRecommendation);
+  const title = staleContext ? "STALE CONTEXT — NO ACTION" : "THORP SETUP READY";
   return (
-    <section className={`panel latest-alert-panel thorp-setup-card ${needsWarning ? "warning" : "ready"}`}>
+    <section className={`panel latest-alert-panel thorp-setup-card ${needsWarning || staleContext ? "warning" : "ready"}`}>
       <div className="latest-alert-head thorp-setup-head">
-        <PanelTitle icon={<BellRing />} eyebrow="Latest Alert / THORP Scanner" title="THORP SETUP READY" />
+        <PanelTitle icon={<BellRing />} eyebrow="Latest Alert / THORP Scanner" title={title} />
         <div className="thorp-setup-tags">
           <StatusPill label={alertIntake?.webhookStatus ?? "unavailable"} tone={alertIntake?.webhookStatus ?? "unavailable"} />
-          <StatusPill label={recommendation.label} tone={alert.scannerRecommendation ?? "CONTEXT_INCOMPLETE"} />
+          <StatusPill label={recommendation.label} tone={staleContext ? "stale" : alert.scannerRecommendation ?? "CONTEXT_INCOMPLETE"} />
         </div>
       </div>
+
+      {staleContext ? <p className="alert-warning"><AlertTriangle size={16} /> Stale context — no action.</p> : null}
 
       <div className="thorp-recommendation">
         <span>Scanner recommendation</span>
@@ -358,10 +370,12 @@ function ThorpSetupReadyCard({
 }
 
 function SetupRankingPanel({ ranking }: { ranking: NonNullable<AlertIntakeResult["setupRanking"]> }) {
+  const hiddenCount = Math.max(0, ranking.candidates.length - 3);
 
   return (
     <div className="setup-ranking-callout">
       <span>Setup ranking</span>
+      {hiddenCount > 0 ? <p className="setup-ranking-hidden">{ranking.candidates.length} candidates considered; showing top 3.</p> : null}
       <ul>
         {ranking.candidates.slice(0, 3).map((candidate) => (
           <li key={`${candidate.rank}-${candidate.symbol}`}>

@@ -50,6 +50,8 @@ export type EntryTacticsPlan = {
 
 export type FreshAlertReviewTimeframeStatus = "fresh" | "stale" | "missing" | "unavailable" | "failed";
 export type FreshAlertReviewConfidence = "high" | "medium" | "low";
+export type FreshAlertReviewStatus = "fresh" | "stale" | "blocked" | "unavailable" | "completed" | "failed";
+export type TradingViewReadState = "not_started" | "blocked_stale_alert" | "chart_context_failed" | "hud_pull_failed" | "completed";
 
 export type FreshAlertReviewTimeframe = {
   status: FreshAlertReviewTimeframeStatus;
@@ -76,7 +78,11 @@ export type FreshAlertReview = {
   contractVersion: "fresh-alert-3tf-review.v1";
   symbol: string;
   normalizedSymbol: string;
-  tradingViewReadAttempted: true;
+  status: FreshAlertReviewStatus;
+  staleReason?: string | null;
+  tradingViewReadAttempted: boolean;
+  tradingViewReadState: TradingViewReadState;
+  tradingViewReadBlockedReason?: string | null;
   tradingViewRefreshAttempted: false;
   tradingViewMutationAttempted: false;
   alertReceivedAt?: string | null;
@@ -92,6 +98,7 @@ export type FreshAlertReview = {
   };
   livePrice: {
     status: "available" | "unavailable" | "failed";
+    reason?: string | null;
     price: number | null;
     timestamp: string | null;
   };
