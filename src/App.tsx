@@ -33,6 +33,7 @@ import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
+const pacePct = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const REFRESH_INTERVAL_SECONDS = 30;
 const TRADE_JOURNAL_PAGE_SIZE = 10;
 
@@ -195,7 +196,7 @@ function CockpitWorkspace({ activePage, loadResult }: { activePage: CockpitPageI
 function CockpitPageContent({ activePage, loadResult, snapshot }: { activePage: CockpitPageId; loadResult: TradingDeskLoadResult; snapshot: TradingDeskSnapshot }) {
   switch (activePage) {
     case "live-desk":
-      return <ThorpMonitorPage snapshot={snapshot} />;
+      return <ThorpMonitorPage loadResult={loadResult} />;
     case "portfolio":
       return <PortfolioPacePage snapshot={snapshot} />;
     case "positions":
@@ -212,7 +213,7 @@ function CockpitPageContent({ activePage, loadResult, snapshot }: { activePage: 
       return <SystemHealthPage loadResult={loadResult} />;
     case "overview":
     default:
-      return <PrimaryDecisionPage snapshot={snapshot} />;
+      return <PrimaryDecisionPage loadResult={loadResult} />;
   }
 }
 
@@ -239,19 +240,24 @@ function hudAttentionRank(row: HudHeartbeatDecision) {
   return 0;
 }
 
-function PrimaryDecisionPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+function PrimaryDecisionPage({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const { snapshot } = loadResult;
   return (
     <div className="cockpit-page-grid decision-layout">
       <PrimaryTradeDecisionPanel snapshot={snapshot} />
       <RiskGuardrailsPanel snapshot={snapshot} />
+      <EdwardVerdictPanel snapshot={snapshot} />
+      <LatestAlertPanel alertIntake={loadResult.alertIntake} />
+      <FreshAlertReviewPanel alertIntake={loadResult.alertIntake} />
     </div>
   );
 }
 
-function ThorpMonitorPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+function ThorpMonitorPage({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const { snapshot } = loadResult;
   return (
     <div className="cockpit-page-grid monitor-layout">
-      <ThorpLiveMonitorPanel snapshot={snapshot} />
+      <ThorpLiveMonitorPanel loadResult={loadResult} />
       <AllMonitoredSymbolsPanel snapshot={snapshot} />
     </div>
   );
@@ -272,6 +278,8 @@ function ActivePositionsPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
     <div className="cockpit-page-grid positions-layout">
       <ActivePositionsCard snapshot={snapshot} />
       <ActiveTradeManagementPanel binding={snapshot.managementBinding} />
+      <TradeManagementPlanPanel snapshot={snapshot} />
+      <RiskLadderPanel snapshot={snapshot} />
     </div>
   );
 }
@@ -294,6 +302,7 @@ function RecheckTriggersPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
     <div className="cockpit-page-grid recheck-layout">
       <RecheckTriggersCard snapshot={snapshot} />
       <WarningAndRecheck snapshot={snapshot} />
+      <MarketMovementPanel snapshot={snapshot} />
     </div>
   );
 }
@@ -324,13 +333,14 @@ function SystemHealthPage({ loadResult }: { loadResult: TradingDeskLoadResult })
   return (
     <div className="cockpit-page-grid health-layout">
       <DataHealthFooter loadResult={loadResult} />
+      <EdwardHealthPanel health={health} />
       <section className="glass-panel system-health-panel" aria-label="System health details">
         <PanelMiniHead icon={<Server />} title="Runtime Read Model" />
         <div className="monitor-stats">
-          <Metric label="Latest JSON" value={health?.latestJsonValid === false ? "INVALID" : "VALID"} danger={health?.latestJsonValid === false} strong />
-          <Metric label="Producer" value={health?.producerStatus ?? "unknown"} danger={health?.producerStatus !== "healthy"} />
-          <Metric label="Snapshot Age" value={typeof health?.snapshotAgeSeconds === "number" ? `${Math.round(health.snapshotAgeSeconds)}s` : "—"} />
-          <Metric label="HUD Decisions" value={String(snapshot.hudHeartbeatDecisions?.length ?? 0)} strong />
+          <Metric label="Latest JSON" value={latestJsonStatus(health)} danger={latestJsonStatus(health) !== "VALID"} strong />
+          <Metric label="Producer" value={producerDisplayStatus(health)} danger={producerDisplayStatus(health) !== "HEALTHY"} />
+          <Metric label="Snapshot Age" value={typeof health?.snapshotAgeSeconds === "number" ? `${Math.round(health.snapshotAgeSeconds)}s` : "UNKNOWN"} danger={typeof health?.snapshotAgeSeconds !== "number"} />
+          <Metric label="HUD Decisions" value={String(snapshot.hudHeartbeatDecisions?.length ?? 0)} strong danger={(snapshot.hudHeartbeatDecisions?.length ?? 0) === 0} />
         </div>
         <details className="page-disclosure compact-disclosure">
           <summary><span>Source details</span><small>{sources.length} sources</small></summary>
@@ -356,8 +366,9 @@ function PrimaryTradeDecisionPanel({ snapshot }: { snapshot: TradingDeskSnapshot
   const state = lead?.state ?? verdict.managementState?.riskState ?? "NO CLEAN EDGE";
   const instruction = lead?.instruction ?? verdict.whatIWouldDo;
   const reason = lead?.reason ?? verdict.summary;
+  const danger = lead ? hudDecisionDanger(lead) : primaryDecisionDanger(decision, state);
   return (
-    <section className="glass-panel primary-decision-panel" id="overview" aria-label="Primary Trade Decision">
+    <section className={`glass-panel primary-decision-panel ${danger ? "danger" : ""}`} id="overview" aria-label="Primary Trade Decision">
       <div className="panel-rail-title"><span>Primary Trade Decision</span></div>
       <div className="primary-decision-grid">
         <div className="decision-word"><span>Decision</span><strong>{decision}</strong></div>
@@ -400,21 +411,24 @@ function GuardrailStatus({ label, active, danger = false, warn = false }: { labe
   return <div className={`guardrail-status ${tone}`}><span>{danger ? "!" : warn ? "△" : "✓"}</span><strong>{label}</strong></div>;
 }
 
-function ThorpLiveMonitorPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+function ThorpLiveMonitorPanel({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const { snapshot, health } = loadResult;
   const attentionRows = getAttentionRows(snapshot);
   const allRows = getHudRows(snapshot);
-  const topRows = attentionRows.slice(0, 3);
+  const topRows = attentionRows.slice(0, 5);
   const heartbeatAt = topRows[0]?.freshness.received_at ?? topRows[0]?.received_at ?? snapshot.timestamp;
+  const hudStatus = deriveHudLiveStatus(loadResult, allRows);
   return (
-    <section className="glass-panel thorp-monitor-panel" id="thorp-monitor" aria-label="THORP Live Monitor">
+    <section className={`glass-panel thorp-monitor-panel ${hudStatus.tone}`} id="thorp-monitor" aria-label="THORP Live Monitor">
       <div className="monitor-head">
         <PanelMiniHead icon={<Radio />} title="THORP Live Monitor" />
-        <span className="hud-online"><Wifi size={14} /> All systems go</span>
+        <span className={`hud-online ${hudStatus.tone}`}><Wifi size={14} /> {hudStatus.label}</span>
       </div>
       <div className="monitor-stats">
         <Metric label="Attention Needed" value={String(attentionRows.length)} strong danger={attentionRows.some(hudDecisionDanger)} />
         <Metric label="Monitored Symbols" value={String(allRows.length || snapshot.watchlistSummary.total)} strong />
-        <Metric label="Fresh Data" value={topRows[0]?.freshness.status === "fresh" ? "ALL SYSTEMS GO" : "CHECK"} />
+        <Metric label="Fresh Data" value={hudStatus.label} danger={hudStatus.tone !== "ok"} />
+        <Metric label="Health" value={producerDisplayStatus(health)} danger={producerDisplayStatus(health) !== "HEALTHY"} />
         <Metric label="Last Heartbeat" value={formatTime(heartbeatAt)} />
       </div>
       <div className="hud-table" aria-label="HUD heartbeat attention rows sorted by attention">
@@ -431,10 +445,10 @@ function HudCockpitRow({ row }: { row: HudHeartbeatDecision }) {
   const zone = typeof row.hud.zone === "string" ? row.hud.zone : "—";
   const btcGate = typeof row.context.btc_gate === "string" ? row.context.btc_gate : typeof row.hud.btc_gate === "string" ? row.hud.btc_gate : "—";
   return (
-    <div className={`hud-table-row ${hudDecisionDanger(row) ? "danger" : "calm"}`}>
+    <div className={`hud-table-row ${hudDecisionTone(row)}`}>
       <strong>{row.normalized_symbol}<small>{row.timeframe}</small></strong>
-      <span>{row.decision}</span>
-      <span>{row.state}</span>
+      <span className="hud-decision-badge">{row.decision}</span>
+      <span className="hud-state-badge">{row.state}</span>
       <p>{row.instruction}</p>
       <p>{row.reason}</p>
       <span>{action}</span>
@@ -453,7 +467,7 @@ function PortfolioPaceCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
       <Metric label="Portfolio Value (PV)" value={currency.format(snapshot.portfolio.currentPV)} strong />
       <Metric label="Equity" value={currency.format(snapshot.portfolio.equity)} />
       <Metric label="24H P&L" value={money(snapshot.portfolio.dailyPnL)} trend={snapshot.portfolio.dailyPnL} />
-      <div className="pace-meter"><span>Soft Landing Pace</span><strong>{asPct(pace.currentDailyPVPct)}</strong><i style={{ width: `${Math.min(100, Math.max(4, pace.currentDailyPVPct * 10000))}%` }} /></div>
+      <div className="pace-meter"><span>Soft Landing Pace</span><strong>{asPacePct(pace.currentDailyPVPct)}</strong><i style={{ width: `${Math.min(100, Math.max(4, pace.currentDailyPVPct * 10000))}%` }} /></div>
     </section>
   );
 }
@@ -514,11 +528,11 @@ function DataHealthFooter({ loadResult }: { loadResult: TradingDeskLoadResult })
   const sourceCount = snapshot.hudHeartbeatDecisions?.length ?? 0;
   return (
     <footer className="cockpit-footer" id="system-health" aria-label="Data Health / Monitoring / HUD System / Data Feed / Uptime footer">
-      <FooterStat icon={<HeartPulse />} label="Data Health" value={loadResult.dataMode === "live_available" ? "Live data fresh" : formatDataMode(loadResult.dataMode)} />
+      <FooterStat icon={<HeartPulse />} label="Data Health" value={dataHealthDisplay(loadResult)} />
       <FooterStat icon={<Gauge />} label="Monitoring" value={`${sourceCount || snapshot.watchlistSummary.total} symbols monitored`} />
-      <FooterStat icon={<Radio />} label="HUD System" value={sourceCount > 0 ? "Heartbeat loaded" : "Heartbeat missing"} />
-      <FooterStat icon={<Database />} label="Data Feed" value={loadResult.validationIssues.length ? "Check" : "OK"} />
-      <FooterStat icon={<Server />} label="Uptime" value={loadResult.health?.producerStatus === "healthy" ? "99.98%" : loadResult.health?.producerStatus ?? "degraded"} />
+      <FooterStat icon={<Radio />} label="HUD System" value={sourceCount > 0 ? "HEARTBEAT LOADED" : "HEARTBEAT MISSING"} />
+      <FooterStat icon={<Database />} label="Data Feed" value={dataFeedDisplay(loadResult)} />
+      <FooterStat icon={<Server />} label="Uptime" value={producerDisplayStatus(loadResult.health)} />
     </footer>
   );
 }
@@ -585,7 +599,19 @@ function HudHeartbeatDecisionRow({ row }: { row: HudHeartbeatDecision }) {
 }
 
 function hudDecisionDanger(row: HudHeartbeatDecision) {
-  return ["EXIT", "REDUCE"].includes(row.decision) || ["STALE", "INVALIDATED", "STRESSED", "BLOCKED"].includes(row.state);
+  return ["EXIT", "REDUCE", "WAIT"].includes(row.decision) || ["STALE", "INVALIDATED", "STRESSED", "BLOCKED"].includes(row.state);
+}
+
+function hudDecisionTone(row: HudHeartbeatDecision) {
+  if (row.decision === "EXIT" || row.decision === "REDUCE") return "danger critical-attention";
+  if (["INVALIDATED", "STALE", "BLOCKED", "STRESSED"].includes(row.state)) return "danger";
+  if (row.decision === "WAIT") return "warn";
+  return "calm";
+}
+
+function primaryDecisionDanger(decision: string, state: string) {
+  const normalized = `${decision} ${state}`.toUpperCase();
+  return ["EXIT", "REDUCE", "INVALIDATED", "STALE", "BLOCKED"].some((token) => normalized.includes(token));
 }
 
 export function ActiveTradeManagementPanel({ binding }: { binding?: ManagementBinding }) {
@@ -1136,11 +1162,11 @@ export function EdwardHealthPanel({ health }: { health?: TradingDeskHealth }) {
         <PanelTitle icon={<Activity />} eyebrow="Edward Health" title="Nervous System" />
         <div className="health-tags">
           <StatusPill label={`Producer ${shown.producerStatus}`} tone={shown.producerStatus} />
-          <StatusPill label={shown.latestJsonValid ? "Snapshot valid" : "Snapshot not verified"} tone={shown.latestJsonValid ? "live_available" : "validation_error"} />
+          <StatusPill label={`Snapshot ${latestJsonStatus(health)}`} tone={latestJsonTone(health)} />
         </div>
       </div>
       <div className="health-grid">
-        <Metric label="Producer Status" value={shown.producerStatus.toUpperCase()} />
+        <Metric label="Producer Status" value={producerDisplayStatus(health)} danger={producerDisplayStatus(health) !== "HEALTHY"} />
         <Metric label="Last Successful Update" value={shown.lastSuccessfulUpdate ? formatTime(shown.lastSuccessfulUpdate) : "Unavailable"} />
         <Metric label="Snapshot Age" value={typeof shown.snapshotAgeSeconds === "number" ? `${Math.round(shown.snapshotAgeSeconds)}s` : "Unknown"} />
         <Metric label="Last Error" value={shown.lastError ?? (degraded ? "health.json unavailable" : "None")} danger={Boolean(shown.lastError || degraded)} />
@@ -1346,7 +1372,7 @@ export function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }
       </div>
       <div className="pace-copy">
         <span>Current PV {currency.format(pace.currentPV)}</span>
-        <span>Current Daily PV {asPct(pace.currentDailyPVPct)} vs Moon {asPct(pace.moonDailyRate)} / Sun {asPct(pace.sunDailyRate)}</span>
+        <span>Current Daily PV {asPacePct(pace.currentDailyPVPct)} vs Moon {asPacePct(pace.moonDailyRate)} / Sun {asPacePct(pace.sunDailyRate)}</span>
         <span>Baseline {currency.format(pace.baselinePV)} on {pace.baselineDate}</span>
         <span>{pace.daysSinceBaseline} days compounded</span>
       </div>
@@ -1759,9 +1785,57 @@ function dataModeMessage(loadResult: TradingDeskLoadResult) {
   }
 }
 
+function latestJsonStatus(health?: TradingDeskHealth) {
+  if (!health) return "UNAVAILABLE";
+  if (health.latestJsonValid === true) return "VALID";
+  if (health.latestJsonValid === false) return "INVALID";
+  return "UNKNOWN";
+}
+
+function latestJsonTone(health?: TradingDeskHealth) {
+  const status = latestJsonStatus(health);
+  if (status === "VALID") return "live_available";
+  if (status === "INVALID") return "validation_error";
+  return status.toLowerCase();
+}
+
+function producerDisplayStatus(health?: TradingDeskHealth) {
+  if (!health) return "UNAVAILABLE";
+  if (health.producerStatus === "healthy") return "HEALTHY";
+  if (health.producerStatus === "degraded") return "DEGRADED";
+  if (health.producerStatus === "offline") return "UNAVAILABLE";
+  return "UNKNOWN";
+}
+
+function dataHealthDisplay(loadResult: TradingDeskLoadResult) {
+  if (loadResult.dataMode === "live_available" && loadResult.health?.producerStatus === "healthy" && latestJsonStatus(loadResult.health) === "VALID") return "FRESH";
+  if (loadResult.dataMode === "live_unavailable") return "UNAVAILABLE";
+  if (loadResult.dataMode === "live_stale") return "STALE";
+  if (!loadResult.health) return "UNKNOWN";
+  return "CHECK";
+}
+
+function dataFeedDisplay(loadResult: TradingDeskLoadResult) {
+  if (loadResult.validationIssues.length > 0) return "CHECK";
+  if (latestJsonStatus(loadResult.health) === "VALID" && loadResult.dataMode === "live_available") return "OK";
+  return latestJsonStatus(loadResult.health);
+}
+
+function deriveHudLiveStatus(loadResult: TradingDeskLoadResult, rows: HudHeartbeatDecision[]) {
+  const heartbeatLoaded = rows.length > 0;
+  const freshRows = heartbeatLoaded && rows.every((row) => row.freshness.status === "fresh");
+  const healthOk = loadResult.health?.producerStatus === "healthy" && latestJsonStatus(loadResult.health) === "VALID";
+  if (loadResult.dataMode === "live_available" && heartbeatLoaded && freshRows && healthOk) return { label: "ALL SYSTEMS GO", tone: "ok" };
+  if (!heartbeatLoaded) return { label: "UNKNOWN", tone: "unknown" };
+  if (loadResult.dataMode === "live_unavailable") return { label: "UNAVAILABLE", tone: "danger" };
+  if (!freshRows || loadResult.dataMode === "live_stale") return { label: "CHECK", tone: "warn" };
+  return { label: "DEGRADED", tone: "warn" };
+}
+
 function money(value?: number) { return value === undefined ? "Unavailable" : currency.format(value); }
 function num(value?: number) { return value === undefined ? "Unavailable" : value.toLocaleString("en-US", { maximumFractionDigits: 4 }); }
 function asPct(value?: number) { return value === undefined ? "N/A" : pct.format(value); }
+function asPacePct(value?: number) { return value === undefined ? "N/A" : pacePct.format(value); }
 
 function formatBodyPartName(part: string) {
   return part.replace(/([A-Z])/g, " $1").replace(/^./, (first) => first.toUpperCase());
