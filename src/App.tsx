@@ -36,11 +36,53 @@ const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDi
 const REFRESH_INTERVAL_SECONDS = 30;
 const TRADE_JOURNAL_PAGE_SIZE = 10;
 
+type CockpitPageId = "overview" | "live-desk" | "portfolio" | "positions" | "protection" | "recheck" | "watchlist" | "journal" | "system-health";
+
+type CockpitPage = {
+  id: CockpitPageId;
+  label: string;
+  shortLabel: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon: ReactNode;
+};
+
+const COCKPIT_PAGES: CockpitPage[] = [
+  { id: "overview", label: "Primary Trade Decision", shortLabel: "Decision", eyebrow: "Overview", title: "Primary Trade Decision", description: "Decision, state, instruction, reason, and read-only guardrails stay dominant.", icon: <Home /> },
+  { id: "live-desk", label: "THORP Live Monitor", shortLabel: "THORP", eyebrow: "Live Desk", title: "THORP Live Monitor", description: "HUD heartbeat attention rows with the full basket collapsed until needed.", icon: <Radio /> },
+  { id: "portfolio", label: "Portfolio & Pace", shortLabel: "Portfolio", eyebrow: "Moon / Sun Math", title: "Portfolio & Pace", description: "Soft Landing pace, portfolio value, equity, and Moon/Sun compounding targets.", icon: <CircleDollarSign /> },
+  { id: "positions", label: "Active Positions", shortLabel: "Positions", eyebrow: "Broker Truth", title: "Active Positions", description: "Open positions and current management context separated from attention rows.", icon: <BriefcaseBusiness /> },
+  { id: "protection", label: "Orders & Protection", shortLabel: "Protection", eyebrow: "Risk Protection", title: "Orders & Protection", description: "Stop-loss, take-profit, exposure, and no-execution protection posture.", icon: <ShieldCheck /> },
+  { id: "recheck", label: "Recheck Triggers", shortLabel: "Recheck", eyebrow: "Next Review", title: "Recheck Triggers", description: "Specific conditions that should pull the operator back to the desk.", icon: <Clock3 /> },
+  { id: "watchlist", label: "All Monitored Symbols / Watchlist", shortLabel: "Watchlist", eyebrow: "Full Basket", title: "All Monitored Symbols / Watchlist", description: "Full HUD basket and active-basket scan remain collapsed until expanded.", icon: <Star /> },
+  { id: "journal", label: "Trading Journal", shortLabel: "Journal", eyebrow: "Post-Trade", title: "Trading Journal", description: "Closed-trade journal and paginated detail, separate from live decisioning.", icon: <BookOpen /> },
+  { id: "system-health", label: "Data Health / HUD System / Data Feed", shortLabel: "Health", eyebrow: "System Health", title: "Data Health / HUD System / Data Feed", description: "Compact status strip, source health, validation state, and uptime signals.", icon: <HeartPulse /> },
+];
+
+const SIDEBAR_ITEMS: Array<{ label: string; page: CockpitPageId; icon: ReactNode }> = [
+  { label: "Overview", page: "overview", icon: <Home /> },
+  { label: "Live Desk", page: "live-desk", icon: <Activity /> },
+  { label: "Portfolio", page: "portfolio", icon: <CircleDollarSign /> },
+  { label: "Positions", page: "positions", icon: <BriefcaseBusiness /> },
+  { label: "Protection", page: "protection", icon: <ShieldCheck /> },
+  { label: "Recheck", page: "recheck", icon: <Clock3 /> },
+  { label: "THORP Monitor", page: "live-desk", icon: <Gauge /> },
+  { label: "Watchlist", page: "watchlist", icon: <Star /> },
+  { label: "Journal", page: "journal", icon: <BookOpen /> },
+  { label: "System Health", page: "system-health", icon: <HeartPulse /> },
+];
+
 export default function App() {
   const [loadResult, setLoadResult] = useState<TradingDeskLoadResult | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "refreshing">("loading");
   const [nextRefreshAt, setNextRefreshAt] = useState(() => Date.now() + REFRESH_INTERVAL_SECONDS * 1000);
   const [now, setNow] = useState(() => Date.now());
+  const [activePage, setActivePage] = useState<CockpitPageId>(() => {
+    if (typeof window === "undefined") return "overview";
+    const hash = window.location.hash.replace("#", "");
+    return COCKPIT_PAGES.some((page) => page.id === hash) ? hash as CockpitPageId : "overview";
+  });
 
   const refreshSnapshot = useCallback(async (manual = false) => {
     setLoadState((current) => (current === "loading" ? "loading" : "refreshing"));
@@ -69,6 +111,20 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [refreshSnapshot]);
 
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (COCKPIT_PAGES.some((page) => page.id === hash)) setActivePage(hash as CockpitPageId);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  const selectPage = useCallback((page: CockpitPageId) => {
+    setActivePage(page);
+    window.history.replaceState(null, "", `#${page}`);
+  }, []);
+
   if (loadState === "loading" || !loadResult) {
     return <main className="app-shell loading-shell">Loading Edward Trading Desk...</main>;
   }
@@ -79,7 +135,7 @@ export default function App() {
 
   return (
     <main className="cockpit-shell">
-      <TradingDeskSidebar />
+      <TradingDeskSidebar activePage={activePage} onSelectPage={selectPage} />
       <div className="cockpit-main">
         <TopCommandHeader
           loadResult={loadResult}
@@ -89,41 +145,75 @@ export default function App() {
           coreState={coreState}
         />
         <DataStateBanner loadResult={loadResult} />
-        <section className="cockpit-grid" aria-label="Trading Desk decision cockpit">
-          <PrimaryTradeDecisionPanel snapshot={snapshot} />
-          <RiskGuardrailsPanel snapshot={snapshot} />
-          <ThorpLiveMonitorPanel snapshot={snapshot} />
-          <div className="cockpit-side-stack">
-            <PortfolioPaceCard snapshot={snapshot} />
-            <ActivePositionsCard snapshot={snapshot} />
-            <OrdersProtectionCard snapshot={snapshot} />
-            <RecheckTriggersCard snapshot={snapshot} />
-          </div>
-          <AllMonitoredSymbolsPanel snapshot={snapshot} />
-          <DataHealthFooter loadResult={loadResult} />
-        </section>
+        <CockpitPageTabs activePage={activePage} onSelectPage={selectPage} />
+        <CockpitWorkspace activePage={activePage} loadResult={loadResult} />
       </div>
     </main>
   );
 }
 
-function TradingDeskSidebar() {
-  const items = [
-    ["Overview", <Home key="overview" />],
-    ["Live Desk", <Activity key="live" />],
-    ["Positions", <BriefcaseBusiness key="positions" />],
-    ["THORP Monitor", <Gauge key="monitor" />],
-    ["Watchlist", <Star key="watchlist" />],
-    ["Journal", <BookOpen key="journal" />],
-    ["System Health", <HeartPulse key="health" />],
-  ] as const;
+function TradingDeskSidebar({ activePage, onSelectPage }: { activePage: CockpitPageId; onSelectPage: (page: CockpitPageId) => void }) {
   return (
     <aside className="cockpit-sidebar" aria-label="Trading Desk navigation">
       <div className="sidebar-brand"><span className="brand-mark">T</span><div><strong>Edward Trading Desk</strong><small>by THORP</small></div></div>
-      <nav>{items.map(([label, icon], index) => <a className={index === 0 ? "active" : ""} href={`#${label.toLowerCase().replace(/\s+/g, "-")}`} key={label}>{icon}<span>{label}</span></a>)}</nav>
+      <nav>{SIDEBAR_ITEMS.map((item) => <a className={activePage === item.page ? "active" : ""} href={`#${item.page}`} key={item.label} onClick={(event) => { event.preventDefault(); onSelectPage(item.page); }}>{item.icon}<span>{item.label}</span></a>)}</nav>
       <div className="sidebar-framework"><Sparkles size={18} /><div><strong>THORP Framework</strong><span>Soft Landing Protocol</span></div></div>
     </aside>
   );
+}
+
+function CockpitPageTabs({ activePage, onSelectPage }: { activePage: CockpitPageId; onSelectPage: (page: CockpitPageId) => void }) {
+  return (
+    <nav className="cockpit-page-tabs" aria-label="Cockpit sections">
+      {COCKPIT_PAGES.map((page) => (
+        <button className={activePage === page.id ? "active" : ""} type="button" key={page.id} onClick={() => onSelectPage(page.id)}>
+          <span>{page.icon}</span>
+          <strong>{page.shortLabel}</strong>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function CockpitWorkspace({ activePage, loadResult }: { activePage: CockpitPageId; loadResult: TradingDeskLoadResult }) {
+  const page = COCKPIT_PAGES.find((item) => item.id === activePage) ?? COCKPIT_PAGES[0];
+  const snapshot = loadResult.snapshot;
+  return (
+    <section className="cockpit-page-shell" id={page.id} aria-label={page.label}>
+      <header className="cockpit-page-header">
+        <span>{page.eyebrow}</span>
+        <h2>{page.title}</h2>
+        <p>{page.description}</p>
+      </header>
+      <div className={`cockpit-page-body ${activePage}`}>
+        <CockpitPageContent activePage={activePage} loadResult={loadResult} snapshot={snapshot} />
+      </div>
+    </section>
+  );
+}
+
+function CockpitPageContent({ activePage, loadResult, snapshot }: { activePage: CockpitPageId; loadResult: TradingDeskLoadResult; snapshot: TradingDeskSnapshot }) {
+  switch (activePage) {
+    case "live-desk":
+      return <ThorpMonitorPage snapshot={snapshot} />;
+    case "portfolio":
+      return <PortfolioPacePage snapshot={snapshot} />;
+    case "positions":
+      return <ActivePositionsPage snapshot={snapshot} />;
+    case "protection":
+      return <OrdersProtectionPage snapshot={snapshot} />;
+    case "recheck":
+      return <RecheckTriggersPage snapshot={snapshot} />;
+    case "watchlist":
+      return <WatchlistPage snapshot={snapshot} />;
+    case "journal":
+      return <JournalPage snapshot={snapshot} />;
+    case "system-health":
+      return <SystemHealthPage loadResult={loadResult} />;
+    case "overview":
+    default:
+      return <PrimaryDecisionPage snapshot={snapshot} />;
+  }
 }
 
 function getHudRows(snapshot: TradingDeskSnapshot) {
@@ -147,6 +237,116 @@ function hudAttentionRank(row: HudHeartbeatDecision) {
   if (row.decision === "ENTER") return 20;
   if (row.state === "WATCH") return 10;
   return 0;
+}
+
+function PrimaryDecisionPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid decision-layout">
+      <PrimaryTradeDecisionPanel snapshot={snapshot} />
+      <RiskGuardrailsPanel snapshot={snapshot} />
+    </div>
+  );
+}
+
+function ThorpMonitorPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid monitor-layout">
+      <ThorpLiveMonitorPanel snapshot={snapshot} />
+      <AllMonitoredSymbolsPanel snapshot={snapshot} />
+    </div>
+  );
+}
+
+function PortfolioPacePage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid portfolio-layout">
+      <PortfolioCommandBar snapshot={snapshot} />
+      <SoftLandingPanel snapshot={snapshot} />
+      <PortfolioPaceCard snapshot={snapshot} />
+    </div>
+  );
+}
+
+function ActivePositionsPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid positions-layout">
+      <ActivePositionsCard snapshot={snapshot} />
+      <ActiveTradeManagementPanel binding={snapshot.managementBinding} />
+    </div>
+  );
+}
+
+function OrdersProtectionPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid protection-layout">
+      <OrdersProtectionCard snapshot={snapshot} />
+      <RiskGuardrailsPanel snapshot={snapshot} />
+      <details className="glass-panel page-disclosure">
+        <summary><span>Protection details</span><small>Collapsed by default</small></summary>
+        <ActiveTradeManagementPanel binding={snapshot.managementBinding} />
+      </details>
+    </div>
+  );
+}
+
+function RecheckTriggersPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid recheck-layout">
+      <RecheckTriggersCard snapshot={snapshot} />
+      <WarningAndRecheck snapshot={snapshot} />
+    </div>
+  );
+}
+
+function WatchlistPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid watchlist-layout">
+      <AllMonitoredSymbolsPanel snapshot={snapshot} />
+      <details className="glass-panel page-disclosure">
+        <summary><span>Active Basket Coverage</span><small>Collapsed by default</small></summary>
+        <WatchlistPanel snapshot={snapshot} />
+      </details>
+    </div>
+  );
+}
+
+function JournalPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid journal-layout">
+      <TradeJournalPanel snapshot={snapshot} />
+    </div>
+  );
+}
+
+function SystemHealthPage({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const { health, snapshot } = loadResult;
+  const sources = health ? Object.entries(health.sources) : [];
+  return (
+    <div className="cockpit-page-grid health-layout">
+      <DataHealthFooter loadResult={loadResult} />
+      <section className="glass-panel system-health-panel" aria-label="System health details">
+        <PanelMiniHead icon={<Server />} title="Runtime Read Model" />
+        <div className="monitor-stats">
+          <Metric label="Latest JSON" value={health?.latestJsonValid === false ? "INVALID" : "VALID"} danger={health?.latestJsonValid === false} strong />
+          <Metric label="Producer" value={health?.producerStatus ?? "unknown"} danger={health?.producerStatus !== "healthy"} />
+          <Metric label="Snapshot Age" value={typeof health?.snapshotAgeSeconds === "number" ? `${Math.round(health.snapshotAgeSeconds)}s` : "—"} />
+          <Metric label="HUD Decisions" value={String(snapshot.hudHeartbeatDecisions?.length ?? 0)} strong />
+        </div>
+        <details className="page-disclosure compact-disclosure">
+          <summary><span>Source details</span><small>{sources.length} sources</small></summary>
+          <div className="health-source-grid">
+            {sources.map(([name, source]) => (
+              <div className={`health-source-card ${source.status}`} key={name}>
+                <strong>{name}</strong>
+                <span>{source.status}</span>
+                <small>{source.detail ?? source.lastError ?? source.provenance ?? "No detail"}</small>
+              </div>
+            ))}
+          </div>
+        </details>
+      </section>
+    </div>
+  );
 }
 
 function PrimaryTradeDecisionPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
