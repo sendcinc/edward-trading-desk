@@ -380,6 +380,64 @@ describe("trading desk snapshot validation", () => {
     }
   });
 
+  it("accepts HUD heartbeat decisions and attention rows without execution authority", () => {
+    const snapshot = validSnapshot();
+    snapshot.hudHeartbeatDecisions = [
+      {
+        symbol: "AVAXUSDT",
+        normalized_symbol: "AVAXUSDT",
+        lane: "hud_heartbeat",
+        timeframe: "15m",
+        received_at: "2026-05-13T14:55:00.000Z",
+        price: 20.15,
+        decision: "WAIT",
+        state: "WATCH",
+        instruction: "Wait on AVAXUSDT; use HUD levels as context only.",
+        reason: "HUD action is WAIT and zone is LOWER / LONG SETUPS ONLY.",
+        freshness: { status: "fresh", received_at: "2026-05-13T14:55:00.000Z", age_seconds: 300, max_age_seconds: 1200 },
+        hud: { action: "WAIT", zone: "LOWER / LONG SETUPS ONLY" },
+        entries: { scout: 19.5, a1: 19.1, a2: 18.7 },
+        risk: { warning: 18.9, hard: 18.2, invalidation: 18.2 },
+        targets: { t1: 21, t2: 22, t3: 23 },
+        context: { side: "LONG" },
+        auto_execution: false,
+      },
+    ];
+    snapshot.hudHeartbeatAttention = snapshot.hudHeartbeatDecisions;
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.hudHeartbeatAttention?.[0].lane).toBe("hud_heartbeat");
+      expect(result.snapshot.hudHeartbeatAttention?.[0].auto_execution).toBe(false);
+    }
+  });
+
+  it("rejects HUD heartbeat rows that claim auto execution", () => {
+    const snapshot = validSnapshot() as Record<string, unknown>;
+    snapshot.hudHeartbeatDecisions = [
+      {
+        symbol: "AVAXUSDT",
+        normalized_symbol: "AVAXUSDT",
+        lane: "hud_heartbeat",
+        timeframe: "15m",
+        decision: "ENTER",
+        state: "VALID",
+        instruction: "bad",
+        reason: "bad",
+        freshness: { status: "fresh", max_age_seconds: 1200 },
+        hud: {}, entries: {}, risk: {}, targets: {}, context: {},
+        auto_execution: true,
+      },
+    ];
+
+    const result = validateTradingDeskSnapshot(snapshot);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.issues.join("\n")).toContain("hudHeartbeatDecisions.0.auto_execution");
+  });
+
   it("rejects snapshots missing required portfolio PV/equity fields", () => {
     const snapshot = validSnapshot() as Record<string, unknown>;
     snapshot.portfolio = { exposureStatus: "SAFE" };

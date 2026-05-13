@@ -719,6 +719,31 @@ const managementBindingSchema = z.object({
   executionIntent: z.literal("none"),
 }).strict();
 
+const hudHeartbeatDecisionSchema = z.object({
+  symbol: z.string().min(1),
+  normalized_symbol: z.string().min(1),
+  lane: z.literal("hud_heartbeat"),
+  timeframe: z.string().min(1),
+  received_at: z.string().nullable().optional(),
+  price: z.number().finite().nullable().optional(),
+  decision: z.enum(["WAIT", "ENTER", "MANAGE", "REDUCE", "EXIT"]),
+  state: z.enum(["VALID", "WATCH", "BLOCKED", "NO_CLEAN_EDGE", "STRESSED", "INVALIDATED", "STALE"]),
+  instruction: z.string().min(1),
+  reason: z.string().min(1),
+  freshness: z.object({
+    status: z.enum(["fresh", "stale"]),
+    received_at: z.string().nullable().optional(),
+    age_seconds: z.number().finite().nullable().optional(),
+    max_age_seconds: z.number().int().positive(),
+  }).strict(),
+  hud: z.record(z.string(), z.unknown()),
+  entries: z.record(z.string(), z.unknown()),
+  risk: z.record(z.string(), z.unknown()),
+  targets: z.record(z.string(), z.unknown()),
+  context: z.record(z.string(), z.unknown()),
+  auto_execution: z.literal(false),
+}).passthrough();
+
 const tradingDeskSnapshotSchema = z.object({
   contractVersion: z.literal(TRADING_DESK_SNAPSHOT_CONTRACT_VERSION),
   timestamp: z.string().datetime(),
@@ -740,6 +765,8 @@ const tradingDeskSnapshotSchema = z.object({
   recheckTrigger: recheckTriggerSchema,
   watchlistSummary: watchlistSummarySchema,
   watchlist: z.array(watchlistItemSchema),
+  hudHeartbeatDecisions: z.array(hudHeartbeatDecisionSchema).optional(),
+  hudHeartbeatAttention: z.array(hudHeartbeatDecisionSchema).optional(),
   tradeJournal: z.array(tradeJournalEntrySchema).optional(),
 });
 
