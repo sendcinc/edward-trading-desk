@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
 import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
-import type { AlertIntakeResult, DataMode, FreshAlertReview, FreshAlertReviewTimeframe, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
+import type { AlertIntakeResult, DataMode, FreshAlertReview, FreshAlertReviewTimeframe, HudHeartbeatDecision, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
 import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -77,6 +77,7 @@ export default function App() {
       />
       <DataStateBanner loadResult={loadResult} />
       <TradeDecisionCard snapshot={snapshot} />
+      <HudHeartbeatDecisionPanel snapshot={snapshot} />
       <ActiveTradeManagementPanel binding={snapshot.managementBinding} />
       <TradeManagementPlanPanel snapshot={snapshot} />
       <EdwardHealthPanel health={loadResult.health} />
@@ -93,6 +94,63 @@ export default function App() {
       <TradeJournalPanel snapshot={snapshot} />
     </main>
   );
+}
+
+export function HudHeartbeatDecisionPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const rows = snapshot.hudHeartbeatAttention ?? snapshot.hudHeartbeatDecisions ?? [];
+  if (!rows.length) {
+    return (
+      <section className="panel latest-alert-panel warning">
+        <div className="latest-alert-head">
+          <PanelTitle icon={<Activity />} eyebrow="HUD Heartbeat Decisions" title="No HUD heartbeat latest files consumed yet" />
+          <StatusPill label="missing" tone="missing" />
+        </div>
+        <p className="muted">Edward has no local HUD heartbeat read-model rows in this snapshot. No trade permission is created.</p>
+      </section>
+    );
+  }
+
+  const lead = rows[0];
+  return (
+    <section className={`panel latest-alert-panel ${hudDecisionDanger(lead) ? "warning" : "ready"}`}>
+      <div className="latest-alert-head">
+        <PanelTitle icon={<Activity />} eyebrow="HUD Heartbeat Decisions / Attention Needed" title={`${lead.normalized_symbol} — ${lead.decision} / ${lead.state}`} />
+        <StatusPill label={lead.freshness.status} tone={lead.freshness.status} />
+      </div>
+      <div className="alert-metrics">
+        <Metric label="Decision" value={lead.decision} strong danger={hudDecisionDanger(lead)} />
+        <Metric label="State" value={lead.state} strong danger={hudDecisionDanger(lead)} />
+        <Metric label="Instruction" value={lead.instruction} strong />
+        <Metric label="Reason" value={lead.reason} />
+      </div>
+      <div className="fresh-alert-timeframes" aria-label="HUD heartbeat attention list">
+        {rows.slice(0, 12).map((row) => (
+          <HudHeartbeatDecisionRow key={`${row.normalized_symbol}-${row.timeframe}`} row={row} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HudHeartbeatDecisionRow({ row }: { row: HudHeartbeatDecision }) {
+  const action = typeof row.hud.action === "string" ? row.hud.action : "—";
+  const zone = typeof row.hud.zone === "string" ? row.hud.zone : "—";
+  return (
+    <div className={`fresh-alert-timeframe-row ${hudDecisionDanger(row) ? "warning" : "fresh"}`}>
+      <div className="fresh-alert-timeframe-main">
+        <strong>{row.normalized_symbol}</strong>
+        <StatusPill label={`${row.decision} / ${row.state}`} tone={row.state.toLowerCase()} />
+      </div>
+      <Metric label="Instruction" value={row.instruction} strong />
+      <Metric label="Action" value={action} />
+      <Metric label="Zone" value={zone} />
+      <Metric label="Freshness" value={`${row.freshness.status}${typeof row.freshness.age_seconds === "number" ? ` / ${Math.round(row.freshness.age_seconds / 60)}m` : ""}`} danger={row.freshness.status === "stale"} />
+    </div>
+  );
+}
+
+function hudDecisionDanger(row: HudHeartbeatDecision) {
+  return ["EXIT", "REDUCE"].includes(row.decision) || ["STALE", "INVALIDATED", "STRESSED", "BLOCKED"].includes(row.state);
 }
 
 export function ActiveTradeManagementPanel({ binding }: { binding?: ManagementBinding }) {

@@ -220,6 +220,31 @@ export type ThorpRichScannerPayload = {
   copy?: string;
 };
 
+export type HudHeartbeatDecision = {
+  symbol: string;
+  normalized_symbol: string;
+  lane: "hud_heartbeat";
+  timeframe: string;
+  received_at?: string | null;
+  price?: number | null;
+  decision: "WAIT" | "ENTER" | "MANAGE" | "REDUCE" | "EXIT";
+  state: "VALID" | "WATCH" | "BLOCKED" | "NO_CLEAN_EDGE" | "STRESSED" | "INVALIDATED" | "STALE";
+  instruction: string;
+  reason: string;
+  freshness: {
+    status: "fresh" | "stale";
+    received_at?: string | null;
+    age_seconds?: number | null;
+    max_age_seconds: number;
+  };
+  hud: Record<string, unknown>;
+  entries: Record<string, unknown>;
+  risk: Record<string, unknown>;
+  targets: Record<string, unknown>;
+  context: Record<string, unknown>;
+  auto_execution: false;
+};
+
 export type TradingDeskSnapshot = {
   contractVersion: TradingDeskSnapshotContractVersion;
   timestamp: string;
@@ -241,6 +266,8 @@ export type TradingDeskSnapshot = {
   recheckTrigger: RecheckTrigger;
   watchlistSummary: WatchlistSummary;
   watchlist: WatchlistItem[];
+  hudHeartbeatDecisions?: HudHeartbeatDecision[];
+  hudHeartbeatAttention?: HudHeartbeatDecision[];
   tradeJournal?: TradeJournalEntry[];
 };
 
