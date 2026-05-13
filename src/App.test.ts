@@ -83,7 +83,7 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Manual / Read-only");
     expect(appSource).toContain("edward-core-orb");
     expect(appSource).toContain("prefers-reduced-motion: reduce");
-    expect(appSource.indexOf("<TopCommandHeader")).toBeLessThan(appSource.indexOf("<PrimaryTradeDecisionPanel snapshot={snapshot} />"));
+    expect(appSource.indexOf("<TopCommandHeader")).toBeLessThan(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />"));
   });
 
   it("maps Primary Scan rows to operator evidence labels instead of vague trade copy", () => {
@@ -145,33 +145,51 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("primary-scan-evidence");
   });
 
-  it("renders a decision-first cockpit with refresh, risk guardrails, HUD monitor, and collapsed watchlist surfaces", () => {
-    const tradeDecisionIndex = appSource.indexOf("<PrimaryTradeDecisionPanel snapshot={snapshot} />");
-    const riskIndex = appSource.indexOf("<RiskGuardrailsPanel snapshot={snapshot} />");
-    const monitorIndex = appSource.indexOf("<ThorpLiveMonitorPanel snapshot={snapshot} />");
-    const sideIndex = appSource.indexOf("<PortfolioPaceCard snapshot={snapshot} />");
-    const symbolsIndex = appSource.indexOf("<AllMonitoredSymbolsPanel snapshot={snapshot} />");
-    const footerIndex = appSource.indexOf("<DataHealthFooter loadResult={loadResult} />");
-
-    expect(tradeDecisionIndex).toBeGreaterThan(-1);
-    expect(tradeDecisionIndex).toBeLessThan(riskIndex);
-    expect(riskIndex).toBeLessThan(monitorIndex);
-    expect(monitorIndex).toBeLessThan(sideIndex);
-    expect(sideIndex).toBeLessThan(symbolsIndex);
-    expect(symbolsIndex).toBeLessThan(footerIndex);
+  it("renders a decision-first cockpit with refresh, risk ladder, and watchlist surfaces", () => {
+    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
+      appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),
+    );
+    expect(appSource.indexOf("<RiskLadderPanel snapshot={snapshot} />")).toBeLessThan(
+      appSource.indexOf("<MarketMovementPanel snapshot={snapshot} />"),
+    );
     expect(appSource).toContain("REFRESH_INTERVAL_SECONDS = 30");
     expect(appSource).toContain("Next refresh");
-    expect(appSource).toContain("Primary Trade Decision");
-    expect(appSource).toContain("Risk Guardrails");
-    expect(appSource).toContain("THORP Live Monitor");
-    expect(appSource).toContain("All Monitored Symbols");
-    expect(appSource).toContain("Data Health / Monitoring / HUD System / Data Feed / Uptime footer");
+    expect(appSource).toContain("Active Basket Coverage");
+    expect(appSource).toContain("Risk & Ladder Management");
+    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
+    const tradeManagementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
+    const healthIndex = appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />");
+    const bodyProgressIndex = appSource.indexOf("<EdwardBodyProgressPanel />");
+    const journalIndex = appSource.indexOf("<TradeJournalPanel snapshot={snapshot} />");
+
+    expect(tradeDecisionIndex).toBeLessThan(tradeManagementIndex);
+    expect(tradeManagementIndex).toBeLessThan(healthIndex);
+    const alertIndex = appSource.indexOf("<LatestAlertPanel alertIntake={loadResult.alertIntake} />");
+    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} />");
+    const verdictIndex = appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />");
+    const riskIndex = appSource.indexOf("<RiskLadderPanel snapshot={snapshot} />");
+    expect(tradeDecisionIndex).toBeLessThan(alertIndex);
+    expect(tradeManagementIndex).toBeLessThan(alertIndex);
+    expect(healthIndex).toBeLessThan(alertIndex);
+    expect(alertIndex).toBeLessThan(watchlistIndex);
+    expect(watchlistIndex).toBeLessThan(verdictIndex);
+    expect(verdictIndex).toBeLessThan(riskIndex);
+    expect(healthIndex).toBeLessThan(bodyProgressIndex);
+    expect(healthIndex).toBeLessThan(journalIndex);
+    expect(appSource).toContain("Edward Health");
+    expect(appSource).toContain("Producer Status");
+    expect(appSource).toContain("Source Freshness");
   });
 
-  it("keeps legacy body-progress and journal components available but outside the one-screen cockpit render", () => {
-    expect(appSource).toContain("export function EdwardBodyProgressPanel");
-    expect(appSource).toContain("export function TradeJournalPanel");
-    expect(appSource.indexOf("<DataHealthFooter loadResult={loadResult} />")).toBeGreaterThan(appSource.indexOf("<PrimaryTradeDecisionPanel snapshot={snapshot} />"));
+  it("keeps Edward Body Progress after cockpit/watchlist flow and before the journal", () => {
+    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
+    const portfolioIndex = appSource.indexOf("<PortfolioCommandBar snapshot={snapshot} />");
+    const bodyProgressIndex = appSource.indexOf("<EdwardBodyProgressPanel />");
+    const journalIndex = appSource.indexOf("<TradeJournalPanel snapshot={snapshot} />");
+
+    expect(bodyProgressIndex).toBeGreaterThan(tradeDecisionIndex);
+    expect(bodyProgressIndex).toBeGreaterThan(portfolioIndex);
+    expect(bodyProgressIndex).toBeLessThan(journalIndex);
   });
 
   it("renders body-progress copy and locked execution state from static progress data", () => {
@@ -197,16 +215,19 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("managementState");
   });
 
-  it("keeps trade-management plan implementation available while the cockpit promotes mapped summary cards", () => {
+  it("renders trade management plan below the trade decision with protection and soft landing math", () => {
+    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
+      appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />"),
+    );
+    expect(appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />")).toBeLessThan(
+      appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),
+    );
     expect(appSource).toContain("Trade Management Plan");
     expect(appSource).toContain("Protection Plan");
     expect(appSource).toContain("Profit / Giveback Math");
     expect(appSource).toContain("Soft Landing Impact");
     expect(appSource).toContain("Do Not Do");
     expect(appSource).toContain("tradeManagementPlan");
-    expect(appSource).toContain("Orders & Protection");
-    expect(appSource).toContain("Portfolio & Pace");
-    expect(appSource).toContain("Recheck Triggers");
   });
 
   it("only renders trade management plan content when the optional plan exists", () => {
@@ -217,13 +238,23 @@ describe("Trading Desk shell", () => {
     );
   });
 
-  it("keeps latest-alert intake read-only implementation available without adding execution controls", () => {
+  it("renders latest alert intake below Edward Health without outranking decision or management", () => {
+    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
+    const tradeManagementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
+    const healthIndex = appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />");
+    const alertIndex = appSource.indexOf("<LatestAlertPanel alertIntake={loadResult.alertIntake} />");
+    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} />");
+
+    expect(alertIndex).toBeGreaterThan(-1);
+    expect(tradeDecisionIndex).toBeLessThan(tradeManagementIndex);
+    expect(tradeManagementIndex).toBeLessThan(healthIndex);
+    expect(healthIndex).toBeLessThan(alertIndex);
+    expect(alertIndex).toBeLessThan(watchlistIndex);
     expect(appSource).toContain("Latest Alert / Alert Intake");
     expect(appSource).toContain("Alerts do not execute trades.");
     expect(appSource).toContain("Alert intake unavailable / no recent alerts");
     expect(appSource).toContain("context_only");
     expect(appSource).toContain("duplicate");
-    expect(appSource).toContain("export function LatestAlertPanel");
   });
 
   it("renders broker order truth warnings and relabels hard invalidation as THORP invalidation", () => {
