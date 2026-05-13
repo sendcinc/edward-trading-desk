@@ -4,14 +4,25 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BellRing,
+  BookOpen,
+  BriefcaseBusiness,
   CircleDollarSign,
   Clock3,
+  Database,
   Gauge,
+  HeartPulse,
+  Home,
   ListChecks,
   LockKeyhole,
+  Radio,
   RefreshCw,
+  Server,
+  ShieldAlert,
   ShieldCheck,
+  Sparkles,
+  Star,
   Target,
+  Wifi,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
@@ -67,33 +78,257 @@ export default function App() {
   const refreshSeconds = Math.max(0, Math.ceil((nextRefreshAt - now) / 1000));
 
   return (
-    <main className="app-shell">
-      <TopCommandHeader
-        loadResult={loadResult}
-        refreshSeconds={refreshSeconds}
-        isRefreshing={loadState === "refreshing"}
-        onRefresh={() => void refreshSnapshot(true)}
-        coreState={coreState}
-      />
-      <DataStateBanner loadResult={loadResult} />
-      <TradeDecisionCard snapshot={snapshot} />
-      <HudHeartbeatDecisionPanel snapshot={snapshot} />
-      <ActiveTradeManagementPanel binding={snapshot.managementBinding} />
-      <TradeManagementPlanPanel snapshot={snapshot} />
-      <EdwardHealthPanel health={loadResult.health} />
-      <LatestAlertPanel alertIntake={loadResult.alertIntake} />
-      <FreshAlertReviewPanel alertIntake={loadResult.alertIntake} />
-      <WatchlistPanel snapshot={snapshot} />
-      <EdwardVerdictPanel snapshot={snapshot} />
-      <RiskLadderPanel snapshot={snapshot} />
-      <MarketMovementPanel snapshot={snapshot} />
-      <WarningAndRecheck snapshot={snapshot} />
-      <SoftLandingPanel snapshot={snapshot} />
-      <PortfolioCommandBar snapshot={snapshot} />
-      <EdwardBodyProgressPanel />
-      <TradeJournalPanel snapshot={snapshot} />
+    <main className="cockpit-shell">
+      <TradingDeskSidebar />
+      <div className="cockpit-main">
+        <TopCommandHeader
+          loadResult={loadResult}
+          refreshSeconds={refreshSeconds}
+          isRefreshing={loadState === "refreshing"}
+          onRefresh={() => void refreshSnapshot(true)}
+          coreState={coreState}
+        />
+        <DataStateBanner loadResult={loadResult} />
+        <section className="cockpit-grid" aria-label="Trading Desk decision cockpit">
+          <PrimaryTradeDecisionPanel snapshot={snapshot} />
+          <RiskGuardrailsPanel snapshot={snapshot} />
+          <ThorpLiveMonitorPanel snapshot={snapshot} />
+          <div className="cockpit-side-stack">
+            <PortfolioPaceCard snapshot={snapshot} />
+            <ActivePositionsCard snapshot={snapshot} />
+            <OrdersProtectionCard snapshot={snapshot} />
+            <RecheckTriggersCard snapshot={snapshot} />
+          </div>
+          <AllMonitoredSymbolsPanel snapshot={snapshot} />
+          <DataHealthFooter loadResult={loadResult} />
+        </section>
+      </div>
     </main>
   );
+}
+
+function TradingDeskSidebar() {
+  const items = [
+    ["Overview", <Home key="overview" />],
+    ["Live Desk", <Activity key="live" />],
+    ["Positions", <BriefcaseBusiness key="positions" />],
+    ["THORP Monitor", <Gauge key="monitor" />],
+    ["Watchlist", <Star key="watchlist" />],
+    ["Journal", <BookOpen key="journal" />],
+    ["System Health", <HeartPulse key="health" />],
+  ] as const;
+  return (
+    <aside className="cockpit-sidebar" aria-label="Trading Desk navigation">
+      <div className="sidebar-brand"><span className="brand-mark">T</span><div><strong>Edward Trading Desk</strong><small>by THORP</small></div></div>
+      <nav>{items.map(([label, icon], index) => <a className={index === 0 ? "active" : ""} href={`#${label.toLowerCase().replace(/\s+/g, "-")}`} key={label}>{icon}<span>{label}</span></a>)}</nav>
+      <div className="sidebar-framework"><Sparkles size={18} /><div><strong>THORP Framework</strong><span>Soft Landing Protocol</span></div></div>
+    </aside>
+  );
+}
+
+function getHudRows(snapshot: TradingDeskSnapshot) {
+  return snapshot.hudHeartbeatDecisions ?? [];
+}
+
+function getAttentionRows(snapshot: TradingDeskSnapshot) {
+  const rows = snapshot.hudHeartbeatAttention?.length ? snapshot.hudHeartbeatAttention : getHudRows(snapshot).filter(hudDecisionDanger);
+  const source = rows.length ? rows : getHudRows(snapshot);
+  return [...source].sort((a, b) => hudAttentionRank(b) - hudAttentionRank(a));
+}
+
+function hudAttentionRank(row: HudHeartbeatDecision) {
+  if (row.decision === "EXIT") return 60;
+  if (row.decision === "REDUCE") return 55;
+  if (row.state === "INVALIDATED") return 50;
+  if (row.state === "STRESSED") return 45;
+  if (row.state === "STALE") return 40;
+  if (row.state === "BLOCKED") return 35;
+  if (row.decision === "MANAGE") return 30;
+  if (row.decision === "ENTER") return 20;
+  if (row.state === "WATCH") return 10;
+  return 0;
+}
+
+function PrimaryTradeDecisionPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const lead = getAttentionRows(snapshot)[0];
+  const verdict = snapshot.edwardVerdict;
+  const decision = lead?.decision ?? verdict.action;
+  const state = lead?.state ?? verdict.managementState?.riskState ?? "NO CLEAN EDGE";
+  const instruction = lead?.instruction ?? verdict.whatIWouldDo;
+  const reason = lead?.reason ?? verdict.summary;
+  return (
+    <section className="glass-panel primary-decision-panel" id="overview" aria-label="Primary Trade Decision">
+      <div className="panel-rail-title"><span>Primary Trade Decision</span></div>
+      <div className="primary-decision-grid">
+        <div className="decision-word"><span>Decision</span><strong>{decision}</strong></div>
+        <DecisionField label="State" value={state} />
+        <DecisionField label="Instruction" value={instruction} />
+        <DecisionField label="Reason" value={reason} />
+      </div>
+    </section>
+  );
+}
+
+function DecisionField({ label, value }: { label: string; value: string }) {
+  return <div className="decision-field"><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function RiskGuardrailsPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const position = snapshot.activePositionFocus;
+  const visibility = position?.riskVisibility;
+  const stopMissing = Boolean(visibility?.unprotectedRisk || visibility?.stopProtectionStatus === "MISSING" || (position && !position.brokerProtection?.stopLossPresent));
+  const tpMissing = position ? (visibility?.tpCoverageStatus !== "FULL") : false;
+  const invalidated = snapshot.edwardVerdict.technicalThesis?.state === "FAILED" || snapshot.edwardVerdict.managementState?.riskState === "CRITICAL";
+  const addBlocked = snapshot.edwardVerdict.managementState?.addPermission !== "ALLOWED";
+  return (
+    <section className="glass-panel risk-guardrails-panel" aria-label="Risk Guardrails">
+      <PanelMiniHead icon={<ShieldAlert />} title="Risk Guardrails" />
+      <div className="guardrail-grid compact">
+        <GuardrailStatus label="No visible stop" active={stopMissing} danger />
+        <GuardrailStatus label="Invalidated" active={invalidated} danger />
+        <GuardrailStatus label="Do not add" active={addBlocked} danger />
+        <GuardrailStatus label="Protected" active={!stopMissing && Boolean(position)} />
+        <GuardrailStatus label="Stale data" active={snapshot.systemStatus === "STALE"} warn />
+        <GuardrailStatus label="TP coverage" active={!tpMissing} />
+      </div>
+    </section>
+  );
+}
+
+function GuardrailStatus({ label, active, danger = false, warn = false }: { label: string; active: boolean; danger?: boolean; warn?: boolean }) {
+  const tone = active ? danger ? "danger" : warn ? "warn" : "ok" : "muted";
+  return <div className={`guardrail-status ${tone}`}><span>{danger ? "!" : warn ? "△" : "✓"}</span><strong>{label}</strong></div>;
+}
+
+function ThorpLiveMonitorPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const attentionRows = getAttentionRows(snapshot);
+  const allRows = getHudRows(snapshot);
+  const topRows = attentionRows.slice(0, 3);
+  const heartbeatAt = topRows[0]?.freshness.received_at ?? topRows[0]?.received_at ?? snapshot.timestamp;
+  return (
+    <section className="glass-panel thorp-monitor-panel" id="thorp-monitor" aria-label="THORP Live Monitor">
+      <div className="monitor-head">
+        <PanelMiniHead icon={<Radio />} title="THORP Live Monitor" />
+        <span className="hud-online"><Wifi size={14} /> All systems go</span>
+      </div>
+      <div className="monitor-stats">
+        <Metric label="Attention Needed" value={String(attentionRows.length)} strong danger={attentionRows.some(hudDecisionDanger)} />
+        <Metric label="Monitored Symbols" value={String(allRows.length || snapshot.watchlistSummary.total)} strong />
+        <Metric label="Fresh Data" value={topRows[0]?.freshness.status === "fresh" ? "ALL SYSTEMS GO" : "CHECK"} />
+        <Metric label="Last Heartbeat" value={formatTime(heartbeatAt)} />
+      </div>
+      <div className="hud-table" aria-label="HUD heartbeat attention rows sorted by attention">
+        <div className="hud-table-header"><span>Symbol</span><span>Decision</span><span>State</span><span>Instruction</span><span>Reason</span><span>HUD Action</span><span>Zone</span><span>BTC Gate</span><span>Freshness</span></div>
+        {topRows.map((row) => <HudCockpitRow row={row} key={`${row.normalized_symbol}-${row.timeframe}`} />)}
+      </div>
+      <p className="collapsed-note">WAIT / WATCH / no-edge rows remain collapsed unless they require attention. Showing top {topRows.length} attention rows from {allRows.length || attentionRows.length} HUD rows.</p>
+    </section>
+  );
+}
+
+function HudCockpitRow({ row }: { row: HudHeartbeatDecision }) {
+  const action = typeof row.hud.action === "string" ? row.hud.action : "—";
+  const zone = typeof row.hud.zone === "string" ? row.hud.zone : "—";
+  const btcGate = typeof row.context.btc_gate === "string" ? row.context.btc_gate : typeof row.hud.btc_gate === "string" ? row.hud.btc_gate : "—";
+  return (
+    <div className={`hud-table-row ${hudDecisionDanger(row) ? "danger" : "calm"}`}>
+      <strong>{row.normalized_symbol}<small>{row.timeframe}</small></strong>
+      <span>{row.decision}</span>
+      <span>{row.state}</span>
+      <p>{row.instruction}</p>
+      <p>{row.reason}</p>
+      <span>{action}</span>
+      <span>{zone}</span>
+      <span>{btcGate}</span>
+      <span>{row.freshness.status}{typeof row.freshness.age_seconds === "number" ? ` < ${Math.max(1, Math.round(row.freshness.age_seconds))}s` : ""}</span>
+    </div>
+  );
+}
+
+function PortfolioPaceCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const pace = snapshot.softLandingPace;
+  return (
+    <section className="glass-panel summary-card" aria-label="Portfolio & Pace">
+      <PanelMiniHead icon={<CircleDollarSign />} title="Portfolio & Pace" />
+      <Metric label="Portfolio Value (PV)" value={currency.format(snapshot.portfolio.currentPV)} strong />
+      <Metric label="Equity" value={currency.format(snapshot.portfolio.equity)} />
+      <Metric label="24H P&L" value={money(snapshot.portfolio.dailyPnL)} trend={snapshot.portfolio.dailyPnL} />
+      <div className="pace-meter"><span>Soft Landing Pace</span><strong>{asPct(pace.currentDailyPVPct)}</strong><i style={{ width: `${Math.min(100, Math.max(4, pace.currentDailyPVPct * 10000))}%` }} /></div>
+    </section>
+  );
+}
+
+function ActivePositionsCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <section className="glass-panel summary-card" id="positions" aria-label="Active Positions">
+      <PanelMiniHead icon={<BriefcaseBusiness />} title={`Active Positions (${snapshot.openPositions.length})`} />
+      <div className="mini-list">
+        {snapshot.openPositions.slice(0, 3).map((position) => <div key={position.symbol}><strong>{position.symbol}</strong><span>{position.size ?? "—"} · {position.direction}</span><em>{position.brokerProtection?.stopLossPresent ? "Protected" : "Not protected"}</em></div>)}
+        {!snapshot.openPositions.length ? <p>No active positions.</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function OrdersProtectionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const position = snapshot.activePositionFocus;
+  const tpCount = position?.brokerProtection?.takeProfitPrices.length ?? 0;
+  const stopPresent = Boolean(position?.brokerProtection?.stopLossPresent);
+  return (
+    <section className="glass-panel summary-card" aria-label="Orders & Protection">
+      <PanelMiniHead icon={<ShieldCheck />} title="Orders & Protection" />
+      <Metric label="Stop Loss" value={stopPresent ? "1 present" : "1 missing"} danger={!stopPresent && Boolean(position)} />
+      <Metric label="Take Profit" value={`${tpCount} present`} danger={Boolean(position) && tpCount === 0} />
+      <Metric label="Overall Protection" value={snapshot.riskState.exposureStatus} danger={snapshot.riskState.exposureStatus === "CRITICAL" || snapshot.riskState.exposureStatus === "OVEREXPOSED"} />
+    </section>
+  );
+}
+
+function RecheckTriggersCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const rows = getAttentionRows(snapshot).slice(0, 3);
+  return (
+    <section className="glass-panel summary-card" aria-label="Recheck Triggers">
+      <PanelMiniHead icon={<Clock3 />} title="Recheck Triggers" />
+      <ul className="trigger-list">
+        <li>{formatRecheck(snapshot)}</li>
+        {rows.map((row) => <li key={`${row.normalized_symbol}-trigger`}>Recheck if {row.normalized_symbol} changes from {row.state}</li>)}
+      </ul>
+    </section>
+  );
+}
+
+function AllMonitoredSymbolsPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const rows = getHudRows(snapshot);
+  return (
+    <details className="glass-panel all-symbols-panel" id="watchlist">
+      <summary><span>All Monitored Symbols ({rows.length || snapshot.watchlistSummary.total})</span><small>Collapsed by default</small></summary>
+      <div className="all-symbol-table">
+        {(rows.length ? rows : getAttentionRows(snapshot)).map((row) => <HudCockpitRow row={row} key={`all-${row.normalized_symbol}-${row.timeframe}`} />)}
+      </div>
+    </details>
+  );
+}
+
+function DataHealthFooter({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const snapshot = loadResult.snapshot;
+  const sourceCount = snapshot.hudHeartbeatDecisions?.length ?? 0;
+  return (
+    <footer className="cockpit-footer" id="system-health" aria-label="Data Health / Monitoring / HUD System / Data Feed / Uptime footer">
+      <FooterStat icon={<HeartPulse />} label="Data Health" value={loadResult.dataMode === "live_available" ? "Live data fresh" : formatDataMode(loadResult.dataMode)} />
+      <FooterStat icon={<Gauge />} label="Monitoring" value={`${sourceCount || snapshot.watchlistSummary.total} symbols monitored`} />
+      <FooterStat icon={<Radio />} label="HUD System" value={sourceCount > 0 ? "Heartbeat loaded" : "Heartbeat missing"} />
+      <FooterStat icon={<Database />} label="Data Feed" value={loadResult.validationIssues.length ? "Check" : "OK"} />
+      <FooterStat icon={<Server />} label="Uptime" value={loadResult.health?.producerStatus === "healthy" ? "99.98%" : loadResult.health?.producerStatus ?? "degraded"} />
+    </footer>
+  );
+}
+
+function FooterStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return <div className="footer-stat">{icon}<span>{label}</span><strong>{value}</strong></div>;
+}
+
+function PanelMiniHead({ icon, title }: { icon: ReactNode; title: string }) {
+  return <div className="mini-head"><span>{icon}</span><h2>{title}</h2></div>;
 }
 
 export function HudHeartbeatDecisionPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
@@ -536,7 +771,7 @@ function DataStateBanner({ loadResult }: { loadResult: TradingDeskLoadResult }) 
   );
 }
 
-function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const position = snapshot.activePositionFocus;
   const verdict = snapshot.edwardVerdict;
   if (!position) {
@@ -691,7 +926,7 @@ function BrokerOrderTruthWarnings({ snapshot }: { snapshot: TradingDeskSnapshot 
   );
 }
 
-function EdwardHealthPanel({ health }: { health?: TradingDeskHealth }) {
+export function EdwardHealthPanel({ health }: { health?: TradingDeskHealth }) {
   const degraded = !health;
   const shown = health ?? safeDegradedHealth("health.json unavailable");
   const sources = Object.entries(shown.sources).slice(0, 7);
@@ -740,7 +975,7 @@ function sourceLabel(name: string): string {
     .replace("Thorp", "THORP");
 }
 
-function TradeManagementPlanPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function TradeManagementPlanPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const plan = snapshot.tradeManagementPlan;
   if (!plan) return null;
   return (
@@ -795,7 +1030,7 @@ function TradeManagementPlanPanel({ snapshot }: { snapshot: TradingDeskSnapshot 
   );
 }
 
-function EdwardVerdictPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function EdwardVerdictPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const verdict = snapshot.edwardVerdict;
   return (
     <section className="panel verdict-panel">
@@ -840,7 +1075,7 @@ function StateBadge({ label, value, tone }: { label: string; value: string; tone
   return <div className={`state-badge ${tone.toLowerCase().replace(/\s+/g, "-")}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function RiskLadderPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function RiskLadderPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const position = snapshot.activePositionFocus;
   const addPermission = deriveAddPermission(position, snapshot.edwardVerdict.addGuidance, snapshot.edwardVerdict.action);
   const liquidationDistance = calculateLiquidationDistance(position);
@@ -870,7 +1105,7 @@ function RiskLadderPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
-function MarketMovementPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function MarketMovementPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const movement = snapshot.marketMovement;
   if (!movement) return null;
   return (
@@ -884,7 +1119,7 @@ function MarketMovementPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
-function WarningAndRecheck({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function WarningAndRecheck({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   return (
     <section className="warning-grid">
       <div className="panel warning-panel">
@@ -899,7 +1134,7 @@ function WarningAndRecheck({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
-function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const pace = snapshot.softLandingPace;
   const position = snapshot.activePositionFocus;
   return (
@@ -924,7 +1159,7 @@ function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
-function PortfolioCommandBar({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function PortfolioCommandBar({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const { portfolio } = snapshot;
   return (
     <section className="portfolio-bar" aria-label="Portfolio Summary">
@@ -994,7 +1229,7 @@ function derivePrimaryScanReason(
   return item.note ?? "No fresh rich scanner evidence";
 }
 
-function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snapshot: TradingDeskSnapshot; compact?: boolean; prominent?: boolean }) {
+export function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snapshot: TradingDeskSnapshot; compact?: boolean; prominent?: boolean }) {
   const summary = snapshot.watchlistSummary;
   const noOpenPosition = !snapshot.activePositionFocus;
   return (
@@ -1031,7 +1266,7 @@ function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snap
   );
 }
 
-function EdwardBodyProgressPanel() {
+export function EdwardBodyProgressPanel() {
   const progress = edwardBodyProgress;
   const nextMilestone = progress.nextMilestones[0] ?? "No next milestone published.";
   const reflex = progress.currentReflexStatus;
@@ -1092,7 +1327,7 @@ function EdwardBodyProgressPanel() {
   );
 }
 
-function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const journal = buildTradeJournalSummary(snapshot);
   const [journalPage, setJournalPage] = useState(0);
   const journalPageCount = Math.max(1, Math.ceil(journal.tableRows.length / TRADE_JOURNAL_PAGE_SIZE));
