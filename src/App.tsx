@@ -4,14 +4,25 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BellRing,
+  BookOpen,
+  BriefcaseBusiness,
   CircleDollarSign,
   Clock3,
+  Database,
   Gauge,
+  HeartPulse,
+  Home,
   ListChecks,
   LockKeyhole,
+  Radio,
   RefreshCw,
+  Server,
+  ShieldAlert,
   ShieldCheck,
+  Sparkles,
+  Star,
   Target,
+  Wifi,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
@@ -22,14 +33,57 @@ import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const pct = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
+const pacePct = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const REFRESH_INTERVAL_SECONDS = 30;
 const TRADE_JOURNAL_PAGE_SIZE = 10;
+
+type CockpitPageId = "overview" | "live-desk" | "portfolio" | "positions" | "protection" | "recheck" | "watchlist" | "journal" | "system-health";
+
+type CockpitPage = {
+  id: CockpitPageId;
+  label: string;
+  shortLabel: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon: ReactNode;
+};
+
+const COCKPIT_PAGES: CockpitPage[] = [
+  { id: "overview", label: "Primary Trade Decision", shortLabel: "Decision", eyebrow: "Overview", title: "Primary Trade Decision", description: "Decision, state, instruction, reason, and read-only guardrails stay dominant.", icon: <Home /> },
+  { id: "live-desk", label: "THORP Live Monitor", shortLabel: "THORP", eyebrow: "Live Desk", title: "THORP Live Monitor", description: "HUD heartbeat attention rows with the full basket collapsed until needed.", icon: <Radio /> },
+  { id: "portfolio", label: "Portfolio & Pace", shortLabel: "Portfolio", eyebrow: "Moon / Sun Math", title: "Portfolio & Pace", description: "Soft Landing pace, portfolio value, equity, and Moon/Sun compounding targets.", icon: <CircleDollarSign /> },
+  { id: "positions", label: "Active Positions", shortLabel: "Positions", eyebrow: "Broker Truth", title: "Active Positions", description: "Open positions and current management context separated from attention rows.", icon: <BriefcaseBusiness /> },
+  { id: "protection", label: "Orders & Protection", shortLabel: "Protection", eyebrow: "Risk Protection", title: "Orders & Protection", description: "Stop-loss, take-profit, exposure, and no-execution protection posture.", icon: <ShieldCheck /> },
+  { id: "recheck", label: "Recheck Triggers", shortLabel: "Recheck", eyebrow: "Next Review", title: "Recheck Triggers", description: "Specific conditions that should pull the operator back to the desk.", icon: <Clock3 /> },
+  { id: "watchlist", label: "All Monitored Symbols / Watchlist", shortLabel: "Watchlist", eyebrow: "Full Basket", title: "All Monitored Symbols / Watchlist", description: "Full HUD basket and active-basket scan remain collapsed until expanded.", icon: <Star /> },
+  { id: "journal", label: "Trading Journal", shortLabel: "Journal", eyebrow: "Post-Trade", title: "Trading Journal", description: "Closed-trade journal and paginated detail, separate from live decisioning.", icon: <BookOpen /> },
+  { id: "system-health", label: "Data Health / HUD System / Data Feed", shortLabel: "Health", eyebrow: "System Health", title: "Data Health / HUD System / Data Feed", description: "Compact status strip, source health, validation state, and uptime signals.", icon: <HeartPulse /> },
+];
+
+const SIDEBAR_ITEMS: Array<{ label: string; page: CockpitPageId; icon: ReactNode }> = [
+  { label: "Overview", page: "overview", icon: <Home /> },
+  { label: "Live Desk", page: "live-desk", icon: <Activity /> },
+  { label: "Portfolio", page: "portfolio", icon: <CircleDollarSign /> },
+  { label: "Positions", page: "positions", icon: <BriefcaseBusiness /> },
+  { label: "Protection", page: "protection", icon: <ShieldCheck /> },
+  { label: "Recheck", page: "recheck", icon: <Clock3 /> },
+  { label: "THORP Monitor", page: "live-desk", icon: <Gauge /> },
+  { label: "Watchlist", page: "watchlist", icon: <Star /> },
+  { label: "Journal", page: "journal", icon: <BookOpen /> },
+  { label: "System Health", page: "system-health", icon: <HeartPulse /> },
+];
 
 export default function App() {
   const [loadResult, setLoadResult] = useState<TradingDeskLoadResult | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "refreshing">("loading");
   const [nextRefreshAt, setNextRefreshAt] = useState(() => Date.now() + REFRESH_INTERVAL_SECONDS * 1000);
   const [now, setNow] = useState(() => Date.now());
+  const [activePage, setActivePage] = useState<CockpitPageId>(() => {
+    if (typeof window === "undefined") return "overview";
+    const hash = window.location.hash.replace("#", "");
+    return COCKPIT_PAGES.some((page) => page.id === hash) ? hash as CockpitPageId : "overview";
+  });
 
   const refreshSnapshot = useCallback(async (manual = false) => {
     setLoadState((current) => (current === "loading" ? "loading" : "refreshing"));
@@ -58,6 +112,20 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [refreshSnapshot]);
 
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (COCKPIT_PAGES.some((page) => page.id === hash)) setActivePage(hash as CockpitPageId);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  const selectPage = useCallback((page: CockpitPageId) => {
+    setActivePage(page);
+    window.history.replaceState(null, "", `#${page}`);
+  }, []);
+
   if (loadState === "loading" || !loadResult) {
     return <main className="app-shell loading-shell">Loading Edward Trading Desk...</main>;
   }
@@ -67,33 +135,414 @@ export default function App() {
   const refreshSeconds = Math.max(0, Math.ceil((nextRefreshAt - now) / 1000));
 
   return (
-    <main className="app-shell">
-      <TopCommandHeader
-        loadResult={loadResult}
-        refreshSeconds={refreshSeconds}
-        isRefreshing={loadState === "refreshing"}
-        onRefresh={() => void refreshSnapshot(true)}
-        coreState={coreState}
-      />
-      <DataStateBanner loadResult={loadResult} />
-      <TradeDecisionCard snapshot={snapshot} />
-      <HudHeartbeatDecisionPanel snapshot={snapshot} />
-      <ActiveTradeManagementPanel binding={snapshot.managementBinding} />
-      <TradeManagementPlanPanel snapshot={snapshot} />
-      <EdwardHealthPanel health={loadResult.health} />
-      <LatestAlertPanel alertIntake={loadResult.alertIntake} />
-      <FreshAlertReviewPanel alertIntake={loadResult.alertIntake} />
-      <WatchlistPanel snapshot={snapshot} />
-      <EdwardVerdictPanel snapshot={snapshot} />
-      <RiskLadderPanel snapshot={snapshot} />
-      <MarketMovementPanel snapshot={snapshot} />
-      <WarningAndRecheck snapshot={snapshot} />
-      <SoftLandingPanel snapshot={snapshot} />
-      <PortfolioCommandBar snapshot={snapshot} />
-      <EdwardBodyProgressPanel />
-      <TradeJournalPanel snapshot={snapshot} />
+    <main className="cockpit-shell">
+      <TradingDeskSidebar activePage={activePage} onSelectPage={selectPage} />
+      <div className="cockpit-main">
+        <TopCommandHeader
+          loadResult={loadResult}
+          refreshSeconds={refreshSeconds}
+          isRefreshing={loadState === "refreshing"}
+          onRefresh={() => void refreshSnapshot(true)}
+          coreState={coreState}
+        />
+        <DataStateBanner loadResult={loadResult} />
+        <CockpitPageTabs activePage={activePage} onSelectPage={selectPage} />
+        <CockpitWorkspace activePage={activePage} loadResult={loadResult} />
+      </div>
     </main>
   );
+}
+
+function TradingDeskSidebar({ activePage, onSelectPage }: { activePage: CockpitPageId; onSelectPage: (page: CockpitPageId) => void }) {
+  return (
+    <aside className="cockpit-sidebar" aria-label="Trading Desk navigation">
+      <div className="sidebar-brand"><span className="brand-mark">T</span><div><strong>Edward Trading Desk</strong><small>by THORP</small></div></div>
+      <nav>{SIDEBAR_ITEMS.map((item) => <a className={activePage === item.page ? "active" : ""} href={`#${item.page}`} key={item.label} onClick={(event) => { event.preventDefault(); onSelectPage(item.page); }}>{item.icon}<span>{item.label}</span></a>)}</nav>
+      <div className="sidebar-framework"><Sparkles size={18} /><div><strong>THORP Framework</strong><span>Soft Landing Protocol</span></div></div>
+    </aside>
+  );
+}
+
+function CockpitPageTabs({ activePage, onSelectPage }: { activePage: CockpitPageId; onSelectPage: (page: CockpitPageId) => void }) {
+  return (
+    <nav className="cockpit-page-tabs" aria-label="Cockpit sections">
+      {COCKPIT_PAGES.map((page) => (
+        <button className={activePage === page.id ? "active" : ""} type="button" key={page.id} onClick={() => onSelectPage(page.id)}>
+          <span>{page.icon}</span>
+          <strong>{page.shortLabel}</strong>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function CockpitWorkspace({ activePage, loadResult }: { activePage: CockpitPageId; loadResult: TradingDeskLoadResult }) {
+  const page = COCKPIT_PAGES.find((item) => item.id === activePage) ?? COCKPIT_PAGES[0];
+  const snapshot = loadResult.snapshot;
+  return (
+    <section className="cockpit-page-shell" id={page.id} aria-label={page.label}>
+      <header className="cockpit-page-header">
+        <span>{page.eyebrow}</span>
+        <h2>{page.title}</h2>
+        <p>{page.description}</p>
+      </header>
+      <div className={`cockpit-page-body ${activePage}`}>
+        <CockpitPageContent activePage={activePage} loadResult={loadResult} snapshot={snapshot} />
+      </div>
+    </section>
+  );
+}
+
+function CockpitPageContent({ activePage, loadResult, snapshot }: { activePage: CockpitPageId; loadResult: TradingDeskLoadResult; snapshot: TradingDeskSnapshot }) {
+  switch (activePage) {
+    case "live-desk":
+      return <ThorpMonitorPage loadResult={loadResult} />;
+    case "portfolio":
+      return <PortfolioPacePage snapshot={snapshot} />;
+    case "positions":
+      return <ActivePositionsPage snapshot={snapshot} />;
+    case "protection":
+      return <OrdersProtectionPage snapshot={snapshot} />;
+    case "recheck":
+      return <RecheckTriggersPage snapshot={snapshot} />;
+    case "watchlist":
+      return <WatchlistPage snapshot={snapshot} />;
+    case "journal":
+      return <JournalPage snapshot={snapshot} />;
+    case "system-health":
+      return <SystemHealthPage loadResult={loadResult} />;
+    case "overview":
+    default:
+      return <PrimaryDecisionPage loadResult={loadResult} />;
+  }
+}
+
+function getHudRows(snapshot: TradingDeskSnapshot) {
+  return snapshot.hudHeartbeatDecisions ?? [];
+}
+
+function getAttentionRows(snapshot: TradingDeskSnapshot) {
+  const rows = snapshot.hudHeartbeatAttention?.length ? snapshot.hudHeartbeatAttention : getHudRows(snapshot).filter(hudDecisionDanger);
+  const source = rows.length ? rows : getHudRows(snapshot);
+  return [...source].sort((a, b) => hudAttentionRank(b) - hudAttentionRank(a));
+}
+
+function hudAttentionRank(row: HudHeartbeatDecision) {
+  if (row.decision === "EXIT") return 60;
+  if (row.decision === "REDUCE") return 55;
+  if (row.state === "INVALIDATED") return 50;
+  if (row.state === "STRESSED") return 45;
+  if (row.state === "STALE") return 40;
+  if (row.state === "BLOCKED") return 35;
+  if (row.decision === "MANAGE") return 30;
+  if (row.decision === "ENTER") return 20;
+  if (row.state === "WATCH") return 10;
+  return 0;
+}
+
+function PrimaryDecisionPage({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const { snapshot } = loadResult;
+  return (
+    <div className="cockpit-page-grid decision-layout">
+      <PrimaryTradeDecisionPanel snapshot={snapshot} />
+      <RiskGuardrailsPanel snapshot={snapshot} />
+      <EdwardVerdictPanel snapshot={snapshot} />
+      <LatestAlertPanel alertIntake={loadResult.alertIntake} />
+      <FreshAlertReviewPanel alertIntake={loadResult.alertIntake} />
+    </div>
+  );
+}
+
+function ThorpMonitorPage({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const { snapshot } = loadResult;
+  return (
+    <div className="cockpit-page-grid monitor-layout">
+      <ThorpLiveMonitorPanel loadResult={loadResult} />
+      <AllMonitoredSymbolsPanel snapshot={snapshot} />
+    </div>
+  );
+}
+
+function PortfolioPacePage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid portfolio-layout">
+      <PortfolioCommandBar snapshot={snapshot} />
+      <SoftLandingPanel snapshot={snapshot} />
+      <PortfolioPaceCard snapshot={snapshot} />
+    </div>
+  );
+}
+
+function ActivePositionsPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid positions-layout">
+      <ActivePositionsCard snapshot={snapshot} />
+      <ActiveTradeManagementPanel binding={snapshot.managementBinding} />
+      <TradeManagementPlanPanel snapshot={snapshot} />
+      <RiskLadderPanel snapshot={snapshot} />
+    </div>
+  );
+}
+
+function OrdersProtectionPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid protection-layout">
+      <OrdersProtectionCard snapshot={snapshot} />
+      <RiskGuardrailsPanel snapshot={snapshot} />
+      <details className="glass-panel page-disclosure">
+        <summary><span>Protection details</span><small>Collapsed by default</small></summary>
+        <ActiveTradeManagementPanel binding={snapshot.managementBinding} />
+      </details>
+    </div>
+  );
+}
+
+function RecheckTriggersPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid recheck-layout">
+      <RecheckTriggersCard snapshot={snapshot} />
+      <WarningAndRecheck snapshot={snapshot} />
+      <MarketMovementPanel snapshot={snapshot} />
+    </div>
+  );
+}
+
+function WatchlistPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid watchlist-layout">
+      <AllMonitoredSymbolsPanel snapshot={snapshot} />
+      <details className="glass-panel page-disclosure">
+        <summary><span>Active Basket Coverage</span><small>Collapsed by default</small></summary>
+        <WatchlistPanel snapshot={snapshot} />
+      </details>
+    </div>
+  );
+}
+
+function JournalPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <div className="cockpit-page-grid journal-layout">
+      <TradeJournalPanel snapshot={snapshot} />
+    </div>
+  );
+}
+
+function SystemHealthPage({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const { health, snapshot } = loadResult;
+  const sources = health ? Object.entries(health.sources) : [];
+  return (
+    <div className="cockpit-page-grid health-layout">
+      <DataHealthFooter loadResult={loadResult} />
+      <EdwardHealthPanel health={health} />
+      <section className="glass-panel system-health-panel" aria-label="System health details">
+        <PanelMiniHead icon={<Server />} title="Runtime Read Model" />
+        <div className="monitor-stats">
+          <Metric label="Latest JSON" value={latestJsonStatus(health)} danger={latestJsonStatus(health) !== "VALID"} strong />
+          <Metric label="Producer" value={producerDisplayStatus(health)} danger={producerDisplayStatus(health) !== "HEALTHY"} />
+          <Metric label="Snapshot Age" value={typeof health?.snapshotAgeSeconds === "number" ? `${Math.round(health.snapshotAgeSeconds)}s` : "UNKNOWN"} danger={typeof health?.snapshotAgeSeconds !== "number"} />
+          <Metric label="HUD Decisions" value={String(snapshot.hudHeartbeatDecisions?.length ?? 0)} strong danger={(snapshot.hudHeartbeatDecisions?.length ?? 0) === 0} />
+        </div>
+        <details className="page-disclosure compact-disclosure">
+          <summary><span>Source details</span><small>{sources.length} sources</small></summary>
+          <div className="health-source-grid">
+            {sources.map(([name, source]) => (
+              <div className={`health-source-card ${source.status}`} key={name}>
+                <strong>{name}</strong>
+                <span>{source.status}</span>
+                <small>{source.detail ?? source.lastError ?? source.provenance ?? "No detail"}</small>
+              </div>
+            ))}
+          </div>
+        </details>
+      </section>
+    </div>
+  );
+}
+
+function PrimaryTradeDecisionPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const lead = getAttentionRows(snapshot)[0];
+  const verdict = snapshot.edwardVerdict;
+  const decision = lead?.decision ?? verdict.action;
+  const state = lead?.state ?? verdict.managementState?.riskState ?? "NO CLEAN EDGE";
+  const instruction = lead?.instruction ?? verdict.whatIWouldDo;
+  const reason = lead?.reason ?? verdict.summary;
+  const danger = lead ? hudDecisionDanger(lead) : primaryDecisionDanger(decision, state);
+  return (
+    <section className={`glass-panel primary-decision-panel ${danger ? "danger" : ""}`} id="overview" aria-label="Primary Trade Decision">
+      <div className="panel-rail-title"><span>Primary Trade Decision</span></div>
+      <div className="primary-decision-grid">
+        <div className="decision-word"><span>Decision</span><strong>{decision}</strong></div>
+        <DecisionField label="State" value={state} />
+        <DecisionField label="Instruction" value={instruction} />
+        <DecisionField label="Reason" value={reason} />
+      </div>
+    </section>
+  );
+}
+
+function DecisionField({ label, value }: { label: string; value: string }) {
+  return <div className="decision-field"><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function RiskGuardrailsPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const position = snapshot.activePositionFocus;
+  const visibility = position?.riskVisibility;
+  const stopMissing = Boolean(visibility?.unprotectedRisk || visibility?.stopProtectionStatus === "MISSING" || (position && !position.brokerProtection?.stopLossPresent));
+  const tpMissing = position ? (visibility?.tpCoverageStatus !== "FULL") : false;
+  const invalidated = snapshot.edwardVerdict.technicalThesis?.state === "FAILED" || snapshot.edwardVerdict.managementState?.riskState === "CRITICAL";
+  const addBlocked = snapshot.edwardVerdict.managementState?.addPermission !== "ALLOWED";
+  return (
+    <section className="glass-panel risk-guardrails-panel" aria-label="Risk Guardrails">
+      <PanelMiniHead icon={<ShieldAlert />} title="Risk Guardrails" />
+      <div className="guardrail-grid compact">
+        <GuardrailStatus label="No visible stop" active={stopMissing} danger />
+        <GuardrailStatus label="Invalidated" active={invalidated} danger />
+        <GuardrailStatus label="Do not add" active={addBlocked} danger />
+        <GuardrailStatus label="Protected" active={!stopMissing && Boolean(position)} />
+        <GuardrailStatus label="Stale data" active={snapshot.systemStatus === "STALE"} warn />
+        <GuardrailStatus label="TP coverage" active={!tpMissing} />
+      </div>
+    </section>
+  );
+}
+
+function GuardrailStatus({ label, active, danger = false, warn = false }: { label: string; active: boolean; danger?: boolean; warn?: boolean }) {
+  const tone = active ? danger ? "danger" : warn ? "warn" : "ok" : "muted";
+  return <div className={`guardrail-status ${tone}`}><span>{danger ? "!" : warn ? "△" : "✓"}</span><strong>{label}</strong></div>;
+}
+
+function ThorpLiveMonitorPanel({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const { snapshot, health } = loadResult;
+  const attentionRows = getAttentionRows(snapshot);
+  const allRows = getHudRows(snapshot);
+  const topRows = attentionRows.slice(0, 5);
+  const heartbeatAt = topRows[0]?.freshness.received_at ?? topRows[0]?.received_at ?? snapshot.timestamp;
+  const hudStatus = deriveHudLiveStatus(loadResult, allRows);
+  return (
+    <section className={`glass-panel thorp-monitor-panel ${hudStatus.tone}`} id="thorp-monitor" aria-label="THORP Live Monitor">
+      <div className="monitor-head">
+        <PanelMiniHead icon={<Radio />} title="THORP Live Monitor" />
+        <span className={`hud-online ${hudStatus.tone}`}><Wifi size={14} /> {hudStatus.label}</span>
+      </div>
+      <div className="monitor-stats">
+        <Metric label="Attention Needed" value={String(attentionRows.length)} strong danger={attentionRows.some(hudDecisionDanger)} />
+        <Metric label="Monitored Symbols" value={String(allRows.length || snapshot.watchlistSummary.total)} strong />
+        <Metric label="Fresh Data" value={hudStatus.label} danger={hudStatus.tone !== "ok"} />
+        <Metric label="Health" value={producerDisplayStatus(health)} danger={producerDisplayStatus(health) !== "HEALTHY"} />
+        <Metric label="Last Heartbeat" value={formatTime(heartbeatAt)} />
+      </div>
+      <div className="hud-table" aria-label="HUD heartbeat attention rows sorted by attention">
+        <div className="hud-table-header"><span>Symbol</span><span>Decision</span><span>State</span><span>Instruction</span><span>Reason</span><span>HUD Action</span><span>Zone</span><span>BTC Gate</span><span>Freshness</span></div>
+        {topRows.map((row) => <HudCockpitRow row={row} key={`${row.normalized_symbol}-${row.timeframe}`} />)}
+      </div>
+      <p className="collapsed-note">WAIT / WATCH / no-edge rows remain collapsed unless they require attention. Showing top {topRows.length} attention rows from {allRows.length || attentionRows.length} HUD rows.</p>
+    </section>
+  );
+}
+
+function HudCockpitRow({ row }: { row: HudHeartbeatDecision }) {
+  const action = typeof row.hud.action === "string" ? row.hud.action : "—";
+  const zone = typeof row.hud.zone === "string" ? row.hud.zone : "—";
+  const btcGate = typeof row.context.btc_gate === "string" ? row.context.btc_gate : typeof row.hud.btc_gate === "string" ? row.hud.btc_gate : "—";
+  return (
+    <div className={`hud-table-row ${hudDecisionTone(row)}`}>
+      <strong>{row.normalized_symbol}<small>{row.timeframe}</small></strong>
+      <span className="hud-decision-badge">{row.decision}</span>
+      <span className="hud-state-badge">{row.state}</span>
+      <p>{row.instruction}</p>
+      <p>{row.reason}</p>
+      <span>{action}</span>
+      <span>{zone}</span>
+      <span>{btcGate}</span>
+      <span>{row.freshness.status}{typeof row.freshness.age_seconds === "number" ? ` < ${Math.max(1, Math.round(row.freshness.age_seconds))}s` : ""}</span>
+    </div>
+  );
+}
+
+function PortfolioPaceCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const pace = snapshot.softLandingPace;
+  return (
+    <section className="glass-panel summary-card" aria-label="Portfolio & Pace">
+      <PanelMiniHead icon={<CircleDollarSign />} title="Portfolio & Pace" />
+      <Metric label="Portfolio Value (PV)" value={currency.format(snapshot.portfolio.currentPV)} strong />
+      <Metric label="Equity" value={currency.format(snapshot.portfolio.equity)} />
+      <Metric label="24H P&L" value={money(snapshot.portfolio.dailyPnL)} trend={snapshot.portfolio.dailyPnL} />
+      <div className="pace-meter"><span>Soft Landing Pace</span><strong>{asPacePct(pace.currentDailyPVPct)}</strong><i style={{ width: `${Math.min(100, Math.max(4, pace.currentDailyPVPct * 10000))}%` }} /></div>
+    </section>
+  );
+}
+
+function ActivePositionsCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  return (
+    <section className="glass-panel summary-card" id="positions" aria-label="Active Positions">
+      <PanelMiniHead icon={<BriefcaseBusiness />} title={`Active Positions (${snapshot.openPositions.length})`} />
+      <div className="mini-list">
+        {snapshot.openPositions.slice(0, 3).map((position) => <div key={position.symbol}><strong>{position.symbol}</strong><span>{position.size ?? "—"} · {position.direction}</span><em>{position.brokerProtection?.stopLossPresent ? "Protected" : "Not protected"}</em></div>)}
+        {!snapshot.openPositions.length ? <p>No active positions.</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function OrdersProtectionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const position = snapshot.activePositionFocus;
+  const tpCount = position?.brokerProtection?.takeProfitPrices.length ?? 0;
+  const stopPresent = Boolean(position?.brokerProtection?.stopLossPresent);
+  return (
+    <section className="glass-panel summary-card" aria-label="Orders & Protection">
+      <PanelMiniHead icon={<ShieldCheck />} title="Orders & Protection" />
+      <Metric label="Stop Loss" value={stopPresent ? "1 present" : "1 missing"} danger={!stopPresent && Boolean(position)} />
+      <Metric label="Take Profit" value={`${tpCount} present`} danger={Boolean(position) && tpCount === 0} />
+      <Metric label="Overall Protection" value={snapshot.riskState.exposureStatus} danger={snapshot.riskState.exposureStatus === "CRITICAL" || snapshot.riskState.exposureStatus === "OVEREXPOSED"} />
+    </section>
+  );
+}
+
+function RecheckTriggersCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const rows = getAttentionRows(snapshot).slice(0, 3);
+  return (
+    <section className="glass-panel summary-card" aria-label="Recheck Triggers">
+      <PanelMiniHead icon={<Clock3 />} title="Recheck Triggers" />
+      <ul className="trigger-list">
+        <li>{formatRecheck(snapshot)}</li>
+        {rows.map((row) => <li key={`${row.normalized_symbol}-trigger`}>Recheck if {row.normalized_symbol} changes from {row.state}</li>)}
+      </ul>
+    </section>
+  );
+}
+
+function AllMonitoredSymbolsPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+  const rows = getHudRows(snapshot);
+  return (
+    <details className="glass-panel all-symbols-panel" id="watchlist">
+      <summary><span>All Monitored Symbols ({rows.length || snapshot.watchlistSummary.total})</span><small>Collapsed by default</small></summary>
+      <div className="all-symbol-table">
+        {(rows.length ? rows : getAttentionRows(snapshot)).map((row) => <HudCockpitRow row={row} key={`all-${row.normalized_symbol}-${row.timeframe}`} />)}
+      </div>
+    </details>
+  );
+}
+
+function DataHealthFooter({ loadResult }: { loadResult: TradingDeskLoadResult }) {
+  const snapshot = loadResult.snapshot;
+  const sourceCount = snapshot.hudHeartbeatDecisions?.length ?? 0;
+  return (
+    <footer className="cockpit-footer" id="system-health" aria-label="Data Health / Monitoring / HUD System / Data Feed / Uptime footer">
+      <FooterStat icon={<HeartPulse />} label="Data Health" value={dataHealthDisplay(loadResult)} />
+      <FooterStat icon={<Gauge />} label="Monitoring" value={`${sourceCount || snapshot.watchlistSummary.total} symbols monitored`} />
+      <FooterStat icon={<Radio />} label="HUD System" value={sourceCount > 0 ? "HEARTBEAT LOADED" : "HEARTBEAT MISSING"} />
+      <FooterStat icon={<Database />} label="Data Feed" value={dataFeedDisplay(loadResult)} />
+      <FooterStat icon={<Server />} label="Uptime" value={producerDisplayStatus(loadResult.health)} />
+    </footer>
+  );
+}
+
+function FooterStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return <div className="footer-stat">{icon}<span>{label}</span><strong>{value}</strong></div>;
+}
+
+function PanelMiniHead({ icon, title }: { icon: ReactNode; title: string }) {
+  return <div className="mini-head"><span>{icon}</span><h2>{title}</h2></div>;
 }
 
 export function HudHeartbeatDecisionPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
@@ -150,7 +599,19 @@ function HudHeartbeatDecisionRow({ row }: { row: HudHeartbeatDecision }) {
 }
 
 function hudDecisionDanger(row: HudHeartbeatDecision) {
-  return ["EXIT", "REDUCE"].includes(row.decision) || ["STALE", "INVALIDATED", "STRESSED", "BLOCKED"].includes(row.state);
+  return ["EXIT", "REDUCE", "WAIT"].includes(row.decision) || ["STALE", "INVALIDATED", "STRESSED", "BLOCKED"].includes(row.state);
+}
+
+function hudDecisionTone(row: HudHeartbeatDecision) {
+  if (row.decision === "EXIT" || row.decision === "REDUCE") return "danger critical-attention";
+  if (["INVALIDATED", "STALE", "BLOCKED", "STRESSED"].includes(row.state)) return "danger";
+  if (row.decision === "WAIT") return "warn";
+  return "calm";
+}
+
+function primaryDecisionDanger(decision: string, state: string) {
+  const normalized = `${decision} ${state}`.toUpperCase();
+  return ["EXIT", "REDUCE", "INVALIDATED", "STALE", "BLOCKED"].some((token) => normalized.includes(token));
 }
 
 export function ActiveTradeManagementPanel({ binding }: { binding?: ManagementBinding }) {
@@ -536,7 +997,7 @@ function DataStateBanner({ loadResult }: { loadResult: TradingDeskLoadResult }) 
   );
 }
 
-function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function TradeDecisionCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const position = snapshot.activePositionFocus;
   const verdict = snapshot.edwardVerdict;
   if (!position) {
@@ -691,7 +1152,7 @@ function BrokerOrderTruthWarnings({ snapshot }: { snapshot: TradingDeskSnapshot 
   );
 }
 
-function EdwardHealthPanel({ health }: { health?: TradingDeskHealth }) {
+export function EdwardHealthPanel({ health }: { health?: TradingDeskHealth }) {
   const degraded = !health;
   const shown = health ?? safeDegradedHealth("health.json unavailable");
   const sources = Object.entries(shown.sources).slice(0, 7);
@@ -701,11 +1162,11 @@ function EdwardHealthPanel({ health }: { health?: TradingDeskHealth }) {
         <PanelTitle icon={<Activity />} eyebrow="Edward Health" title="Nervous System" />
         <div className="health-tags">
           <StatusPill label={`Producer ${shown.producerStatus}`} tone={shown.producerStatus} />
-          <StatusPill label={shown.latestJsonValid ? "Snapshot valid" : "Snapshot not verified"} tone={shown.latestJsonValid ? "live_available" : "validation_error"} />
+          <StatusPill label={`Snapshot ${latestJsonStatus(health)}`} tone={latestJsonTone(health)} />
         </div>
       </div>
       <div className="health-grid">
-        <Metric label="Producer Status" value={shown.producerStatus.toUpperCase()} />
+        <Metric label="Producer Status" value={producerDisplayStatus(health)} danger={producerDisplayStatus(health) !== "HEALTHY"} />
         <Metric label="Last Successful Update" value={shown.lastSuccessfulUpdate ? formatTime(shown.lastSuccessfulUpdate) : "Unavailable"} />
         <Metric label="Snapshot Age" value={typeof shown.snapshotAgeSeconds === "number" ? `${Math.round(shown.snapshotAgeSeconds)}s` : "Unknown"} />
         <Metric label="Last Error" value={shown.lastError ?? (degraded ? "health.json unavailable" : "None")} danger={Boolean(shown.lastError || degraded)} />
@@ -740,7 +1201,7 @@ function sourceLabel(name: string): string {
     .replace("Thorp", "THORP");
 }
 
-function TradeManagementPlanPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function TradeManagementPlanPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const plan = snapshot.tradeManagementPlan;
   if (!plan) return null;
   return (
@@ -795,7 +1256,7 @@ function TradeManagementPlanPanel({ snapshot }: { snapshot: TradingDeskSnapshot 
   );
 }
 
-function EdwardVerdictPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function EdwardVerdictPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const verdict = snapshot.edwardVerdict;
   return (
     <section className="panel verdict-panel">
@@ -840,7 +1301,7 @@ function StateBadge({ label, value, tone }: { label: string; value: string; tone
   return <div className={`state-badge ${tone.toLowerCase().replace(/\s+/g, "-")}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function RiskLadderPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function RiskLadderPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const position = snapshot.activePositionFocus;
   const addPermission = deriveAddPermission(position, snapshot.edwardVerdict.addGuidance, snapshot.edwardVerdict.action);
   const liquidationDistance = calculateLiquidationDistance(position);
@@ -870,7 +1331,7 @@ function RiskLadderPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
-function MarketMovementPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function MarketMovementPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const movement = snapshot.marketMovement;
   if (!movement) return null;
   return (
@@ -884,7 +1345,7 @@ function MarketMovementPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
-function WarningAndRecheck({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function WarningAndRecheck({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   return (
     <section className="warning-grid">
       <div className="panel warning-panel">
@@ -899,7 +1360,7 @@ function WarningAndRecheck({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
-function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const pace = snapshot.softLandingPace;
   const position = snapshot.activePositionFocus;
   return (
@@ -911,7 +1372,7 @@ function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
       </div>
       <div className="pace-copy">
         <span>Current PV {currency.format(pace.currentPV)}</span>
-        <span>Current Daily PV {asPct(pace.currentDailyPVPct)} vs Moon {asPct(pace.moonDailyRate)} / Sun {asPct(pace.sunDailyRate)}</span>
+        <span>Current Daily PV {asPacePct(pace.currentDailyPVPct)} vs Moon {asPacePct(pace.moonDailyRate)} / Sun {asPacePct(pace.sunDailyRate)}</span>
         <span>Baseline {currency.format(pace.baselinePV)} on {pace.baselineDate}</span>
         <span>{pace.daysSinceBaseline} days compounded</span>
       </div>
@@ -924,7 +1385,7 @@ function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   );
 }
 
-function PortfolioCommandBar({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function PortfolioCommandBar({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const { portfolio } = snapshot;
   return (
     <section className="portfolio-bar" aria-label="Portfolio Summary">
@@ -994,7 +1455,7 @@ function derivePrimaryScanReason(
   return item.note ?? "No fresh rich scanner evidence";
 }
 
-function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snapshot: TradingDeskSnapshot; compact?: boolean; prominent?: boolean }) {
+export function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snapshot: TradingDeskSnapshot; compact?: boolean; prominent?: boolean }) {
   const summary = snapshot.watchlistSummary;
   const noOpenPosition = !snapshot.activePositionFocus;
   return (
@@ -1031,7 +1492,7 @@ function WatchlistPanel({ snapshot, compact = false, prominent = false }: { snap
   );
 }
 
-function EdwardBodyProgressPanel() {
+export function EdwardBodyProgressPanel() {
   const progress = edwardBodyProgress;
   const nextMilestone = progress.nextMilestones[0] ?? "No next milestone published.";
   const reflex = progress.currentReflexStatus;
@@ -1092,7 +1553,7 @@ function EdwardBodyProgressPanel() {
   );
 }
 
-function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+export function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const journal = buildTradeJournalSummary(snapshot);
   const [journalPage, setJournalPage] = useState(0);
   const journalPageCount = Math.max(1, Math.ceil(journal.tableRows.length / TRADE_JOURNAL_PAGE_SIZE));
@@ -1324,9 +1785,57 @@ function dataModeMessage(loadResult: TradingDeskLoadResult) {
   }
 }
 
+function latestJsonStatus(health?: TradingDeskHealth) {
+  if (!health) return "UNAVAILABLE";
+  if (health.latestJsonValid === true) return "VALID";
+  if (health.latestJsonValid === false) return "INVALID";
+  return "UNKNOWN";
+}
+
+function latestJsonTone(health?: TradingDeskHealth) {
+  const status = latestJsonStatus(health);
+  if (status === "VALID") return "live_available";
+  if (status === "INVALID") return "validation_error";
+  return status.toLowerCase();
+}
+
+function producerDisplayStatus(health?: TradingDeskHealth) {
+  if (!health) return "UNAVAILABLE";
+  if (health.producerStatus === "healthy") return "HEALTHY";
+  if (health.producerStatus === "degraded") return "DEGRADED";
+  if (health.producerStatus === "offline") return "UNAVAILABLE";
+  return "UNKNOWN";
+}
+
+function dataHealthDisplay(loadResult: TradingDeskLoadResult) {
+  if (loadResult.dataMode === "live_available" && loadResult.health?.producerStatus === "healthy" && latestJsonStatus(loadResult.health) === "VALID") return "FRESH";
+  if (loadResult.dataMode === "live_unavailable") return "UNAVAILABLE";
+  if (loadResult.dataMode === "live_stale") return "STALE";
+  if (!loadResult.health) return "UNKNOWN";
+  return "CHECK";
+}
+
+function dataFeedDisplay(loadResult: TradingDeskLoadResult) {
+  if (loadResult.validationIssues.length > 0) return "CHECK";
+  if (latestJsonStatus(loadResult.health) === "VALID" && loadResult.dataMode === "live_available") return "OK";
+  return latestJsonStatus(loadResult.health);
+}
+
+function deriveHudLiveStatus(loadResult: TradingDeskLoadResult, rows: HudHeartbeatDecision[]) {
+  const heartbeatLoaded = rows.length > 0;
+  const freshRows = heartbeatLoaded && rows.every((row) => row.freshness.status === "fresh");
+  const healthOk = loadResult.health?.producerStatus === "healthy" && latestJsonStatus(loadResult.health) === "VALID";
+  if (loadResult.dataMode === "live_available" && heartbeatLoaded && freshRows && healthOk) return { label: "ALL SYSTEMS GO", tone: "ok" };
+  if (!heartbeatLoaded) return { label: "UNKNOWN", tone: "unknown" };
+  if (loadResult.dataMode === "live_unavailable") return { label: "UNAVAILABLE", tone: "danger" };
+  if (!freshRows || loadResult.dataMode === "live_stale") return { label: "CHECK", tone: "warn" };
+  return { label: "DEGRADED", tone: "warn" };
+}
+
 function money(value?: number) { return value === undefined ? "Unavailable" : currency.format(value); }
 function num(value?: number) { return value === undefined ? "Unavailable" : value.toLocaleString("en-US", { maximumFractionDigits: 4 }); }
 function asPct(value?: number) { return value === undefined ? "N/A" : pct.format(value); }
+function asPacePct(value?: number) { return value === undefined ? "N/A" : pacePct.format(value); }
 
 function formatBodyPartName(part: string) {
   return part.replace(/([A-Z])/g, " $1").replace(/^./, (first) => first.toUpperCase());
