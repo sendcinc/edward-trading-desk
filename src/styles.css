@@ -2484,3 +2484,271 @@ body {
     min-height: auto;
   }
 }
+
+
+/* Desktop consolidation PR: single top nav, decision-first cockpit */
+.cockpit-shell {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+
+.cockpit-main {
+  width: min(100%, 1720px);
+  margin: 0 auto;
+}
+
+.cockpit-shell .command-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cockpit-shell .data-state-banner {
+  display: flex;
+  margin: 0 0 8px;
+  min-height: 0;
+  border-radius: 16px;
+}
+
+.cockpit-shell .data-state-banner.live_available {
+  display: none;
+}
+
+.cockpit-shell .data-state-banner.live_stale,
+.cockpit-shell .data-state-banner.live_unavailable,
+.cockpit-shell .data-state-banner.validation_error,
+.cockpit-shell .data-state-banner.demo_mode {
+  border-color: rgba(255, 77, 109, 0.72);
+  background: linear-gradient(90deg, rgba(255, 55, 93, 0.24), rgba(5, 10, 20, 0.94));
+  box-shadow: 0 0 32px rgba(255, 55, 93, 0.12);
+}
+
+.cockpit-shell .data-state-banner h2 {
+  color: #fff;
+  font-size: 1.05rem;
+}
+
+.cockpit-page-tabs {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  padding: 4px 0;
+  backdrop-filter: blur(16px);
+}
+
+.cockpit-page-tabs button {
+  min-height: 46px;
+}
+
+.cockpit-page-shell {
+  min-height: calc(100vh - 150px);
+}
+
+.command-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.3fr);
+  align-content: start;
+}
+
+.command-layout .command-decision-panel,
+.command-layout .warning-grid,
+.command-layout .compact-alert-disclosure {
+  grid-column: 1 / -1;
+}
+
+.command-decision-panel {
+  min-height: 330px;
+}
+
+.command-decision-grid {
+  grid-template-columns: minmax(180px, 0.58fr) minmax(150px, 0.36fr) minmax(150px, 0.36fr) minmax(260px, 1fr) minmax(260px, 1fr);
+}
+
+.command-decision-grid .decision-field:nth-child(4),
+.command-decision-grid .decision-field:nth-child(5) {
+  background: rgba(255,255,255,0.025);
+  border-radius: 14px;
+}
+
+.decision-field.ok strong { color: #63e6be; }
+.decision-field.warn strong { color: #ffd166; }
+.decision-field.danger strong { color: #ff6b85; text-shadow: 0 0 16px rgba(255,77,109,.32); }
+.decision-field.muted strong { color: #8fa1bf; }
+
+.hard-no-action-banner,
+.hard-monitor-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 77, 109, 0.6);
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(90deg, rgba(255, 55, 93, 0.35), rgba(255, 55, 93, 0.08));
+  font-size: 0.82rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wrong-behavior-callout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 77, 109, 0.5);
+  color: #ffe5eb;
+  background: rgba(255, 55, 93, 0.14);
+  font-weight: 900;
+}
+
+.warning-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 8px;
+}
+
+.command-layout .warning-panel {
+  border-color: rgba(255, 77, 109, 0.42);
+  background: linear-gradient(135deg, rgba(255, 55, 93, 0.16), rgba(5, 13, 25, 0.94));
+}
+
+.compact-alert-disclosure > .panel {
+  margin-top: 12px;
+}
+
+.monitor-layout {
+  grid-template-rows: auto auto auto;
+}
+
+.monitor-layout .thorp-monitor-panel {
+  min-height: 455px;
+}
+
+.monitor-layout .watchlist-disclosure,
+.monitor-layout .all-symbols-panel {
+  grid-column: 1 / -1;
+}
+
+.all-symbols-panel summary span::after {
+  content: " / full basket";
+  color: #7788a8;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.position-management-layout {
+  grid-template-columns: minmax(300px, 0.34fr) minmax(300px, 0.34fr) minmax(0, 1fr);
+  align-content: start;
+}
+
+.position-management-layout > .active-trade-management-panel,
+.position-management-layout > .trade-management-plan,
+.position-management-layout > .risk-ladder-disclosure,
+.position-management-layout > .protection-detail-disclosure {
+  grid-column: 1 / -1;
+}
+
+.position-management-layout > .trade-management-plan {
+  border-color: rgba(99, 230, 190, 0.22);
+}
+
+.risk-ladder-disclosure > .risk-ladder-panel,
+.protection-detail-disclosure > .risk-guardrails-panel,
+.protection-detail-disclosure > .broker-truth-warnings {
+  margin-top: 12px;
+}
+
+.protection-detail-disclosure .broker-truth-warnings {
+  position: relative;
+}
+
+.execution-detail {
+  grid-column: 1 / -1;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 8px;
+}
+
+.execution-detail summary {
+  cursor: pointer;
+  color: #8fa1bf;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.execution-detail .guardrail {
+  margin-top: 8px;
+}
+
+.portfolio-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.36fr);
+}
+
+.portfolio-layout .portfolio-bar {
+  background: linear-gradient(90deg, rgba(6, 17, 31, 0.9), rgba(9, 15, 29, 0.9));
+  border-color: rgba(99, 230, 190, 0.16);
+}
+
+.portfolio-layout .pace-panel,
+.portfolio-layout .summary-card {
+  border-color: rgba(160, 128, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 10px 34px rgba(0,0,0,0.2);
+}
+
+.journal-layout .trade-journal-panel {
+  border-color: rgba(136, 151, 178, 0.22);
+}
+
+.health-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.health-layout .cockpit-footer,
+.health-layout > .health-panel,
+.health-layout > .system-health-panel {
+  grid-column: 1 / -1;
+}
+
+.source-freshness-details {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(61, 178, 255, 0.14);
+  background: rgba(255,255,255,0.025);
+}
+
+.source-freshness-details summary {
+  cursor: pointer;
+  color: #dcecff;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 1180px) {
+  .cockpit-page-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .command-decision-grid,
+  .position-management-layout { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 920px) {
+  .cockpit-shell { padding: 8px; }
+  .cockpit-shell .command-header { display: block; }
+  .cockpit-page-tabs,
+  .command-layout,
+  .command-decision-grid,
+  .warning-grid,
+  .position-management-layout,
+  .portfolio-layout { grid-template-columns: 1fr; }
+  .cockpit-page-tabs { position: static; }
+}
