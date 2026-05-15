@@ -295,8 +295,11 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Aging");
     expect(appSource).toContain("Stale");
     expect(appSource).toContain("Context required");
-    expect(appSource).toContain("autoExecution false");
-    expect(appSource).toContain("executionIntent none");
+    expect(appSource).toContain("Read-only · Auto-execution");
+    expect(appSource).toContain("Execution intent");
+    expect(appSource).toContain("Fresh review not available — fresh chart context is required before any trade decision.");
+    expect(appSource).toContain("alert-technical-details");
+    expect(appSource).toContain("truncatePayloadHash");
     expect(appSource).not.toContain("Place order");
     expect(appSource).not.toContain("Trade now");
   });

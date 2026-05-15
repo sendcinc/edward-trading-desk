@@ -2580,15 +2580,88 @@ body {
   gap: 10px;
 }
 
-.alert-detail-grid,
-.alert-detail-guardrails {
+.alert-detail-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
+.alert-detail-grid .guardrail {
+  min-width: 0;
+  padding: 10px 11px;
+}
+
+.alert-detail-grid .guardrail strong {
+  overflow-wrap: anywhere;
+}
+
+.alert-review-unavailable {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 13px;
+  color: #c9d5eb;
+  background: rgba(127, 141, 168, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .alert-detail-guardrails {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: 999px;
+  color: #a8f3d5;
+  background: rgba(101, 230, 197, 0.10);
+  border: 1px solid rgba(101, 230, 197, 0.18);
+  font-size: 0.72rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.alert-detail-guardrails.danger {
+  color: #ffd1d9;
+  background: rgba(255, 122, 144, 0.09);
+  border-color: rgba(255, 122, 144, 0.24);
+}
+
+.alert-technical-details {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: #8f9bb3;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  font-size: 0.69rem;
+}
+
+.alert-technical-details span {
+  color: #aab8d0;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.alert-technical-details code,
+.alert-technical-details time {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alert-technical-details code {
+  color: #dbe6ff;
+  font-family: "SFMono-Regular", Consolas, monospace;
 }
 
 .alert-danger-state {
@@ -2606,9 +2679,14 @@ body {
 
 @media (max-width: 980px) {
   .alert-inbox-stats,
-  .alert-detail-grid,
-  .alert-detail-guardrails {
+  .alert-detail-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .alert-technical-details {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
   }
 
   .alert-inbox-toolbar {

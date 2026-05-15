@@ -360,6 +360,7 @@ function AlertInboxTableRow({ row }: { row: AlertInboxRow }) {
   const safety = alertInboxSafety(alert);
   const freshnessClass = row.freshness.toLowerCase();
   const nextAction = alert ? review?.nextActionSentence ?? alert.reason ?? "Context required" : "No alert received";
+  const hasReviewTimeframes = Boolean(review && [review.timeframes["15m"], review.timeframes["1H"], review.timeframes["4H"]].some((timeframe) => formatReviewTimeframe(timeframe) !== "Unavailable"));
   return (
     <details className={`alert-inbox-row ${freshnessClass} ${safety.danger ? "danger" : ""}`}>
       <summary className="alert-inbox-cells">
@@ -381,19 +382,24 @@ function AlertInboxTableRow({ row }: { row: AlertInboxRow }) {
         {safety.danger ? <p className="alert-danger-state"><AlertTriangle size={16} /> {safety.message}</p> : null}
         <div className="alert-detail-grid">
           <Guardrail label="Source detail" value={row.sourceDetail} />
-          <Guardrail label="Latest alert summary" value={alert ? `${alert.alertType} · ${alertDirection(alert)} · ${alertDecision(alert)}` : "No alert received"} />
-          <Guardrail label="Fresh alert review" value={review ? `${review.status} · ${review.finalRecommendation}` : "Unavailable"} />
-          <Guardrail label="15m review" value={formatReviewTimeframe(review?.timeframes["15m"])} />
-          <Guardrail label="1H review" value={formatReviewTimeframe(review?.timeframes["1H"])} />
-          <Guardrail label="4H review" value={formatReviewTimeframe(review?.timeframes["4H"])} />
-          <Guardrail label="Reason / stale reason" value={review?.riskReason ?? review?.staleReason ?? alert?.reason ?? "Unavailable"} />
-          <Guardrail label="Payload hash" value={alert?.payloadHash ?? "Unavailable"} />
-          <Guardrail label="Received timestamp" value={alert?.receivedAt ?? "Unavailable"} />
+          <Guardrail label="Latest alert summary" value={alert ? `${humanizeAlertLabel(alert.alertType)} · ${humanizeAlertLabel(alertDirection(alert))} · ${humanizeAlertLabel(alertDecision(alert))}` : "No alert received"} />
+          {review ? <Guardrail label="Fresh alert review" value={`${humanizeAlertLabel(review.status)} · ${humanizeAlertLabel(review.finalRecommendation)}`} /> : <p className="alert-review-unavailable">Fresh review not available — fresh chart context is required before any trade decision.</p>}
+          <Guardrail label="Reason / stale reason" value={humanizeAlertLabel(review?.riskReason ?? review?.staleReason ?? alert?.reason ?? "Unavailable")} />
+          {hasReviewTimeframes ? (
+            <>
+              <Guardrail label="15m review" value={humanizeAlertLabel(formatReviewTimeframe(review?.timeframes["15m"]))} />
+              <Guardrail label="1H review" value={humanizeAlertLabel(formatReviewTimeframe(review?.timeframes["1H"]))} />
+              <Guardrail label="4H review" value={humanizeAlertLabel(formatReviewTimeframe(review?.timeframes["4H"]))} />
+            </>
+          ) : null}
         </div>
-        <div className="alert-detail-guardrails" aria-label="Alert Inbox guardrails">
-          <Guardrail label="read-only" value="true" />
-          <Guardrail label="autoExecution false" value={safety.autoExecution} danger={safety.danger} />
-          <Guardrail label="executionIntent none" value={safety.executionIntent} danger={safety.danger} />
+        <div className={`alert-detail-guardrails ${safety.danger ? "danger" : ""}`} aria-label="Alert Inbox guardrails">
+          Read-only · Auto-execution {safety.autoExecution} · Execution intent {safety.executionIntent}
+        </div>
+        <div className="alert-technical-details" aria-label="Alert Inbox technical details">
+          <span>Technical Details</span>
+          <code title={alert?.payloadHash ?? "Unavailable"}>Payload {truncatePayloadHash(alert?.payloadHash)}</code>
+          <time dateTime={alert?.receivedAt ?? undefined}>{formatReceivedTimestamp(alert?.receivedAt)}</time>
         </div>
       </div>
     </details>
@@ -2201,6 +2207,39 @@ function formatTime(timestamp: string) {
   const parsedTimestamp = /^\d+(?:\.\d+)?$/.test(timestamp) ? Number(timestamp) * 1000 : Date.parse(timestamp);
   if (!Number.isFinite(parsedTimestamp)) return timestamp;
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(parsedTimestamp));
+}
+
+function formatReceivedTimestamp(timestamp?: string) {
+  if (!timestamp) return "Received unavailable";
+  const parsedTimestamp = /^\d+(?:\.\d+)?$/.test(timestamp) ? Number(timestamp) * 1000 : Date.parse(timestamp);
+  if (!Number.isFinite(parsedTimestamp)) return timestamp;
+  return `Received ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZoneName: "short" }).format(new Date(parsedTimestamp))}`;
+}
+
+function truncatePayloadHash(hash?: string | null) {
+  if (!hash) return "Unavailable";
+  if (hash.length <= 18) return hash;
+  return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
+}
+
+function humanizeAlertLabel(value?: string | null) {
+  if (!value) return "—";
+  const direct: Record<string, string> = {
+    THORP_TRADE_SIGNAL: "Trade Signal",
+    THORP_HUD_HEARTBEAT: "HUD Heartbeat",
+    not_applicable: "Not applicable",
+    unavailable: "Unavailable",
+  };
+  if (direct[value]) return direct[value];
+  return value
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .replace(/\bHud\b/g, "HUD")
+    .replace(/\bThorp\b/g, "THORP")
+    .replace(/\bUsdt\b/g, "USDT");
 }
 
 function formatAge(timestamp: string) {
