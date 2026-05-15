@@ -260,13 +260,17 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Object.entries(progress.bodyParts)");
   });
 
-  it("frames Performance as a read-only portfolio and journal report", () => {
+  it("frames Performance as a compact read-only portfolio and journal report", () => {
     expect(appSource).toContain('title: "Portfolio & Journal"');
     expect(appSource).toContain('description: "Portfolio pace and closed-trade results. Read-only performance view."');
+    expect(appSource).toContain('label: "Performance"');
+    expect(appSource).toContain('eyebrow: ""');
+    expect(appSource).toContain('page.eyebrow ? <span>{page.eyebrow}</span> : null');
     expect(appSource).toContain("Data stale — portfolio values may lag. No trade decisions from this page.");
     expect(appSource).toContain("READ-ONLY");
     expect(appSource).not.toContain("performance-subnav");
     expect(appSource).not.toContain('title="Portfolio & Pace"');
+    expect(appSource).not.toContain('eyebrow: "Pace + Journal"');
     expect(appSource).toContain("Compounding Status");
     expect(appSource).toContain("Realized Journal PnL");
     expect(appSource).toContain("Moon target rate");

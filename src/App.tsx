@@ -49,7 +49,7 @@ const COCKPIT_PAGES: CockpitPage[] = [
   { id: "command", label: "Command", shortLabel: "Command", eyebrow: "Decision", title: "Command", description: "One trade decision, one add status, one data status, one instruction.", icon: <Gauge /> },
   { id: "live-monitor", label: "Live Monitor", shortLabel: "Live Monitor", eyebrow: "Scanner Feed", title: "Live Monitor", description: "Attention rows first; full monitored basket stays collapsed until needed.", icon: <Radio /> },
   { id: "position-management", label: "Position Management", shortLabel: "Positions", eyebrow: "Broker Truth", title: "Position Management", description: "Active position, protection state, add permission, plan, and recheck trigger in one flow.", icon: <BriefcaseBusiness /> },
-  { id: "performance", label: "Performance", shortLabel: "Performance", eyebrow: "Pace + Journal", title: "Portfolio & Journal", description: "Portfolio pace and closed-trade results. Read-only performance view.", icon: <CircleDollarSign /> },
+  { id: "performance", label: "Performance", shortLabel: "Performance", eyebrow: "", title: "Portfolio & Journal", description: "Portfolio pace and closed-trade results. Read-only performance view.", icon: <CircleDollarSign /> },
   { id: "alerts", label: "Alerts", shortLabel: "Alerts", eyebrow: "Alert Ledger", title: "Alert Inbox", description: "Latest received alert for each active-basket symbol. Alerts are wake-up signals only; fresh context review is required before any trade decision.", icon: <BellRing /> },
   { id: "system", label: "System", shortLabel: "System", eyebrow: "Data Source Status", title: "System", description: "Compact feed health, Edward health, and collapsed source details unless degraded.", icon: <HeartPulse /> },
 ];
@@ -168,7 +168,7 @@ function CockpitWorkspace({ activePage, loadResult }: { activePage: CockpitPageI
   return (
     <section className={`cockpit-page-shell ${activePage}-shell`} id={page.id} aria-label={page.label}>
       <header className="cockpit-page-header">
-        <span>{page.eyebrow}</span>
+        {page.eyebrow ? <span>{page.eyebrow}</span> : null}
         <h2>{page.title}</h2>
         <p>{page.description}</p>
       </header>
