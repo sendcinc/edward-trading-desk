@@ -2331,16 +2331,60 @@ body {
   min-height: 410px;
 }
 
-.portfolio-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+.performance-layout {
+  grid-template-columns: 1fr;
   align-content: start;
 }
 
-.portfolio-layout .portfolio-bar {
+.performance-subnav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.performance-subnav a {
+  color: #c7d0e5;
+  text-decoration: none;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 7px 11px;
+  border-radius: 999px;
+}
+
+.performance-subnav a:hover,
+.performance-subnav a:focus-visible {
+  color: #f6f8ff;
+  background: rgba(99, 230, 190, 0.1);
+  outline: none;
+}
+
+.performance-pace-section {
+  display: grid;
+  gap: 14px;
+}
+
+.performance-pace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+  gap: 14px;
+}
+
+.performance-journal-section {
+  margin-top: 8px;
+}
+
+.performance-layout .portfolio-bar {
   grid-column: 1 / -1;
 }
 
-.portfolio-layout .pace-panel {
+.performance-layout .pace-panel {
   min-height: 280px;
 }
 
@@ -2363,7 +2407,6 @@ body {
 }
 
 .watchlist-layout,
-.journal-layout,
 .health-layout {
   align-content: start;
 }
@@ -2473,7 +2516,8 @@ body {
 @media (max-width: 920px) {
   .cockpit-page-tabs,
   .decision-layout,
-  .portfolio-layout,
+  .performance-layout,
+  .performance-pace-grid,
   .positions-layout,
   .protection-layout,
   .recheck-layout {
@@ -2689,23 +2733,24 @@ body {
   margin-top: 8px;
 }
 
-.portfolio-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.36fr);
+.performance-layout {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.portfolio-layout .portfolio-bar {
+.performance-layout .portfolio-bar {
   background: linear-gradient(90deg, rgba(6, 17, 31, 0.9), rgba(9, 15, 29, 0.9));
   border-color: rgba(99, 230, 190, 0.16);
 }
 
-.portfolio-layout .pace-panel,
-.portfolio-layout .summary-card {
+.performance-layout .pace-panel,
+.performance-layout .summary-card {
   border-color: rgba(160, 128, 255, 0.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 10px 34px rgba(0,0,0,0.2);
 }
 
-.journal-layout .trade-journal-panel {
+.performance-layout .trade-journal-panel {
   border-color: rgba(136, 151, 178, 0.22);
+  opacity: 0.92;
 }
 
 .health-layout {
@@ -2749,6 +2794,7 @@ body {
   .command-decision-grid,
   .warning-grid,
   .position-management-layout,
-  .portfolio-layout { grid-template-columns: 1fr; }
+  .performance-pace-grid,
+  .performance-layout { grid-template-columns: 1fr; }
   .cockpit-page-tabs { position: static; }
 }

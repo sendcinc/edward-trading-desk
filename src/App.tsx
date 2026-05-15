@@ -4,7 +4,6 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BellRing,
-  BookOpen,
   BriefcaseBusiness,
   CircleDollarSign,
   Clock3,
@@ -34,7 +33,7 @@ const pacePct = new Intl.NumberFormat("en-US", { style: "percent", minimumFracti
 const REFRESH_INTERVAL_SECONDS = 30;
 const TRADE_JOURNAL_PAGE_SIZE = 10;
 
-type CockpitPageId = "command" | "live-monitor" | "position-management" | "portfolio" | "journal" | "system";
+type CockpitPageId = "command" | "live-monitor" | "position-management" | "performance" | "system";
 
 type CockpitPage = {
   id: CockpitPageId;
@@ -50,18 +49,23 @@ const COCKPIT_PAGES: CockpitPage[] = [
   { id: "command", label: "Command", shortLabel: "Command", eyebrow: "Decision", title: "Command", description: "One trade decision, one add status, one data status, one instruction.", icon: <Gauge /> },
   { id: "live-monitor", label: "Live Monitor", shortLabel: "Live Monitor", eyebrow: "Scanner Feed", title: "Live Monitor", description: "Attention rows first; full monitored basket stays collapsed until needed.", icon: <Radio /> },
   { id: "position-management", label: "Position Management", shortLabel: "Positions", eyebrow: "Broker Truth", title: "Position Management", description: "Active position, protection state, add permission, plan, and recheck trigger in one flow.", icon: <BriefcaseBusiness /> },
-  { id: "portfolio", label: "Portfolio", shortLabel: "Portfolio", eyebrow: "Pace", title: "Portfolio", description: "Portfolio value, equity, daily P&L, and Moon/Sun pace without competing with trade risk.", icon: <CircleDollarSign /> },
-  { id: "journal", label: "Journal", shortLabel: "Journal", eyebrow: "Post-Trade", title: "Journal", description: "Closed-trade journal, separate from live trade action.", icon: <BookOpen /> },
+  { id: "performance", label: "Performance", shortLabel: "Performance", eyebrow: "Pace + Journal", title: "Performance", description: "Portfolio value, equity, daily P&L, Moon/Sun pace, and closed-trade journal in one secondary performance view.", icon: <CircleDollarSign /> },
   { id: "system", label: "System", shortLabel: "System", eyebrow: "Data Source Status", title: "System", description: "Compact feed health, Edward health, and collapsed source details unless degraded.", icon: <HeartPulse /> },
 ];
 
 function normalizePageHash(hash: string): CockpitPageId {
+  if (["portfolio", "journal"].includes(hash)) return "performance";
+  if (["performance-pace", "performance-journal"].includes(hash)) return "performance";
   if (COCKPIT_PAGES.some((page) => page.id === hash)) return hash as CockpitPageId;
   if (["overview", "decision", "primary-trade-decision"].includes(hash)) return "command";
   if (["live-desk", "watchlist", "thorp-monitor"].includes(hash)) return "live-monitor";
   if (["positions", "protection", "recheck"].includes(hash)) return "position-management";
   if (hash === "system-health") return "system";
   return "command";
+}
+
+function canonicalizePageHash(hash: string): string {
+  return ["portfolio", "journal"].includes(hash) ? "performance" : hash;
 }
 
 export default function App() {
@@ -103,8 +107,12 @@ export default function App() {
 
   useEffect(() => {
     const onHashChange = () => {
-      setActivePage(normalizePageHash(window.location.hash.replace("#", "")));
+      const rawHash = window.location.hash.replace("#", "");
+      const canonicalHash = canonicalizePageHash(rawHash);
+      setActivePage(normalizePageHash(rawHash));
+      if (canonicalHash !== rawHash) window.history.replaceState(null, "", `#${canonicalHash}`);
     };
+    onHashChange();
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
@@ -176,10 +184,8 @@ function CockpitPageContent({ activePage, loadResult, snapshot }: { activePage: 
       return <LiveMonitorPage loadResult={loadResult} />;
     case "position-management":
       return <PositionManagementPage snapshot={snapshot} />;
-    case "portfolio":
-      return <PortfolioPacePage snapshot={snapshot} />;
-    case "journal":
-      return <JournalPage snapshot={snapshot} />;
+    case "performance":
+      return <PerformancePage snapshot={snapshot} />;
     case "system":
       return <SystemHealthPage loadResult={loadResult} />;
     case "command":
@@ -245,12 +251,23 @@ function LiveMonitorPage({ loadResult }: { loadResult: TradingDeskLoadResult }) 
   );
 }
 
-function PortfolioPacePage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+function PerformancePage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   return (
-    <div className="cockpit-page-grid portfolio-layout">
-      <PortfolioCommandBar snapshot={snapshot} />
-      <SoftLandingPanel snapshot={snapshot} />
-      <PortfolioPaceCard snapshot={snapshot} />
+    <div className="cockpit-page-grid performance-layout">
+      <nav className="performance-subnav" aria-label="Performance page sections">
+        <a href="#performance-pace">Pace</a>
+        <a href="#performance-journal">Journal</a>
+      </nav>
+      <section id="performance-pace" className="performance-pace-section" aria-label="Portfolio pace">
+        <PortfolioCommandBar snapshot={snapshot} />
+        <div className="performance-pace-grid">
+          <SoftLandingPanel snapshot={snapshot} />
+          <PortfolioPaceCard snapshot={snapshot} />
+        </div>
+      </section>
+      <section id="performance-journal" className="performance-journal-section" aria-label="Journal">
+        <TradeJournalPanel snapshot={snapshot} />
+      </section>
     </div>
   );
 }
@@ -272,13 +289,6 @@ function PositionManagementPage({ snapshot }: { snapshot: TradingDeskSnapshot })
         <RiskGuardrailsPanel snapshot={snapshot} />
         {snapshot.activePositionFocus ? <BrokerOrderTruthWarnings snapshot={snapshot} /> : null}
       </details>
-    </div>
-  );
-}
-function JournalPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
-  return (
-    <div className="cockpit-page-grid journal-layout">
-      <TradeJournalPanel snapshot={snapshot} />
     </div>
   );
 }
