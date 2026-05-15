@@ -22,7 +22,7 @@ describe("trade journal table rows", () => {
       averageTrade: "$25.42",
       medianTrade: "$18.61",
       largestWin: "$94.63",
-      largestLoss: "$-5.01",
+      largestLoss: "-$5.01",
       lastClosedTradeDate: "Apr 29, 8:20 AM",
     });
     expect(summary.badge).toBe("6 closed trades");
@@ -41,7 +41,7 @@ describe("trade journal table rows", () => {
       entry: "1",
       exit: "1.1",
       size: "10",
-      pnl: "$-0.88",
+      pnl: "-$0.88",
       fees: "$0.00",
       funding: "$0.00",
       framework: "THORP",

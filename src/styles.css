@@ -2767,13 +2767,13 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 209, 102, 0.42);
-  color: #ffd166;
-  background: rgba(255, 209, 102, 0.08);
-  font-size: 0.82rem;
-  font-weight: 850;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 209, 102, 0.26);
+  color: #e6c36b;
+  background: rgba(255, 209, 102, 0.045);
+  font-size: 0.8rem;
+  font-weight: 760;
 }
 
 .performance-metric-row {

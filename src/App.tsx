@@ -449,8 +449,8 @@ function CompoundingStatusCard({ snapshot }: { snapshot: TradingDeskSnapshot }) 
     <section className="glass-panel compounding-status-card" aria-label="Compounding Status">
       <PanelMiniHead icon={<CircleDollarSign />} title="Compounding Status" />
       <div className="compounding-status-list">
-        <Metric label="Ahead of Moon" value={pace.moonStatus === "AHEAD" ? "Yes" : "No"} danger={pace.moonStatus !== "AHEAD"} />
-        <Metric label="Behind Sun" value={pace.sunStatus === "BEHIND" ? "Yes" : "No"} danger={pace.sunStatus === "BEHIND"} />
+        <Metric label="Moon" value={formatPaceGapStatus(pace.moonGapDollars)} danger={pace.moonGapDollars < 0} />
+        <Metric label="Sun" value={formatPaceGapStatus(pace.sunGapDollars)} danger={pace.sunGapDollars < 0} />
         <Metric label="Days compounded" value={String(pace.daysSinceBaseline)} />
         <Metric label="Baseline PV/date" value={`${currency.format(pace.baselinePV)} · ${pace.baselineDate}`} />
       </div>
@@ -1864,6 +1864,9 @@ function deriveHudLiveStatus(loadResult: TradingDeskLoadResult, rows: HudHeartbe
 }
 
 function money(value?: number) { return value === undefined ? "Unavailable" : currency.format(value); }
+function formatPaceGapStatus(value: number) {
+  return `${value >= 0 ? "Ahead" : "Behind"} by ${currency.format(Math.abs(value))}`;
+}
 function parseMoneyValue(value: string) {
   const numeric = Number(value.replace(/[^0-9.-]/g, ""));
   return Number.isFinite(numeric) ? numeric : undefined;
