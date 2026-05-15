@@ -33,7 +33,7 @@ const pacePct = new Intl.NumberFormat("en-US", { style: "percent", minimumFracti
 const REFRESH_INTERVAL_SECONDS = 30;
 const TRADE_JOURNAL_PAGE_SIZE = 10;
 
-type CockpitPageId = "command" | "live-monitor" | "position-management" | "performance" | "system";
+type CockpitPageId = "command" | "live-monitor" | "position-management" | "performance" | "alerts" | "system";
 
 type CockpitPage = {
   id: CockpitPageId;
@@ -50,6 +50,7 @@ const COCKPIT_PAGES: CockpitPage[] = [
   { id: "live-monitor", label: "Live Monitor", shortLabel: "Live Monitor", eyebrow: "Scanner Feed", title: "Live Monitor", description: "Attention rows first; full monitored basket stays collapsed until needed.", icon: <Radio /> },
   { id: "position-management", label: "Position Management", shortLabel: "Positions", eyebrow: "Broker Truth", title: "Position Management", description: "Active position, protection state, add permission, plan, and recheck trigger in one flow.", icon: <BriefcaseBusiness /> },
   { id: "performance", label: "Performance", shortLabel: "Performance", eyebrow: "Pace + Journal", title: "Portfolio & Journal", description: "Portfolio value, equity, daily pace, Moon/Sun gap, and closed-trade journal in one read-only performance view.", icon: <CircleDollarSign /> },
+  { id: "alerts", label: "Alerts", shortLabel: "Alerts", eyebrow: "Alert Ledger", title: "Alert Inbox", description: "Latest received alert for each active-basket symbol. Alerts are wake-up signals only; fresh context review is required before any trade decision.", icon: <BellRing /> },
   { id: "system", label: "System", shortLabel: "System", eyebrow: "Data Source Status", title: "System", description: "Compact feed health, Edward health, and collapsed source details unless degraded.", icon: <HeartPulse /> },
 ];
 
@@ -186,6 +187,8 @@ function CockpitPageContent({ activePage, loadResult, snapshot }: { activePage: 
       return <PositionManagementPage snapshot={snapshot} />;
     case "performance":
       return <PerformancePage loadResult={loadResult} snapshot={snapshot} />;
+    case "alerts":
+      return <AlertsPage loadResult={loadResult} snapshot={snapshot} />;
     case "system":
       return <SystemHealthPage loadResult={loadResult} />;
     case "command":
@@ -281,6 +284,218 @@ function PerformanceStaleNotice() {
       <span>Data stale — portfolio values may lag. No trade decisions from this page.</span>
     </section>
   );
+}
+
+type AlertInboxFilter = "All" | "Fresh" | "Aging" | "Stale" | "Missing" | "Long" | "Short";
+type AlertFreshness = "Fresh" | "Aging" | "Stale" | "Missing";
+type AlertInboxRow = {
+  symbol: string;
+  normalizedSymbol: string;
+  alert: LatestAlert | null;
+  freshness: AlertFreshness;
+  ageMs: number | null;
+  sortRank: number;
+};
+
+function AlertsPage({ loadResult, snapshot }: { loadResult: TradingDeskLoadResult; snapshot: TradingDeskSnapshot }) {
+  const [filter, setFilter] = useState<AlertInboxFilter>("All");
+  const [search, setSearch] = useState("");
+  const rows = buildAlertInboxRows(snapshot, loadResult.alertIntake);
+  const filteredRows = rows.filter((row) => alertInboxRowMatches(row, filter, search));
+  const alertRows = rows.filter((row) => row.alert);
+  const freshRows = rows.filter((row) => row.freshness === "Fresh");
+  const staleOrMissingRows = rows.filter((row) => row.freshness === "Aging" || row.freshness === "Stale" || row.freshness === "Missing");
+  const filters: AlertInboxFilter[] = ["All", "Fresh", "Aging", "Stale", "Missing", "Long", "Short"];
+
+  return (
+    <div className="cockpit-page-grid alerts-layout">
+      <section className="glass-panel alert-ledger-notice" aria-label="Alert Inbox doctrine">
+        <PanelMiniHead icon={<BellRing />} title="READ-ONLY alert ledger" />
+        <p>Latest received alert for each active-basket symbol. Alerts are wake-up signals only; fresh context review is required before any trade decision.</p>
+        <strong>READ-ONLY alert ledger. No trade action is created from this page.</strong>
+      </section>
+
+      <section className="glass-panel alert-inbox-summary" aria-label="Alert Inbox summary">
+        <div className="monitor-stats alert-inbox-stats">
+          <Metric label="Active basket symbols" value={String(rows.length || snapshot.watchlistSummary.total)} strong />
+          <Metric label="Symbols with latest alerts" value={String(alertRows.length)} strong />
+          <Metric label="Fresh alerts" value={String(freshRows.length)} strong />
+          <Metric label="Stale/missing alerts" value={String(staleOrMissingRows.length)} danger={staleOrMissingRows.length > 0} strong />
+        </div>
+      </section>
+
+      <section className="glass-panel alert-inbox-panel" aria-label="Alert Inbox table">
+        <div className="alert-inbox-toolbar" aria-label="Alert Inbox filters">
+          <div className="alert-filter-buttons">
+            {filters.map((item) => (
+              <button key={item} className={filter === item ? "active" : ""} type="button" onClick={() => setFilter(item)}>{item}</button>
+            ))}
+          </div>
+          <label>
+            <span className="sr-only">Search symbol</span>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search symbol…" />
+          </label>
+        </div>
+
+        <div className="alert-inbox-table-wrap">
+          <div className="alert-inbox-table" role="table" aria-label="Latest alert by active basket symbol">
+            <div className="alert-inbox-header" role="row">
+              <span>Symbol</span><span>Last Alert Time</span><span>Age</span><span>Alert Type</span><span>Direction</span><span>Decision / Recommendation</span><span>Score</span><span>Setup State</span><span>Action</span><span>Price at Alert</span><span>Review Status</span><span>Freshness</span><span>Next Action / Reason</span>
+            </div>
+            {filteredRows.map((row) => <AlertInboxTableRow row={row} key={row.normalizedSymbol} />)}
+          </div>
+        </div>
+        {!filteredRows.length ? <p className="collapsed-note">No active-basket symbols match this filter.</p> : null}
+      </section>
+    </div>
+  );
+}
+
+function AlertInboxTableRow({ row }: { row: AlertInboxRow }) {
+  const alert = row.alert;
+  const review = alert?.freshAlertReview;
+  const richPayload = alert?.richScannerPayload;
+  const safety = alertInboxSafety(alert);
+  const freshnessClass = row.freshness.toLowerCase();
+  const nextAction = alert ? review?.nextActionSentence ?? alert.reason ?? "Context required" : "No alert received";
+  return (
+    <details className={`alert-inbox-row ${freshnessClass} ${safety.danger ? "danger" : ""}`}>
+      <summary className="alert-inbox-cells">
+        <strong>{row.symbol}</strong>
+        <span>{alert ? formatTime(alert.receivedAt) : "No alert received"}</span>
+        <span>{alert ? formatAlertAge(row.ageMs) : "—"}</span>
+        <span>{alert?.alertType ?? "No alert received"}</span>
+        <span>{alertDirection(alert)}</span>
+        <span>{alertDecision(alert)}</span>
+        <span>{richPayload?.score ?? "—"}</span>
+        <span>{richPayload?.setup_state ?? "—"}</span>
+        <span>{richPayload?.action ?? "—"}</span>
+        <span>{formatAlertPrice(richPayload?.price_at_alert)}</span>
+        <span>{alert?.reviewStatus ?? alert?.status ?? "No alert received"}</span>
+        <span className={`alert-freshness-pill ${freshnessClass}`}>{row.freshness}</span>
+        <span>{nextAction}</span>
+      </summary>
+      <div className="alert-inbox-detail">
+        {safety.danger ? <p className="alert-danger-state"><AlertTriangle size={16} /> {safety.message}</p> : null}
+        <div className="alert-detail-grid">
+          <Guardrail label="Latest alert summary" value={alert ? `${alert.alertType} · ${alertDirection(alert)} · ${alertDecision(alert)}` : "No alert received"} />
+          <Guardrail label="Fresh alert review" value={review ? `${review.status} · ${review.finalRecommendation}` : "Unavailable"} />
+          <Guardrail label="15m review" value={formatReviewTimeframe(review?.timeframes["15m"])} />
+          <Guardrail label="1H review" value={formatReviewTimeframe(review?.timeframes["1H"])} />
+          <Guardrail label="4H review" value={formatReviewTimeframe(review?.timeframes["4H"])} />
+          <Guardrail label="Reason / stale reason" value={review?.riskReason ?? review?.staleReason ?? alert?.reason ?? "Unavailable"} />
+          <Guardrail label="Payload hash" value={alert?.payloadHash ?? "Unavailable"} />
+          <Guardrail label="Received timestamp" value={alert?.receivedAt ?? "Unavailable"} />
+        </div>
+        <div className="alert-detail-guardrails" aria-label="Alert Inbox guardrails">
+          <Guardrail label="read-only" value="true" />
+          <Guardrail label="autoExecution false" value={safety.autoExecution} danger={safety.danger} />
+          <Guardrail label="executionIntent none" value={safety.executionIntent} danger={safety.danger} />
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function buildAlertInboxRows(snapshot: TradingDeskSnapshot, alertIntake?: AlertIntakeResult): AlertInboxRow[] {
+  const rows = snapshot.watchlist.map((item) => {
+    const normalizedSymbol = normalizeAlertSymbol(item.normalizedSymbol ?? item.symbol);
+    const alert = findLatestAlertForSymbol(normalizedSymbol, alertIntake);
+    const freshness = deriveAlertFreshness(alert?.receivedAt);
+    const ageMs = alert ? Date.now() - Date.parse(alert.receivedAt) : null;
+    return {
+      symbol: item.symbol,
+      normalizedSymbol,
+      alert,
+      freshness,
+      ageMs: ageMs !== null && Number.isFinite(ageMs) ? Math.max(0, ageMs) : null,
+      sortRank: alertFreshnessRank(freshness),
+    };
+  });
+  return rows.sort((a, b) => a.sortRank - b.sortRank || (b.alert ? Date.parse(b.alert.receivedAt) : 0) - (a.alert ? Date.parse(a.alert.receivedAt) : 0) || a.symbol.localeCompare(b.symbol));
+}
+
+function findLatestAlertForSymbol(normalizedSymbol: string, alertIntake?: AlertIntakeResult) {
+  if (!alertIntake) return null;
+  const direct = alertIntake.latestBySymbol[normalizedSymbol] ?? alertIntake.latestBySymbol[normalizedSymbol.replace(/\.P$/, "")];
+  if (direct) return direct;
+  const timeframeAlerts = alertIntake.latestBySymbolTimeframe[normalizedSymbol] ?? alertIntake.latestBySymbolTimeframe[normalizedSymbol.replace(/\.P$/, "")];
+  const latestFromTimeframes = timeframeAlerts ? latestAlertFromList(Object.values(timeframeAlerts)) : null;
+  if (latestFromTimeframes) return latestFromTimeframes;
+  return latestAlertFromList(alertIntake.recentAlerts.filter((alert) => normalizeAlertSymbol(alert.normalizedSymbol ?? alert.symbol ?? "") === normalizedSymbol));
+}
+
+function latestAlertFromList(alerts: LatestAlert[]) {
+  return alerts.reduce<LatestAlert | null>((latest, alert) => {
+    if (!latest) return alert;
+    return Date.parse(alert.receivedAt) > Date.parse(latest.receivedAt) ? alert : latest;
+  }, null);
+}
+
+function alertInboxRowMatches(row: AlertInboxRow, filter: AlertInboxFilter, search: string) {
+  const query = search.trim().toUpperCase();
+  if (query && !row.symbol.toUpperCase().includes(query) && !row.normalizedSymbol.toUpperCase().includes(query)) return false;
+  if (filter === "All") return true;
+  if (filter === "Long") return alertDirection(row.alert).toUpperCase().includes("LONG");
+  if (filter === "Short") return alertDirection(row.alert).toUpperCase().includes("SHORT");
+  return row.freshness === filter;
+}
+
+function normalizeAlertSymbol(symbol: string) {
+  const upper = symbol.toUpperCase().trim();
+  if (!upper) return upper;
+  return upper.endsWith(".P") ? upper : `${upper}.P`;
+}
+
+function deriveAlertFreshness(receivedAt?: string): AlertFreshness {
+  if (!receivedAt) return "Missing";
+  const timestampMs = Date.parse(receivedAt);
+  if (!Number.isFinite(timestampMs)) return "Stale";
+  const ageMinutes = Math.max(0, (Date.now() - timestampMs) / 60000);
+  if (ageMinutes <= 15) return "Fresh";
+  if (ageMinutes <= 60) return "Aging";
+  return "Stale";
+}
+
+function alertFreshnessRank(freshness: AlertFreshness) {
+  if (freshness === "Fresh") return 0;
+  if (freshness === "Aging") return 1;
+  if (freshness === "Stale") return 2;
+  return 3;
+}
+
+function alertDirection(alert?: LatestAlert | null) {
+  return alert?.side ?? alert?.richScannerPayload?.direction ?? "Unavailable";
+}
+
+function alertDecision(alert?: LatestAlert | null) {
+  return alert?.freshAlertReview?.finalRecommendation ?? alert?.scannerRecommendation ?? alert?.richScannerPayload?.decision ?? "Context required";
+}
+
+function formatReviewTimeframe(timeframe?: FreshAlertReviewTimeframe) {
+  if (!timeframe) return "Unavailable";
+  return [timeframe.status, timeframe.decision, timeframe.action, typeof timeframe.score === "number" ? `score ${timeframe.score}` : null].filter(Boolean).join(" · ");
+}
+
+function formatAlertAge(ageMs: number | null) {
+  if (ageMs === null) return "unknown age";
+  const minutes = Math.floor(ageMs / 60000);
+  if (minutes < 1) return "<1m";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+
+function formatAlertPrice(value?: number | null) {
+  return typeof value === "number" && Number.isFinite(value) ? num(value) : "—";
+}
+
+function alertInboxSafety(alert?: LatestAlert | null) {
+  const raw = alert as { autoExecution?: boolean; executionIntent?: string } | null | undefined;
+  const autoExecution = raw?.autoExecution === false ? "false" : raw?.autoExecution === undefined ? "false" : String(raw.autoExecution);
+  const executionIntent = raw?.executionIntent ?? "none";
+  const danger = autoExecution !== "false" || executionIntent !== "none";
+  return { autoExecution, executionIntent, danger, message: "Validation danger: alert claims execution permission. Treat as no-action and investigate the read-model." };
 }
 
 function PositionManagementPage({ snapshot }: { snapshot: TradingDeskSnapshot }) {

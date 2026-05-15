@@ -209,6 +209,29 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Last closed trade");
   });
 
+  it("adds an Alert Inbox page with read-only wake-up signal doctrine", () => {
+    expect(appSource).toContain('id: "alerts"');
+    expect(appSource).toContain('label: "Alerts"');
+    expect(appSource).toContain('title: "Alert Inbox"');
+    expect(appSource).toContain("Latest received alert for each active-basket symbol. Alerts are wake-up signals only; fresh context review is required before any trade decision.");
+    expect(appSource).toContain("READ-ONLY alert ledger. No trade action is created from this page.");
+    expect(appSource).toContain('case "alerts"');
+  });
+
+  it("keeps Alert Inbox compact with missing-alert rows and no execution affordances", () => {
+    expect(appSource).toContain("buildAlertInboxRows");
+    expect(appSource).toContain("No alert received");
+    expect(appSource).toContain("Missing");
+    expect(appSource).toContain("Fresh");
+    expect(appSource).toContain("Aging");
+    expect(appSource).toContain("Stale");
+    expect(appSource).toContain("Context required");
+    expect(appSource).toContain("autoExecution false");
+    expect(appSource).toContain("executionIntent none");
+    expect(appSource).not.toContain("Place order");
+    expect(appSource).not.toContain("Trade now");
+  });
+
   it("renders separated thesis, risk, data confidence, add permission, and reasons when present", () => {
     expect(appSource).toContain("Technical Thesis");
     expect(appSource).toContain("Risk State");
