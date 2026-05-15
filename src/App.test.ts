@@ -195,8 +195,10 @@ describe("Trading Desk shell", () => {
 
   it("frames Performance as a read-only portfolio and journal report", () => {
     expect(appSource).toContain('title: "Portfolio & Journal"');
+    expect(appSource).toContain('description: "Portfolio pace and closed-trade results. Read-only performance view."');
     expect(appSource).toContain("Data stale — portfolio values may lag. No trade decisions from this page.");
     expect(appSource).toContain("READ-ONLY");
+    expect(appSource).not.toContain("performance-subnav");
     expect(appSource).not.toContain('title="Portfolio & Pace"');
     expect(appSource).toContain("Compounding Status");
     expect(appSource).toContain("Realized Journal PnL");

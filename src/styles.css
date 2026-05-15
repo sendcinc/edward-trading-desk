@@ -2347,33 +2347,22 @@ body {
   align-content: start;
 }
 
-.performance-subnav {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
-  padding: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.performance-shell {
+  gap: 6px;
 }
 
-.performance-subnav a {
-  color: #c7d0e5;
-  text-decoration: none;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 7px 11px;
-  border-radius: 999px;
+.performance-shell .cockpit-page-header {
+  min-height: 52px;
+  padding: 9px 14px;
 }
 
-.performance-subnav a:hover,
-.performance-subnav a:focus-visible {
-  color: #f6f8ff;
-  background: rgba(99, 230, 190, 0.1);
-  outline: none;
+.performance-shell .cockpit-page-header h2 {
+  margin-top: 2px;
+  font-size: 1.12rem;
+}
+
+.performance-shell .cockpit-page-header p {
+  margin-top: 2px;
 }
 
 .performance-pace-section {
