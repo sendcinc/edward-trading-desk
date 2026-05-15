@@ -24,7 +24,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
 import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
-import type { AlertIntakeResult, DataMode, FreshAlertReview, FreshAlertReviewTimeframe, HudHeartbeatDecision, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
+import type { AlertIntakeResult, DataMode, FreshAlertReview, FreshAlertReviewHistoryEntry, FreshAlertReviewTimeframe, HudHeartbeatDecision, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
 import { deriveEdwardCoreState, type EdwardCoreState } from "./edwardCoreState";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -288,9 +288,15 @@ type AlertInboxRow = {
   symbol: string;
   normalizedSymbol: string;
   alert: LatestAlert | null;
+  sourceDetail: string;
   freshness: AlertFreshness;
   ageMs: number | null;
   sortRank: number;
+};
+
+type AlertInboxCandidate = {
+  alert: LatestAlert;
+  sourceDetail: string;
 };
 
 function AlertsPage({ loadResult, snapshot }: { loadResult: TradingDeskLoadResult; snapshot: TradingDeskSnapshot }) {
@@ -374,6 +380,7 @@ function AlertInboxTableRow({ row }: { row: AlertInboxRow }) {
       <div className="alert-inbox-detail">
         {safety.danger ? <p className="alert-danger-state"><AlertTriangle size={16} /> {safety.message}</p> : null}
         <div className="alert-detail-grid">
+          <Guardrail label="Source detail" value={row.sourceDetail} />
           <Guardrail label="Latest alert summary" value={alert ? `${alert.alertType} · ${alertDirection(alert)} · ${alertDecision(alert)}` : "No alert received"} />
           <Guardrail label="Fresh alert review" value={review ? `${review.status} · ${review.finalRecommendation}` : "Unavailable"} />
           <Guardrail label="15m review" value={formatReviewTimeframe(review?.timeframes["15m"])} />
@@ -393,16 +400,18 @@ function AlertInboxTableRow({ row }: { row: AlertInboxRow }) {
   );
 }
 
-function buildAlertInboxRows(snapshot: TradingDeskSnapshot, alertIntake?: AlertIntakeResult): AlertInboxRow[] {
-  const rows = snapshot.watchlist.map((item) => {
-    const normalizedSymbol = normalizeAlertSymbol(item.normalizedSymbol ?? item.symbol);
-    const alert = findLatestAlertForSymbol(normalizedSymbol, alertIntake);
+export function buildAlertInboxRows(snapshot: TradingDeskSnapshot, alertIntake?: AlertIntakeResult): AlertInboxRow[] {
+  const symbolUniverse = buildAlertInboxSymbolUniverse(snapshot, alertIntake);
+  const rows = Array.from(symbolUniverse.entries()).map(([normalizedSymbol, symbol]) => {
+    const candidate = findLatestAlertForSymbol(normalizedSymbol, alertIntake);
+    const alert = candidate?.alert ?? null;
     const freshness = deriveAlertFreshness(alert?.receivedAt);
     const ageMs = alert ? Date.now() - Date.parse(alert.receivedAt) : null;
     return {
-      symbol: item.symbol,
+      symbol,
       normalizedSymbol,
       alert,
+      sourceDetail: candidate?.sourceDetail ?? "active basket watchlist",
       freshness,
       ageMs: ageMs !== null && Number.isFinite(ageMs) ? Math.max(0, ageMs) : null,
       sortRank: alertFreshnessRank(freshness),
@@ -411,21 +420,119 @@ function buildAlertInboxRows(snapshot: TradingDeskSnapshot, alertIntake?: AlertI
   return rows.sort((a, b) => a.sortRank - b.sortRank || (b.alert ? Date.parse(b.alert.receivedAt) : 0) - (a.alert ? Date.parse(a.alert.receivedAt) : 0) || a.symbol.localeCompare(b.symbol));
 }
 
-function findLatestAlertForSymbol(normalizedSymbol: string, alertIntake?: AlertIntakeResult) {
-  if (!alertIntake) return null;
-  const direct = alertIntake.latestBySymbol[normalizedSymbol] ?? alertIntake.latestBySymbol[normalizedSymbol.replace(/\.P$/, "")];
-  if (direct) return direct;
-  const timeframeAlerts = alertIntake.latestBySymbolTimeframe[normalizedSymbol] ?? alertIntake.latestBySymbolTimeframe[normalizedSymbol.replace(/\.P$/, "")];
-  const latestFromTimeframes = timeframeAlerts ? latestAlertFromList(Object.values(timeframeAlerts)) : null;
-  if (latestFromTimeframes) return latestFromTimeframes;
-  return latestAlertFromList(alertIntake.recentAlerts.filter((alert) => normalizeAlertSymbol(alert.normalizedSymbol ?? alert.symbol ?? "") === normalizedSymbol));
+function buildAlertInboxSymbolUniverse(snapshot: TradingDeskSnapshot, alertIntake?: AlertIntakeResult) {
+  const symbols = new Map<string, string>();
+  const addSymbol = (symbol?: string | null) => {
+    if (!symbol) return;
+    const normalizedSymbol = normalizeAlertSymbol(symbol);
+    if (!normalizedSymbol) return;
+    symbols.set(normalizedSymbol, normalizedSymbol);
+  };
+
+  snapshot.watchlist.forEach((item) => addSymbol(item.normalizedSymbol ?? item.symbol));
+  snapshot.hudHeartbeatDecisions?.forEach((item) => addSymbol(item.normalized_symbol ?? item.symbol));
+  if (!alertIntake) return symbols;
+
+  Object.keys(alertIntake.latestBySymbol ?? {}).forEach(addSymbol);
+  Object.keys(alertIntake.latestBySymbolTimeframe ?? {}).forEach(addSymbol);
+  Object.values(alertIntake.latestBySymbolTimeframe ?? {}).forEach((timeframes) => Object.values(timeframes ?? {}).forEach((alert) => addSymbol(alert.normalizedSymbol ?? alert.symbol)));
+  alertIntake.recentAlerts?.forEach((alert) => addSymbol(alert.normalizedSymbol ?? alert.symbol));
+  addReviewSymbol(alertIntake.freshAlertReview, addSymbol);
+  addReviewSymbol(alertIntake.freshAlertReviewHistory?.current, addSymbol);
+  Object.keys(alertIntake.freshAlertReviewHistory?.lastSuccessfulBySymbol ?? {}).forEach(addSymbol);
+  Object.keys(alertIntake.freshAlertReviewHistory?.blockedBySymbol ?? {}).forEach(addSymbol);
+  alertIntake.freshAlertReviewHistory?.recent?.forEach((review) => addReviewSymbol(review, addSymbol));
+  addActiveBasketCoverageSymbols(alertIntake.activeBasketCoverage, addSymbol);
+
+  return symbols;
 }
 
-function latestAlertFromList(alerts: LatestAlert[]) {
-  return alerts.reduce<LatestAlert | null>((latest, alert) => {
-    if (!latest) return alert;
-    return Date.parse(alert.receivedAt) > Date.parse(latest.receivedAt) ? alert : latest;
+function addReviewSymbol(review: FreshAlertReview | FreshAlertReviewHistoryEntry | null | undefined, addSymbol: (symbol?: string | null) => void) {
+  if (!review) return;
+  addSymbol(review.normalizedSymbol ?? review.symbol);
+}
+
+function addActiveBasketCoverageSymbols(activeBasketCoverage: unknown, addSymbol: (symbol?: string | null) => void) {
+  if (!activeBasketCoverage || typeof activeBasketCoverage !== "object") return;
+  const coverage = activeBasketCoverage as Record<string, unknown>;
+  for (const key of ["symbols", "activeSymbols", "activeBasketSymbols", "coveredSymbols", "missingSymbols"]) {
+    const value = coverage[key];
+    if (Array.isArray(value)) value.forEach((item) => addSymbolFromUnknown(item, addSymbol));
+  }
+}
+
+function addSymbolFromUnknown(value: unknown, addSymbol: (symbol?: string | null) => void) {
+  if (typeof value === "string") addSymbol(value);
+  if (value && typeof value === "object") {
+    const item = value as { symbol?: string | null; normalizedSymbol?: string | null; ticker?: string | null };
+    addSymbol(item.normalizedSymbol ?? item.symbol ?? item.ticker);
+  }
+}
+
+function findLatestAlertForSymbol(normalizedSymbol: string, alertIntake?: AlertIntakeResult): AlertInboxCandidate | null {
+  if (!alertIntake) return null;
+  const candidates: AlertInboxCandidate[] = [];
+  const variants = alertSymbolVariants(normalizedSymbol);
+
+  for (const variant of variants) {
+    const direct = alertIntake.latestBySymbol?.[variant];
+    if (direct) candidates.push({ alert: direct, sourceDetail: "latestBySymbol" });
+
+    const timeframeAlerts = alertIntake.latestBySymbolTimeframe?.[variant];
+    if (timeframeAlerts) Object.values(timeframeAlerts).forEach((alert) => candidates.push({ alert, sourceDetail: "latestBySymbolTimeframe" }));
+  }
+
+  alertIntake.recentAlerts?.forEach((alert) => {
+    if (alertMatchesSymbol(alert, normalizedSymbol)) candidates.push({ alert, sourceDetail: "recentAlerts" });
+  });
+  addReviewCandidate(alertIntake.freshAlertReview, normalizedSymbol, "freshAlertReview current", candidates);
+  addReviewCandidate(alertIntake.freshAlertReviewHistory?.current, normalizedSymbol, "latest alert history", candidates);
+  for (const variant of variants) {
+    addReviewCandidate(alertIntake.freshAlertReviewHistory?.lastSuccessfulBySymbol?.[variant], normalizedSymbol, "latest alert history", candidates);
+    addReviewCandidate(alertIntake.freshAlertReviewHistory?.blockedBySymbol?.[variant], normalizedSymbol, "latest alert history", candidates);
+  }
+  alertIntake.freshAlertReviewHistory?.recent?.forEach((review) => addReviewCandidate(review, normalizedSymbol, "latest alert history", candidates));
+
+  return candidates.reduce<AlertInboxCandidate | null>((latest, candidate) => {
+    if (!latest) return candidate;
+    return Date.parse(candidate.alert.receivedAt) > Date.parse(latest.alert.receivedAt) ? candidate : latest;
   }, null);
+}
+
+function addReviewCandidate(review: FreshAlertReview | FreshAlertReviewHistoryEntry | null | undefined, normalizedSymbol: string, sourceDetail: string, candidates: AlertInboxCandidate[]) {
+  if (!review || normalizeAlertSymbol(review.normalizedSymbol ?? review.symbol) !== normalizedSymbol) return;
+  const receivedAt = bestReviewTimestamp(review);
+  if (!receivedAt) return;
+  candidates.push({
+    sourceDetail,
+    alert: {
+      receivedAt,
+      alertType: sourceDetail === "latest alert history" ? "latest alert history" : "fresh alert review",
+      symbol: review.symbol,
+      normalizedSymbol: normalizeAlertSymbol(review.normalizedSymbol ?? review.symbol),
+      status: review.status === "blocked" ? "context_only" : "fresh",
+      payloadHash: review.payloadHash ?? "—",
+      triggeredReview: review.tradingViewReadAttempted,
+      reviewStatus: review.status,
+      reason: review.nextActionSentence ?? review.riskReason ?? review.staleReason ?? "Context required",
+      freshAlertReview: review as FreshAlertReview,
+      autoExecution: false,
+      executionIntent: "none",
+    },
+  });
+}
+
+function bestReviewTimestamp(review: FreshAlertReview | FreshAlertReviewHistoryEntry) {
+  return review.reviewCompletedAt ?? review.reviewStartedAt ?? review.alertReceivedAt ?? review.livePrice.timestamp ?? null;
+}
+
+function alertMatchesSymbol(alert: LatestAlert, normalizedSymbol: string) {
+  return normalizeAlertSymbol(alert.normalizedSymbol ?? alert.symbol ?? "") === normalizedSymbol;
+}
+
+function alertSymbolVariants(normalizedSymbol: string) {
+  const bare = normalizedSymbol.replace(/\.P$/, "");
+  return Array.from(new Set([normalizedSymbol, bare]));
 }
 
 function alertInboxRowMatches(row: AlertInboxRow, filter: AlertInboxFilter, search: string) {

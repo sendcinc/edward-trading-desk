@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { derivePrimaryScanDisplay, ActiveTradeManagementPanel, FreshAlertReviewPanel, LatestAlertPanel } from "./App";
-import type { AlertIntakeResult, FreshAlertReview, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, WatchlistItem } from "./domain/tradingDesk";
+import { derivePrimaryScanDisplay, ActiveTradeManagementPanel, FreshAlertReviewPanel, LatestAlertPanel, buildAlertInboxRows } from "./App";
+import type { AlertIntakeResult, FreshAlertReview, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskSnapshot, WatchlistItem } from "./domain/tradingDesk";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(join(currentDir, "App.tsx"), "utf8");
@@ -18,6 +18,73 @@ const latestAlertFreshReviewHistoryTimeframesFixture = JSON.parse(
 const latestAlertEthLiveReviewTimestampStringFixture = JSON.parse(
   readFileSync(join(currentDir, "data", "fixtures", "latest-alert-eth-live-review-timestamp-string.json"), "utf8"),
 ) as AlertIntakeResult;
+
+function makeAlert(symbol: string, receivedAt: string, reason = "Context required"): LatestAlert {
+  return {
+    receivedAt,
+    alertType: "THORP_TRADE_SIGNAL",
+    symbol,
+    normalizedSymbol: symbol,
+    status: "fresh",
+    payloadHash: `${symbol}-${receivedAt}`,
+    triggeredReview: false,
+    reviewStatus: "not_applicable",
+    reason,
+    autoExecution: false,
+    executionIntent: "none",
+  };
+}
+
+function makeReview(symbol: string, reviewCompletedAt: string, nextActionSentence = "Review needed"): FreshAlertReview {
+  const normalizedSymbol = symbol.endsWith(".P") ? symbol : `${symbol}.P`;
+  return ({
+    contractVersion: "fresh-alert-3tf-review.v1",
+    symbol,
+    normalizedSymbol,
+    status: "completed",
+    tradingViewReadAttempted: true,
+    tradingViewReadState: "completed",
+    tradingViewRefreshAttempted: false,
+    tradingViewMutationAttempted: false,
+    alertReceivedAt: reviewCompletedAt,
+    reviewStartedAt: reviewCompletedAt,
+    reviewCompletedAt,
+    originalChartContextCaptured: false,
+    originalChartContextRestored: false,
+    timeframes: {
+      "15m": { status: "fresh", source: "tradingview_read", decision: "WAIT", action: "Context required", score: null },
+      "1H": { status: "fresh", source: "tradingview_read", decision: "WAIT", action: "Context required", score: null },
+      "4H": { status: "fresh", source: "tradingview_read", decision: "WAIT", action: "Context required", score: null },
+    },
+    livePrice: { status: "unavailable", price: null, timestamp: reviewCompletedAt },
+    finalRecommendation: "WAIT",
+    nextActionSentence,
+    riskReason: "History-only review context",
+    confidence: "medium",
+    guardrails: { readOnly: true, autoExecution: false, executionIntent: "none" },
+  }) as unknown as FreshAlertReview;
+}
+
+function makeSnapshot(symbols: string[]): TradingDeskSnapshot {
+  return {
+    watchlist: symbols.map((symbol) => ({ symbol, normalizedSymbol: symbol, status: "WAIT", freshnessStatus: "fresh", missingEvidence: [] })),
+    hudHeartbeatDecisions: [],
+  } as unknown as TradingDeskSnapshot;
+}
+
+function makeAlertIntake(overrides: Partial<AlertIntakeResult>): AlertIntakeResult {
+  return {
+    contractVersion: "edward-alert-intake.v1",
+    generatedAt: "2026-05-15T00:00:00.000Z",
+    webhookStatus: "healthy",
+    latestAlert: null,
+    latestBySymbol: {},
+    latestBySymbolTimeframe: {},
+    recentAlerts: [],
+    queueDepth: 0,
+    ...overrides,
+  } as AlertIntakeResult;
+}
 
 describe("Trading Desk shell", () => {
   it("does not render the visible data source/demo control panel", () => {
@@ -233,6 +300,63 @@ describe("Trading Desk shell", () => {
     expect(appSource).not.toContain("Place order");
     expect(appSource).not.toContain("Trade now");
   });
+
+  it("includes JUPUSDT from fresh alert review history as canonical JUPUSDT.P", () => {
+    const rows = buildAlertInboxRows(makeSnapshot(["BTCUSDT.P"]), makeAlertIntake({
+      freshAlertReviewHistory: {
+        current: null,
+        lastSuccessfulBySymbol: { JUPUSDT: makeReview("JUPUSDT", "2026-05-15T12:00:00.000Z") },
+        blockedBySymbol: {},
+        recent: [],
+      },
+    }));
+
+    expect(rows.map((row) => row.normalizedSymbol)).toContain("JUPUSDT.P");
+    expect(rows.filter((row) => row.normalizedSymbol === "JUPUSDT.P")).toHaveLength(1);
+    expect(rows.find((row) => row.normalizedSymbol === "JUPUSDT.P")?.sourceDetail).toBe("latest alert history");
+  });
+
+  it("dedupes JUPUSDT and JUPUSDT.P into one Alert Inbox row", () => {
+    const rows = buildAlertInboxRows(makeSnapshot(["JUPUSDT.P"]), makeAlertIntake({
+      latestBySymbol: { JUPUSDT: makeAlert("JUPUSDT", "2026-05-15T12:00:00.000Z") },
+      recentAlerts: [makeAlert("JUPUSDT.P", "2026-05-15T11:00:00.000Z")],
+    }));
+
+    expect(rows.filter((row) => row.normalizedSymbol === "JUPUSDT.P")).toHaveLength(1);
+    expect(rows.map((row) => row.symbol)).not.toContain("JUPUSDT");
+  });
+
+  it("selects the newest alert or review across available Alert Inbox sources", () => {
+    const rows = buildAlertInboxRows(makeSnapshot(["JUPUSDT.P"]), makeAlertIntake({
+      latestBySymbol: { JUPUSDT: makeAlert("JUPUSDT", "2026-05-15T10:00:00.000Z", "older direct") },
+      latestBySymbolTimeframe: { JUPUSDT: { "15m": makeAlert("JUPUSDT", "2026-05-15T11:00:00.000Z", "newer timeframe") } },
+      freshAlertReviewHistory: {
+        current: null,
+        lastSuccessfulBySymbol: { JUPUSDT: makeReview("JUPUSDT", "2026-05-15T12:00:00.000Z", "newest review") },
+        blockedBySymbol: {},
+        recent: [],
+      },
+    }));
+
+    const row = rows.find((item) => item.normalizedSymbol === "JUPUSDT.P");
+    expect(row?.alert?.receivedAt).toBe("2026-05-15T12:00:00.000Z");
+    expect(row?.alert?.reason).toBe("newest review");
+  });
+
+  it("counts an alert-history-only symbol inside the normalized Alert Inbox universe", () => {
+    const rows = buildAlertInboxRows(makeSnapshot(["BTCUSDT.P", "ETHUSDT.P"]), makeAlertIntake({
+      freshAlertReviewHistory: {
+        current: null,
+        lastSuccessfulBySymbol: { JUPUSDT: makeReview("JUPUSDT", "2026-05-15T12:00:00.000Z") },
+        blockedBySymbol: {},
+        recent: [],
+      },
+    }));
+
+    expect(rows).toHaveLength(3);
+    expect(new Set(rows.map((row) => row.normalizedSymbol)).size).toBe(3);
+  });
+
 
   it("renders separated thesis, risk, data confidence, add permission, and reasons when present", () => {
     expect(appSource).toContain("Technical Thesis");
