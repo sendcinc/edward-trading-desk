@@ -972,11 +972,22 @@ h2 {
   letter-spacing: 0.06em;
 }
 
-.trade-journal-stats {
+.trade-journal-stats,
+.trade-journal-executive {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 16px;
+}
+
+.trade-journal-executive {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.journal-proof-copy {
+  margin: -2px 0 14px;
+  color: #9ba7bd;
+  line-height: 1.45;
 }
 
 .journal-stat {
@@ -2518,6 +2529,10 @@ body {
   .decision-layout,
   .performance-layout,
   .performance-pace-grid,
+  .moon-sun-hero,
+  .moon-sun-grid,
+  .trade-journal-stats,
+  .trade-journal-executive,
   .positions-layout,
   .protection-layout,
   .recheck-layout {
@@ -2743,9 +2758,71 @@ body {
 }
 
 .performance-layout .pace-panel,
-.performance-layout .summary-card {
+.performance-layout .compounding-status-card {
   border-color: rgba(160, 128, 255, 0.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 10px 34px rgba(0,0,0,0.2);
+}
+
+.performance-stale-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 209, 102, 0.42);
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.08);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.performance-metric-row {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.read-only-badge {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 14px;
+  color: #b8c7ff;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  background: rgba(184, 199, 255, 0.1);
+  border: 1px solid rgba(184, 199, 255, 0.2);
+}
+
+.moon-sun-primary {
+  background: linear-gradient(135deg, rgba(38, 51, 98, 0.88), rgba(8, 12, 25, 0.97));
+}
+
+.moon-sun-hero {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1.1fr) repeat(2, minmax(130px, 0.7fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.moon-sun-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compounding-status-card {
+  padding: 18px;
+}
+
+.compounding-status-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.read-only-copy {
+  margin: 12px 0 0;
+  color: #9ba7bd;
+  line-height: 1.45;
 }
 
 .performance-layout .trade-journal-panel {
@@ -2795,6 +2872,10 @@ body {
   .warning-grid,
   .position-management-layout,
   .performance-pace-grid,
+  .moon-sun-hero,
+  .moon-sun-grid,
+  .trade-journal-stats,
+  .trade-journal-executive,
   .performance-layout { grid-template-columns: 1fr; }
   .cockpit-page-tabs { position: static; }
 }

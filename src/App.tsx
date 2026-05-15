@@ -49,7 +49,7 @@ const COCKPIT_PAGES: CockpitPage[] = [
   { id: "command", label: "Command", shortLabel: "Command", eyebrow: "Decision", title: "Command", description: "One trade decision, one add status, one data status, one instruction.", icon: <Gauge /> },
   { id: "live-monitor", label: "Live Monitor", shortLabel: "Live Monitor", eyebrow: "Scanner Feed", title: "Live Monitor", description: "Attention rows first; full monitored basket stays collapsed until needed.", icon: <Radio /> },
   { id: "position-management", label: "Position Management", shortLabel: "Positions", eyebrow: "Broker Truth", title: "Position Management", description: "Active position, protection state, add permission, plan, and recheck trigger in one flow.", icon: <BriefcaseBusiness /> },
-  { id: "performance", label: "Performance", shortLabel: "Performance", eyebrow: "Pace + Journal", title: "Performance", description: "Portfolio value, equity, daily P&L, Moon/Sun pace, and closed-trade journal in one secondary performance view.", icon: <CircleDollarSign /> },
+  { id: "performance", label: "Performance", shortLabel: "Performance", eyebrow: "Pace + Journal", title: "Portfolio & Journal", description: "Portfolio value, equity, daily pace, Moon/Sun gap, and closed-trade journal in one read-only performance view.", icon: <CircleDollarSign /> },
   { id: "system", label: "System", shortLabel: "System", eyebrow: "Data Source Status", title: "System", description: "Compact feed health, Edward health, and collapsed source details unless degraded.", icon: <HeartPulse /> },
 ];
 
@@ -185,7 +185,7 @@ function CockpitPageContent({ activePage, loadResult, snapshot }: { activePage: 
     case "position-management":
       return <PositionManagementPage snapshot={snapshot} />;
     case "performance":
-      return <PerformancePage snapshot={snapshot} />;
+      return <PerformancePage loadResult={loadResult} snapshot={snapshot} />;
     case "system":
       return <SystemHealthPage loadResult={loadResult} />;
     case "command":
@@ -251,24 +251,35 @@ function LiveMonitorPage({ loadResult }: { loadResult: TradingDeskLoadResult }) 
   );
 }
 
-function PerformancePage({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+function PerformancePage({ loadResult, snapshot }: { loadResult: TradingDeskLoadResult; snapshot: TradingDeskSnapshot }) {
+  const pageDataStale = loadResult.dataMode === "live_stale" || snapshot.systemStatus === "STALE";
   return (
     <div className="cockpit-page-grid performance-layout">
       <nav className="performance-subnav" aria-label="Performance page sections">
         <a href="#performance-pace">Pace</a>
         <a href="#performance-journal">Journal</a>
       </nav>
+      {pageDataStale ? <PerformanceStaleNotice /> : null}
       <section id="performance-pace" className="performance-pace-section" aria-label="Portfolio pace">
         <PortfolioCommandBar snapshot={snapshot} />
         <div className="performance-pace-grid">
           <SoftLandingPanel snapshot={snapshot} />
-          <PortfolioPaceCard snapshot={snapshot} />
+          <CompoundingStatusCard snapshot={snapshot} />
         </div>
       </section>
       <section id="performance-journal" className="performance-journal-section" aria-label="Journal">
         <TradeJournalPanel snapshot={snapshot} />
       </section>
     </div>
+  );
+}
+
+function PerformanceStaleNotice() {
+  return (
+    <section className="performance-stale-notice" aria-label="Performance data stale warning">
+      <AlertTriangle size={16} />
+      <span>Data stale — portfolio values may lag. No trade decisions from this page.</span>
+    </section>
   );
 }
 
@@ -432,15 +443,18 @@ function HudCockpitRow({ row }: { row: HudHeartbeatDecision }) {
   );
 }
 
-function PortfolioPaceCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
+function CompoundingStatusCard({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const pace = snapshot.softLandingPace;
   return (
-    <section className="glass-panel summary-card" aria-label="Portfolio & Pace">
-      <PanelMiniHead icon={<CircleDollarSign />} title="Portfolio & Pace" />
-      <Metric label="Portfolio Value (PV)" value={currency.format(snapshot.portfolio.currentPV)} strong />
-      <Metric label="Equity" value={currency.format(snapshot.portfolio.equity)} />
-      <Metric label="24H P&L" value={money(snapshot.portfolio.dailyPnL)} trend={snapshot.portfolio.dailyPnL} />
-      <div className="pace-meter"><span>Soft Landing Pace</span><strong>{asPacePct(pace.currentDailyPVPct)}</strong><i style={{ width: `${Math.min(100, Math.max(4, pace.currentDailyPVPct * 10000))}%` }} /></div>
+    <section className="glass-panel compounding-status-card" aria-label="Compounding Status">
+      <PanelMiniHead icon={<CircleDollarSign />} title="Compounding Status" />
+      <div className="compounding-status-list">
+        <Metric label="Ahead of Moon" value={pace.moonStatus === "AHEAD" ? "Yes" : "No"} danger={pace.moonStatus !== "AHEAD"} />
+        <Metric label="Behind Sun" value={pace.sunStatus === "BEHIND" ? "Yes" : "No"} danger={pace.sunStatus === "BEHIND"} />
+        <Metric label="Days compounded" value={String(pace.daysSinceBaseline)} />
+        <Metric label="Baseline PV/date" value={`${currency.format(pace.baselinePV)} · ${pace.baselineDate}`} />
+      </div>
+      <p className="read-only-copy">READ-ONLY performance review. No live action is available from this page.</p>
     </section>
   );
 }
@@ -1335,41 +1349,42 @@ export function WarningAndRecheck({ snapshot }: { snapshot: TradingDeskSnapshot 
 
 export function SoftLandingPanel({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const pace = snapshot.softLandingPace;
-  const position = snapshot.activePositionFocus;
   return (
-    <section className="panel pace-panel">
+    <section className="panel pace-panel moon-sun-primary">
       <PanelTitle icon={<Target />} eyebrow="Soft Landing Pace" title="Moon / Sun Math" />
-      <div className="pace-grid">
+      <div className="moon-sun-hero" aria-label="Current compounding pace">
+        <Metric label="Current PV" value={currency.format(pace.currentPV)} strong />
+        <Metric label="Current Daily Pace" value={asPacePct(pace.currentDailyPVPct)} strong />
+        <Metric label="Moon target rate" value={asPacePct(pace.moonDailyRate)} />
+        <Metric label="Sun target rate" value={asPacePct(pace.sunDailyRate)} />
+      </div>
+      <div className="pace-grid moon-sun-grid">
         <PaceLane name="Moon" dailyRate="0.60%" target={pace.moonTargetPVToday} gap={pace.moonGapDollars} dailyTarget={pace.moonDailyTargetDollars} status={pace.moonStatus} />
         <PaceLane name="Sun" dailyRate="0.80%" target={pace.sunTargetPVToday} gap={pace.sunGapDollars} dailyTarget={pace.sunDailyTargetDollars} status={pace.sunStatus} />
       </div>
       <div className="pace-copy">
-        <span>Current PV {currency.format(pace.currentPV)}</span>
-        <span>Current Daily PV {asPacePct(pace.currentDailyPVPct)} vs Moon {asPacePct(pace.moonDailyRate)} / Sun {asPacePct(pace.sunDailyRate)}</span>
         <span>Baseline {currency.format(pace.baselinePV)} on {pace.baselineDate}</span>
         <span>{pace.daysSinceBaseline} days compounded</span>
+        <span>Read-only pace math; not an entry or exit instruction.</span>
       </div>
-      {position?.estimatedProfitAtTP1 && (
-        <p className="trade-math-line">
-          If TP1 hits, this trade contributes approximately <strong>{asPct(position.tp1ContributionToMoonDailyTargetPct)}</strong> of today's Moon target and <strong>{asPct(position.tp1ContributionToSunDailyTargetPct)}</strong> of today's Sun target.
-        </p>
-      )}
     </section>
   );
 }
 
 export function PortfolioCommandBar({ snapshot }: { snapshot: TradingDeskSnapshot }) {
   const { portfolio } = snapshot;
+  const pace = snapshot.softLandingPace;
+  const journal = buildTradeJournalSummary(snapshot);
   return (
-    <section className="portfolio-bar" aria-label="Portfolio Summary">
+    <section className="portfolio-bar performance-metric-row" aria-label="Portfolio and journal summary">
       <Metric label="Portfolio Value" value={currency.format(portfolio.currentPV)} icon={<CircleDollarSign />} strong />
       <Metric label="Equity" value={currency.format(portfolio.equity)} />
-      <Metric label="Unrealized PnL" value={money(portfolio.unrealizedPnL)} trend={portfolio.unrealizedPnL} />
-      <Metric label="Daily PnL" value={money(portfolio.dailyPnL)} trend={portfolio.dailyPnL} />
-      <Metric label="Margin Used" value={money(portfolio.marginUsed)} />
-      <div className={`exposure ${portfolio.exposureStatus.toLowerCase()}`}>
+      <Metric label="Realized Journal PnL" value={journal.executive.realizedPnl} trend={parseMoneyValue(journal.executive.realizedPnl)} />
+      <Metric label="Current Daily Pace" value={asPacePct(pace.currentDailyPVPct)} />
+      <Metric label="Sun Gap" value={currency.format(pace.sunGapDollars)} trend={pace.sunGapDollars} danger={pace.sunStatus === "BEHIND"} />
+      <div className="read-only-badge" aria-label="Performance page read-only state">
         <ShieldCheck size={18} />
-        <span>{portfolio.exposureStatus}</span>
+        <span>READ-ONLY</span>
       </div>
     </section>
   );
@@ -1548,6 +1563,17 @@ export function TradeJournalPanel({ snapshot }: { snapshot: TradingDeskSnapshot 
         <JournalStat value={journal.stats.winRate} label="WIN RATE" />
       </div>
 
+      <div className="trade-journal-executive" aria-label="Trade journal executive summary">
+        <JournalStat value={journal.executive.realizedPnl} label="Realized PnL" />
+        <JournalStat value={journal.executive.averageTrade} label="Average trade" />
+        <JournalStat value={journal.executive.medianTrade} label="Median trade" />
+        <JournalStat value={journal.executive.largestWin} label="Largest win" />
+        <JournalStat value={journal.executive.largestLoss} label="Largest loss" />
+        <JournalStat value={journal.executive.lastClosedTradeDate} label="Last closed trade" />
+      </div>
+
+      <p className="journal-proof-copy">Closed-trade journal proof only. This report summarizes realized outcomes; it does not create a trade instruction.</p>
+
       <details className="trade-journal-details">
         <summary className="trade-journal-detail-toggle">
           <span className="trade-journal-badge">See Detail</span>
@@ -1608,9 +1634,9 @@ function PaceLane({ name, dailyRate, target, gap, dailyTarget, status }: { name:
   return (
     <div className="pace-lane">
       <div><span>{name} Pace</span><strong className={status.toLowerCase()}>{status}</strong></div>
-      <Metric label="Target PV Today" value={currency.format(target)} />
-      <Metric label="Gap" value={currency.format(gap)} trend={gap} />
-      <Metric label={`Daily Target ${dailyRate}`} value={currency.format(dailyTarget)} />
+      <Metric label={`${name} target PV today`} value={currency.format(target)} />
+      <Metric label={`${name} gap dollars`} value={currency.format(gap)} trend={gap} />
+      <Metric label={`${name} daily target ${dailyRate}`} value={currency.format(dailyTarget)} />
     </div>
   );
 }
@@ -1838,6 +1864,10 @@ function deriveHudLiveStatus(loadResult: TradingDeskLoadResult, rows: HudHeartbe
 }
 
 function money(value?: number) { return value === undefined ? "Unavailable" : currency.format(value); }
+function parseMoneyValue(value: string) {
+  const numeric = Number(value.replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(numeric) ? numeric : undefined;
+}
 function num(value?: number) { return value === undefined ? "Unavailable" : value.toLocaleString("en-US", { maximumFractionDigits: 4 }); }
 function asPct(value?: number) { return value === undefined ? "N/A" : pct.format(value); }
 function asPacePct(value?: number) { return value === undefined ? "N/A" : pacePct.format(value); }

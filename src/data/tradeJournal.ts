@@ -19,6 +19,15 @@ export type TradeJournalRow = {
   tone: "neutral" | "warning" | "danger" | "success";
 };
 
+export type TradeJournalExecutiveSummary = {
+  realizedPnl: string;
+  averageTrade: string;
+  medianTrade: string;
+  largestWin: string;
+  largestLoss: string;
+  lastClosedTradeDate: string;
+};
+
 export type TradeJournalSummary = {
   badge: string;
   stats: {
@@ -27,6 +36,7 @@ export type TradeJournalSummary = {
     losses: string;
     winRate: string;
   };
+  executive: TradeJournalExecutiveSummary;
   rows: TradeJournalRow[];
   tableRows: TradeJournalRow[];
 };
@@ -39,6 +49,10 @@ export function buildTradeJournalSummary(snapshot: TradingDeskSnapshot, latestLi
   const losses = trades.filter((trade) => (trade.realizedPnl ?? 0) < 0).length;
   const decisiveTrades = wins + losses;
 
+  const realizedPnlValues = trades
+    .map((trade) => trade.realizedPnl)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+
   return {
     badge: trades.length ? `${trades.length} closed trades` : "0 closed trades",
     stats: {
@@ -47,6 +61,7 @@ export function buildTradeJournalSummary(snapshot: TradingDeskSnapshot, latestLi
       losses: String(losses),
       winRate: decisiveTrades ? `${((wins / decisiveTrades) * 100).toFixed(1)}%` : "0.0%",
     },
+    executive: buildExecutiveSummary(trades, realizedPnlValues),
     rows: trades.length ? trades.slice(0, latestLimit).map(formatClosedTradeRow) : buildEmptyRows(),
     tableRows: trades.length ? trades.map(formatClosedTradeRow) : buildEmptyRows(),
   };
@@ -59,6 +74,36 @@ export function buildTradeJournalRows(snapshot: TradingDeskSnapshot): TradeJourn
   }
 
   return trades.map(formatClosedTradeRow);
+}
+
+function buildExecutiveSummary(trades: SnapshotTradeJournalEntry[], realizedPnlValues: number[]): TradeJournalExecutiveSummary {
+  if (!realizedPnlValues.length) {
+    return {
+      realizedPnl: "Unavailable",
+      averageTrade: "Unavailable",
+      medianTrade: "Unavailable",
+      largestWin: "Unavailable",
+      largestLoss: "Unavailable",
+      lastClosedTradeDate: trades[0]?.exitTime ? formatDate(trades[0].exitTime) : "Unavailable",
+    };
+  }
+
+  const sortedPnl = [...realizedPnlValues].sort((left, right) => left - right);
+  const midpoint = Math.floor(sortedPnl.length / 2);
+  const median = sortedPnl.length % 2 === 0
+    ? (sortedPnl[midpoint - 1] + sortedPnl[midpoint]) / 2
+    : sortedPnl[midpoint];
+  const wins = realizedPnlValues.filter((value) => value > 0);
+  const losses = realizedPnlValues.filter((value) => value < 0);
+
+  return {
+    realizedPnl: formatJournalMoney(realizedPnlValues.reduce((total, value) => total + value, 0)),
+    averageTrade: formatJournalMoney(realizedPnlValues.reduce((total, value) => total + value, 0) / realizedPnlValues.length),
+    medianTrade: formatJournalMoney(median),
+    largestWin: wins.length ? formatJournalMoney(Math.max(...wins)) : "Unavailable",
+    largestLoss: losses.length ? formatJournalMoney(Math.min(...losses)) : "Unavailable",
+    lastClosedTradeDate: trades[0]?.exitTime ? formatDate(trades[0].exitTime) : "Unavailable",
+  };
 }
 
 function buildEmptyRows(): TradeJournalRow[] {

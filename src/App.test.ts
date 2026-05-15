@@ -83,7 +83,7 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Manual / Read-only");
     expect(appSource).toContain("edward-core-orb");
     expect(appSource).toContain("prefers-reduced-motion: reduce");
-    expect(appSource.indexOf("<TopCommandHeader")).toBeLessThan(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />"));
+    expect(appSource.indexOf("<TopCommandHeader")).toBeLessThan(appSource.indexOf("<PrimaryTradeDecisionPanel snapshot={snapshot} loadResult={loadResult} />"));
   });
 
   it("maps Primary Scan rows to operator evidence labels instead of vague trade copy", () => {
@@ -146,50 +146,38 @@ describe("Trading Desk shell", () => {
   });
 
   it("renders a decision-first cockpit with refresh, risk ladder, and watchlist surfaces", () => {
-    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
-      appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),
-    );
-    expect(appSource.indexOf("<RiskLadderPanel snapshot={snapshot} />")).toBeLessThan(
-      appSource.indexOf("<MarketMovementPanel snapshot={snapshot} />"),
-    );
     expect(appSource).toContain("REFRESH_INTERVAL_SECONDS = 30");
     expect(appSource).toContain("Next refresh");
     expect(appSource).toContain("Active Basket Coverage");
     expect(appSource).toContain("Risk & Ladder Management");
-    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
-    const tradeManagementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
-    const healthIndex = appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />");
-    const bodyProgressIndex = appSource.indexOf("<EdwardBodyProgressPanel />");
-    const journalIndex = appSource.indexOf("<TradeJournalPanel snapshot={snapshot} />");
-
-    expect(tradeDecisionIndex).toBeLessThan(tradeManagementIndex);
-    expect(tradeManagementIndex).toBeLessThan(healthIndex);
+    const commandIndex = appSource.indexOf("<PrimaryTradeDecisionPanel snapshot={snapshot} loadResult={loadResult} />");
+    const guardrailIndex = appSource.indexOf("<RiskGuardrailsPanel snapshot={snapshot} />");
+    const warningIndex = appSource.indexOf("<WarningAndRecheck snapshot={snapshot} />");
     const alertIndex = appSource.indexOf("<LatestAlertPanel alertIntake={loadResult.alertIntake} />");
-    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} />");
-    const verdictIndex = appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />");
+    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} compact />");
     const riskIndex = appSource.indexOf("<RiskLadderPanel snapshot={snapshot} />");
-    expect(tradeDecisionIndex).toBeLessThan(alertIndex);
-    expect(tradeManagementIndex).toBeLessThan(alertIndex);
-    expect(healthIndex).toBeLessThan(alertIndex);
-    expect(alertIndex).toBeLessThan(watchlistIndex);
-    expect(watchlistIndex).toBeLessThan(verdictIndex);
-    expect(verdictIndex).toBeLessThan(riskIndex);
-    expect(healthIndex).toBeLessThan(bodyProgressIndex);
-    expect(healthIndex).toBeLessThan(journalIndex);
+
+    expect(commandIndex).toBeGreaterThan(-1);
+    expect(commandIndex).toBeLessThan(guardrailIndex);
+    expect(guardrailIndex).toBeLessThan(warningIndex);
+    expect(warningIndex).toBeLessThan(alertIndex);
+    expect(watchlistIndex).toBeGreaterThan(-1);
+    expect(riskIndex).toBeGreaterThan(-1);
     expect(appSource).toContain("Edward Health");
     expect(appSource).toContain("Producer Status");
-    expect(appSource).toContain("Source Freshness");
+    expect(appSource).toContain("Data Source Status");
   });
 
-  it("keeps Edward Body Progress after cockpit/watchlist flow and before the journal", () => {
-    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
+  it("keeps the Performance report pace-first and journal second", () => {
     const portfolioIndex = appSource.indexOf("<PortfolioCommandBar snapshot={snapshot} />");
-    const bodyProgressIndex = appSource.indexOf("<EdwardBodyProgressPanel />");
+    const softLandingIndex = appSource.indexOf("<SoftLandingPanel snapshot={snapshot} />");
+    const compoundingIndex = appSource.indexOf("<CompoundingStatusCard snapshot={snapshot} />");
     const journalIndex = appSource.indexOf("<TradeJournalPanel snapshot={snapshot} />");
 
-    expect(bodyProgressIndex).toBeGreaterThan(tradeDecisionIndex);
-    expect(bodyProgressIndex).toBeGreaterThan(portfolioIndex);
-    expect(bodyProgressIndex).toBeLessThan(journalIndex);
+    expect(portfolioIndex).toBeGreaterThan(-1);
+    expect(portfolioIndex).toBeLessThan(softLandingIndex);
+    expect(softLandingIndex).toBeLessThan(compoundingIndex);
+    expect(compoundingIndex).toBeLessThan(journalIndex);
   });
 
   it("renders body-progress copy and locked execution state from static progress data", () => {
@@ -205,6 +193,22 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Object.entries(progress.bodyParts)");
   });
 
+  it("frames Performance as a read-only portfolio and journal report", () => {
+    expect(appSource).toContain('title: "Portfolio & Journal"');
+    expect(appSource).toContain("Data stale — portfolio values may lag. No trade decisions from this page.");
+    expect(appSource).toContain("READ-ONLY");
+    expect(appSource).not.toContain('title="Portfolio & Pace"');
+    expect(appSource).toContain("Compounding Status");
+    expect(appSource).toContain("Realized Journal PnL");
+    expect(appSource).toContain("Moon target rate");
+    expect(appSource).toContain("Sun target rate");
+    expect(appSource).toContain("Average trade");
+    expect(appSource).toContain("Median trade");
+    expect(appSource).toContain("Largest win");
+    expect(appSource).toContain("Largest loss");
+    expect(appSource).toContain("Last closed trade");
+  });
+
   it("renders separated thesis, risk, data confidence, add permission, and reasons when present", () => {
     expect(appSource).toContain("Technical Thesis");
     expect(appSource).toContain("Risk State");
@@ -215,12 +219,12 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("managementState");
   });
 
-  it("renders trade management plan below the trade decision with protection and soft landing math", () => {
-    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
+  it("renders trade management plan below active position management with protection and soft landing math", () => {
+    expect(appSource.indexOf("<ActiveTradeManagementPanel binding={snapshot.managementBinding} />")).toBeLessThan(
       appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />"),
     );
     expect(appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />")).toBeLessThan(
-      appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),
+      appSource.indexOf("<RecheckTriggersCard snapshot={snapshot} />"),
     );
     expect(appSource).toContain("Trade Management Plan");
     expect(appSource).toContain("Protection Plan");
@@ -238,18 +242,18 @@ describe("Trading Desk shell", () => {
     );
   });
 
-  it("renders latest alert intake below Edward Health without outranking decision or management", () => {
-    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
-    const tradeManagementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
-    const healthIndex = appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />");
+  it("renders latest alert intake as command detail without outranking decision or management", () => {
+    const commandIndex = appSource.indexOf("<PrimaryTradeDecisionPanel snapshot={snapshot} loadResult={loadResult} />");
+    const guardrailIndex = appSource.indexOf("<RiskGuardrailsPanel snapshot={snapshot} />");
+    const warningIndex = appSource.indexOf("<WarningAndRecheck snapshot={snapshot} />");
     const alertIndex = appSource.indexOf("<LatestAlertPanel alertIntake={loadResult.alertIntake} />");
-    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} />");
+    const managementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
 
     expect(alertIndex).toBeGreaterThan(-1);
-    expect(tradeDecisionIndex).toBeLessThan(tradeManagementIndex);
-    expect(tradeManagementIndex).toBeLessThan(healthIndex);
-    expect(healthIndex).toBeLessThan(alertIndex);
-    expect(alertIndex).toBeLessThan(watchlistIndex);
+    expect(commandIndex).toBeLessThan(guardrailIndex);
+    expect(guardrailIndex).toBeLessThan(warningIndex);
+    expect(warningIndex).toBeLessThan(alertIndex);
+    expect(alertIndex).toBeLessThan(managementIndex);
     expect(appSource).toContain("Latest Alert / Alert Intake");
     expect(appSource).toContain("Alerts do not execute trades.");
     expect(appSource).toContain("Alert intake unavailable / no recent alerts");
@@ -764,14 +768,14 @@ describe("Active Trade Management Binding panel", () => {
   it("renders active-position management separately from alert context", () => {
     const html = renderToStaticMarkup(React.createElement(ActiveTradeManagementPanel, { binding: baseBinding }));
 
-    expect(html).toContain("Active Trade Management / Management Binding");
+    expect(html).toContain("Position management link");
     expect(html).toContain("BCHUSDT SHORT");
     expect(html).toContain("broker open position");
     expect(html).toContain("15m");
     expect(html).toContain("1H");
     expect(html).toContain("4H");
     expect(html).toContain("HIGH");
-    expect(html).toContain("BLOCKED");
+    expect(html).toContain("No action / blocked");
     expect(html).toContain("autoExecution false");
     expect(html).toContain("executionIntent none");
     expect(html).not.toContain("Place order");
