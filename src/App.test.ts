@@ -100,6 +100,16 @@ function hawkLoadResult(session: HawkWatchSession): HawkLoadResult {
   };
 }
 
+function staleHawkLoadResult(session: HawkWatchSession): HawkLoadResult {
+  return {
+    status: "stale",
+    session,
+    message: "Hawk data stale/unavailable. No action.",
+    validationIssues: [],
+    loadedAt: "2026-06-02T13:05:00.000Z",
+  };
+}
+
 function renderHawk(session: HawkWatchSession) {
   return renderToStaticMarkup(React.createElement(EdwardHawkPage, { hawkResult: hawkLoadResult(session) }));
 }
@@ -173,8 +183,30 @@ describe("Trading Desk shell", () => {
 
     expect(missingHtml).toContain("HAWK DATA UNAVAILABLE");
     expect(missingHtml).toContain("Hawk data stale/unavailable. No action.");
-    expect(staleHtml).toContain("STALE_NO_ACTION");
+    expect(staleHtml).toContain("HAWK DATA UNAVAILABLE");
     expect(staleHtml).toContain("Hawk data stale/unavailable. No action.");
+    expect(staleHtml).not.toContain("Advisory ticket");
+  });
+
+  it("fails closed when a schema-valid Hawk artifact is stale but still claims VALID_ENTRY_REVIEW with a ticket", () => {
+    const staleButValidEntryReview = {
+      ...hawkFixture,
+      current_state: "VALID_ENTRY_REVIEW",
+      latest_decision: {
+        ...hawkFixture.latest_decision!,
+        state: "VALID_ENTRY_REVIEW",
+        data_confidence: "STALE_OR_UNAVAILABLE",
+        order_ticket_suggestion: hawkFixture.latest_decision!.order_ticket_suggestion,
+      },
+    } as HawkWatchSession;
+    const html = renderToStaticMarkup(React.createElement(EdwardHawkPage, { hawkResult: staleHawkLoadResult(staleButValidEntryReview) }));
+
+    expect(html).toContain("HAWK DATA UNAVAILABLE");
+    expect(html).toContain("Hawk data stale/unavailable. No action.");
+    expect(html).not.toContain("Advisory ticket");
+    expect(html).not.toContain("Valid entry review. Advisory only. Manual approval required. Execution disabled.");
+    expect(html).not.toContain("Proposed action");
+    expect(html).not.toContain("Execution enabled");
   });
 
   it("does not render an execution or order action in the Hawk panel", () => {

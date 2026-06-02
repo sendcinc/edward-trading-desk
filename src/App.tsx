@@ -420,10 +420,12 @@ export function EdwardHawkPage({ hawkResult }: { hawkResult: HawkLoadResult }) {
   const session = hawkResult.session;
   const unavailable = !session || hawkResult.status === "unavailable" || hawkResult.status === "malformed";
   const noAction = unavailable || hawkResult.status === "stale" || session?.current_state === "STALE_NO_ACTION";
-  const state = unavailable ? "HAWK DATA UNAVAILABLE" : session.current_state;
-  const decisionCopy = unavailable ? "Hawk data stale/unavailable. No action." : hawkDecisionCopy(session.current_state);
+  const state = noAction || !session ? "HAWK DATA UNAVAILABLE" : session.current_state;
+  const decisionCopy = noAction || !session ? "Hawk data stale/unavailable. No action." : hawkDecisionCopy(session.current_state);
   const decision = session?.latest_decision;
-  const ticket = decision?.order_ticket_suggestion ?? null;
+  const ticket = noAction ? null : decision?.order_ticket_suggestion ?? null;
+  const decisionMessage = noAction ? "Hawk data stale/unavailable. No action." : decision?.message ?? "Hawk data stale/unavailable. No action.";
+  const nextCondition = noAction ? "Hawk data stale/unavailable. No action." : decision?.next_required_condition ?? session?.next_required_condition ?? "Hawk data stale/unavailable. No action.";
 
   return (
     <div className="cockpit-page-grid hawk-layout">
@@ -432,9 +434,9 @@ export function EdwardHawkPage({ hawkResult }: { hawkResult: HawkLoadResult }) {
           <span className={`hawk-state-badge ${hawkDecisionTone(state)}`}>{state}</span>
           <strong>{decisionCopy}</strong>
         </div>
-        <p>{decision?.message ?? "Hawk data stale/unavailable. No action."}</p>
+        <p>{decisionMessage}</p>
         <div className="hawk-decision-rationale">
-          <DecisionField label="Technical thesis" value={decision?.thesis ?? "Not evaluated from unavailable Hawk data."} />
+          <DecisionField label="Technical thesis" value={noAction ? "Not evaluated from stale/unavailable Hawk data." : decision?.thesis ?? "Not evaluated from unavailable Hawk data."} />
           <DecisionField label="Risk / exposure / data confidence" value={decision ? `${decision.risk} Data: ${decision.data_confidence}.` : hawkResult.message} tone={noAction ? "danger" : "muted"} />
         </div>
       </section>
@@ -461,12 +463,12 @@ export function EdwardHawkPage({ hawkResult }: { hawkResult: HawkLoadResult }) {
 
       <section className="glass-panel hawk-next-card" aria-label="Edward Hawk next condition">
         <PanelMiniHead icon={<ListChecks />} title="Next condition" />
-        <p>{decision?.next_required_condition ?? session?.next_required_condition ?? "Hawk data stale/unavailable. No action."}</p>
+        <p>{nextCondition}</p>
       </section>
 
       <section className="glass-panel hawk-timeline-card" aria-label="Edward Hawk timeline">
         <PanelMiniHead icon={<Clock3 />} title="Timeline / story" />
-        {session?.timeline.length ? (
+        {session?.timeline.length && !noAction ? (
           <ol className="hawk-timeline">
             {session.timeline.map((event, index) => (
               <li key={`${event.at}-${event.state}-${index}`} className={hawkDecisionTone(event.state)}>
@@ -518,7 +520,7 @@ export function EdwardHawkPage({ hawkResult }: { hawkResult: HawkLoadResult }) {
   );
 }
 
-export function hawkDecisionCopy(state: HawkDecisionState | "HAWK DATA UNAVAILABLE") {
+function hawkDecisionCopy(state: HawkDecisionState | "HAWK DATA UNAVAILABLE") {
   switch (state) {
     case "WATCH_SUPPORT":
       return "Support touched. No entry yet. Touch is not permission.";
