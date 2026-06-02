@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
-import { loadHawkSession, safeUnavailableHawkSession, type HawkDecisionState, type HawkLoadResult } from "./data/hawkSession";
+import { loadHawkSession, safeUnavailableHawkSession, type HawkDecisionState, type HawkLiveManagement, type HawkLoadResult } from "./data/hawkSession";
 import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
 import type { AlertIntakeResult, DataMode, FreshAlertReview, FreshAlertReviewHistoryEntry, FreshAlertReviewTimeframe, HudHeartbeatDecision, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
@@ -426,6 +426,7 @@ export function EdwardHawkPage({ hawkResult }: { hawkResult: HawkLoadResult }) {
   const ticket = noAction ? null : decision?.order_ticket_suggestion ?? null;
   const decisionMessage = noAction ? "Hawk data stale/unavailable. No action." : decision?.message ?? "Hawk data stale/unavailable. No action.";
   const nextCondition = noAction ? "Hawk data stale/unavailable. No action." : decision?.next_required_condition ?? session?.next_required_condition ?? "Hawk data stale/unavailable. No action.";
+  const liveManagement = noAction ? null : session?.live_management ?? null;
 
   return (
     <div className="cockpit-page-grid hawk-layout">
@@ -439,6 +440,41 @@ export function EdwardHawkPage({ hawkResult }: { hawkResult: HawkLoadResult }) {
           <DecisionField label="Technical thesis" value={noAction ? "Not evaluated from stale/unavailable Hawk data." : decision?.thesis ?? "Not evaluated from unavailable Hawk data."} />
           <DecisionField label="Risk / exposure / data confidence" value={decision ? `${decision.risk} Data: ${decision.data_confidence}.` : hawkResult.message} tone={noAction ? "danger" : "muted"} />
         </div>
+      </section>
+
+      <section className={`glass-panel hawk-live-card ${noAction ? "danger" : ""}`} aria-label="Edward Hawk live management">
+        <PanelMiniHead icon={<Activity />} title="Live Management" />
+        {liveManagement ? (
+          <>
+            <p className="hawk-operator-message">{liveManagement.operator_message ?? decisionCopy}</p>
+            <div className="monitor-stats hawk-level-grid">
+              <Metric label="Next checkpoint" value={liveManagement.next_checkpoint?.label ?? "Unavailable"} strong />
+              <Metric label="Checkpoint reason" value={liveManagement.next_checkpoint?.reason ?? liveManagement.next_checkpoint_reason ?? "Unavailable"} />
+              {liveManagement.higher_timeframe_checkpoint?.label ? <Metric label="Higher timeframe" value={liveManagement.higher_timeframe_checkpoint.label} /> : null}
+              <Metric label="Good add zone only after reclaim" value={formatLevelRange(liveManagement.good_add_zone ?? undefined)} strong />
+              <Metric label="Entry review zone" value={formatLevelRange(liveManagement.good_entry_zone ?? session?.level_plan.entry_review_zone)} />
+              <Metric label="Soft invalidation" value={formatSoftInvalidation(liveManagement.soft_invalidation)} danger />
+              <Metric label="Hard failure" value={num(liveManagement.hard_failure ?? session?.level_plan.hard_failure ?? undefined)} danger />
+              <Metric label="Reset zone" value={num(liveManagement.reset_zone ?? undefined)} danger />
+              <Metric label="Chase cutoff" value={num(liveManagement.chase_cutoff ?? session?.level_plan.chase_cutoff ?? undefined)} danger />
+              <Metric label="Action guard" value={formatLiveActionGuard(liveManagement)} danger={liveManagement.action_type !== "review_only"} strong />
+            </div>
+            {liveManagement.no_action_reason ? <p className="hawk-no-action-reason">{liveManagement.no_action_reason}</p> : null}
+          </>
+        ) : noAction ? (
+          <p className="hawk-unavailable-copy">Hawk data stale/unavailable. No action.</p>
+        ) : (
+          <>
+            <p className="hawk-operator-message">{decisionCopy}</p>
+            <div className="monitor-stats hawk-level-grid">
+              <Metric label="Next condition" value={nextCondition} />
+              <Metric label="Entry review zone" value={formatLevelRange(session?.level_plan.entry_review_zone)} />
+              <Metric label="Hard failure" value={num(session?.level_plan.hard_failure)} danger />
+              <Metric label="Chase cutoff" value={num(session?.level_plan.chase_cutoff)} danger />
+              <Metric label="Action guard" value="No execution - decision fields shown" strong />
+            </div>
+          </>
+        )}
       </section>
 
       <section className="glass-panel hawk-plan-card" aria-label="Edward Hawk plan and levels">
@@ -562,6 +598,26 @@ function hawkDecisionTone(state: HawkDecisionState | "HAWK DATA UNAVAILABLE") {
 function formatLevelRange(values?: number[]) {
   if (!values || values.length < 2) return "Unavailable";
   return `${num(values[0])} - ${num(values[1])}`;
+}
+
+function formatSoftInvalidation(value: HawkLiveManagement["soft_invalidation"]) {
+  if (value === undefined || value === null) return "Unavailable";
+  if (typeof value === "number") return num(value);
+  if (typeof value === "string") return value;
+  const level = typeof value.level === "number" ? num(value.level) : null;
+  const condition = value.condition ?? null;
+  if (level && condition) return `${level} · ${condition}`;
+  return level ?? condition ?? "Unavailable";
+}
+
+function formatLiveActionGuard(liveManagement: HawkLiveManagement) {
+  if (liveManagement.action_type === "review_only" || liveManagement.action_allowed === "review_only") {
+    return "Manual review only — execution disabled";
+  }
+  if (liveManagement.action_allowed === false || liveManagement.action_type === "none") {
+    return "No action allowed";
+  }
+  return "No action allowed";
 }
 
 export function buildAlertInboxRows(snapshot: TradingDeskSnapshot, alertIntake?: AlertIntakeResult): AlertInboxRow[] {

@@ -205,6 +205,79 @@ describe("Trading Desk shell", () => {
     expect(html).toContain("none");
   });
 
+  it("renders fresh Hawk live management fields with safe action wording", () => {
+    const html = renderHawk(hawkFixture);
+
+    expect(html).toContain("Live Management");
+    expect(html).toContain("Valid entry review. Good add zone is 0.1988-0.2005 / 0.2000-0.2010 depending on fill quality. Manual approval required. Execution disabled.");
+    expect(html).toContain("3:30pm 15m close");
+    expect(html).toContain("Review stays valid only while data is fresh and price holds the plan.");
+    expect(html).toContain("Good add zone only after reclaim");
+    expect(html).toContain("0.1988 - 0.2005");
+    expect(html).toContain("Soft invalidation");
+    expect(html).toContain("0.1982");
+    expect(html).toContain("Hard failure");
+    expect(html).toContain("0.1955");
+    expect(html).toContain("Chase cutoff");
+    expect(html).toContain("0.2035");
+    expect(html).toContain("Manual review only");
+    expect(html).toContain("execution disabled");
+    expect(html).not.toContain("allowed to trade");
+  });
+
+  it("renders WAITING_FOR_RECLAIM live management as no-add/no-action", () => {
+    const waitingForReclaim = {
+      ...hawkFixture,
+      current_state: "WAITING_FOR_RECLAIM",
+      latest_decision: {
+        ...hawkFixture.latest_decision!,
+        state: "WAITING_FOR_RECLAIM",
+        message: "Sweep/support test is in progress. No entry; wait for reclaim.",
+        order_ticket_suggestion: null,
+      },
+      live_management: {
+        ...hawkFixture.live_management!,
+        operator_message: "JUPUSDT inside the support zone. No add yet. Waiting for reclaim above 0.1982.",
+        current_decision_plain: "WAITING_FOR_RECLAIM",
+        next_checkpoint: {
+          at: "2026-06-02T15:30:00-04:00",
+          label: "3:30pm 15m close",
+          reason: "Need candle close above reclaim level 0.1982.",
+        },
+        next_checkpoint_reason: "Need candle close above reclaim level 0.1982.",
+        action_allowed: false,
+        action_type: "none",
+        no_action_reason: "Price is still below reclaim; touch/support test is not permission.",
+      },
+    } as HawkWatchSession;
+    const html = renderHawk(waitingForReclaim);
+
+    expect(html).toContain("WAITING_FOR_RECLAIM");
+    expect(html).toContain("No add yet");
+    expect(html).toContain("Waiting for reclaim above 0.1982");
+    expect(html).toContain("Good add zone only after reclaim");
+    expect(html).toContain("0.1988 - 0.2005");
+    expect(html).toContain("No action allowed");
+    expect(html).toContain("touch/support test is not permission");
+    expect(html).not.toContain("Advisory ticket");
+    expect(html.toLowerCase()).not.toContain("confirm trade");
+    expect(html.toLowerCase()).not.toContain("send order");
+    expect(html.toLowerCase()).not.toContain("place order");
+  });
+
+  it("renders VALID_ENTRY_REVIEW live management as review only, not execution", () => {
+    const html = renderHawk(hawkFixture);
+
+    expect(html).toContain("Valid entry review");
+    expect(html).toContain("Manual approval required");
+    expect(html).toContain("Execution disabled");
+    expect(html).toContain("Manual review only");
+    expect(html).toContain("Advisory ticket");
+    expect(html.toLowerCase()).not.toContain("confirm trade");
+    expect(html.toLowerCase()).not.toContain("send order");
+    expect(html.toLowerCase()).not.toContain("place order");
+  });
+
   it("renders missing or stale Hawk data as safe no-action unavailable state", () => {
     const missingHtml = renderToStaticMarkup(React.createElement(EdwardHawkPage, { hawkResult: safeUnavailableHawkSession("hawk-session-latest.json unavailable: HTTP 404") }));
     const staleSession = {
@@ -237,6 +310,12 @@ describe("Trading Desk shell", () => {
         data_confidence: "STALE_OR_UNAVAILABLE",
         order_ticket_suggestion: hawkFixture.latest_decision!.order_ticket_suggestion,
       },
+      live_management: {
+        ...hawkFixture.live_management!,
+        operator_message: "Valid entry review. Manual approval required. Execution disabled.",
+        action_allowed: "review_only",
+        action_type: "review_only",
+      },
     } as HawkWatchSession;
     const html = renderToStaticMarkup(React.createElement(EdwardHawkPage, { hawkResult: staleHawkLoadResult(staleButValidEntryReview) }));
 
@@ -244,8 +323,26 @@ describe("Trading Desk shell", () => {
     expect(html).toContain("Hawk data stale/unavailable. No action.");
     expect(html).not.toContain("Advisory ticket");
     expect(html).not.toContain("Valid entry review. Advisory only. Manual approval required. Execution disabled.");
+    expect(html).not.toContain("Valid entry review. Manual approval required. Execution disabled.");
+    expect(html).not.toContain("Good add zone only after reclaim");
     expect(html).not.toContain("Proposed action");
     expect(html).not.toContain("Execution enabled");
+  });
+
+  it("keeps older Hawk artifacts without live_management rendering safely", () => {
+    const oldArtifact = {
+      ...hawkFixture,
+      live_management: undefined,
+    } as HawkWatchSession;
+    const html = renderHawk(oldArtifact);
+
+    expect(html).toContain("Live Management");
+    expect(html).toContain("No execution - decision fields shown");
+    expect(html).toContain("VALID_ENTRY_REVIEW");
+    expect(html).toContain("Advisory ticket");
+    expect(html.toLowerCase()).not.toContain("confirm trade");
+    expect(html.toLowerCase()).not.toContain("send order");
+    expect(html.toLowerCase()).not.toContain("place order");
   });
 
   it("does not render an execution or order action in the Hawk panel", () => {

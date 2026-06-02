@@ -44,6 +44,41 @@ export type HawkDecision = {
   order_ticket_suggestion?: HawkOrderTicketSuggestion | null;
 };
 
+export type HawkLiveManagement = {
+  operator_message?: string;
+  current_decision_plain?: string;
+  next_checkpoint?: {
+    at?: string | null;
+    label?: string | null;
+    reason?: string | null;
+  } | null;
+  next_checkpoint_reason?: string | null;
+  higher_timeframe_checkpoint?: {
+    at?: string | null;
+    label?: string | null;
+    timeframe?: string | null;
+  } | null;
+  good_entry_zone?: number[] | null;
+  good_add_zone?: number[] | null;
+  soft_invalidation?: {
+    level?: number | null;
+    condition?: string | null;
+  } | number | string | null;
+  hard_failure?: number | null;
+  chase_cutoff?: number | null;
+  reset_zone?: number | null;
+  decision_deadline?: string | null;
+  action_allowed?: boolean | "review_only" | string | null;
+  action_type?: string | null;
+  no_action_reason?: string | null;
+  time_context?: {
+    as_of?: string | null;
+    candle_minutes?: number | null;
+    higher_timeframe?: string | null;
+    timezone_source?: string | null;
+  } | null;
+};
+
 export type HawkWatchSession = {
   contract: "edward_hawk_watch_session.v0.1";
   session_id: string;
@@ -81,6 +116,7 @@ export type HawkWatchSession = {
   entry_permission: false;
   auto_execution: false;
   execution_intent: "none";
+  live_management?: HawkLiveManagement | null;
   updated_at?: string;
 };
 
@@ -119,6 +155,46 @@ const hawkDecisionSchema = z.object({
   order_ticket_suggestion: hawkOrderTicketSuggestionSchema.nullable().optional(),
 }).strict();
 
+const hawkCheckpointSchema = z.object({
+  at: z.string().min(1).nullable().optional(),
+  label: z.string().min(1).nullable().optional(),
+  reason: z.string().min(1).nullable().optional(),
+  timeframe: z.string().min(1).nullable().optional(),
+}).passthrough();
+
+const hawkSoftInvalidationSchema = z.union([
+  z.object({
+    level: z.number().finite().nullable().optional(),
+    condition: z.string().min(1).nullable().optional(),
+  }).passthrough(),
+  z.number().finite(),
+  z.string().min(1),
+]);
+
+const hawkLiveManagementSchema = z.object({
+  operator_message: z.string().min(1).optional(),
+  current_decision_plain: z.string().min(1).optional(),
+  next_checkpoint: hawkCheckpointSchema.nullable().optional(),
+  next_checkpoint_reason: z.string().min(1).nullable().optional(),
+  higher_timeframe_checkpoint: hawkCheckpointSchema.nullable().optional(),
+  good_entry_zone: z.array(z.number().finite()).length(2).nullable().optional(),
+  good_add_zone: z.array(z.number().finite()).length(2).nullable().optional(),
+  soft_invalidation: hawkSoftInvalidationSchema.nullable().optional(),
+  hard_failure: z.number().finite().nullable().optional(),
+  chase_cutoff: z.number().finite().nullable().optional(),
+  reset_zone: z.number().finite().nullable().optional(),
+  decision_deadline: z.string().min(1).nullable().optional(),
+  action_allowed: z.union([z.boolean(), z.literal("review_only"), z.string()]).nullable().optional(),
+  action_type: z.string().min(1).nullable().optional(),
+  no_action_reason: z.string().nullable().optional(),
+  time_context: z.object({
+    as_of: z.string().min(1).nullable().optional(),
+    candle_minutes: z.number().finite().nullable().optional(),
+    higher_timeframe: z.string().min(1).nullable().optional(),
+    timezone_source: z.string().min(1).nullable().optional(),
+  }).passthrough().nullable().optional(),
+}).passthrough();
+
 const hawkWatchSessionSchema = z.object({
   contract: z.literal("edward_hawk_watch_session.v0.1"),
   session_id: z.string().min(1),
@@ -156,6 +232,7 @@ const hawkWatchSessionSchema = z.object({
   entry_permission: z.literal(false),
   auto_execution: z.literal(false),
   execution_intent: z.literal("none"),
+  live_management: hawkLiveManagementSchema.nullable().optional(),
   updated_at: z.string().min(1).optional(),
 }).passthrough();
 

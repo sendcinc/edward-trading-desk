@@ -1,14 +1,14 @@
 {
   "active": true,
   "auto_execution": false,
-  "contract": "edward_hawk_watch_session.v0.1",
   "context": {
     "entry_review_valid": true,
     "reclaim_confirmed": true,
     "support_touched": true,
     "swept_support": true
   },
-  "created_at": "2026-06-02T12:00:00Z",
+  "contract": "edward_hawk_watch_session.v0.1",
+  "created_at": "2026-06-02T23:21:36Z",
   "creates_trade_permission": false,
   "current_state": "VALID_ENTRY_REVIEW",
   "direction": "LONG",
@@ -53,6 +53,46 @@
       0.1963
     ]
   },
+  "live_management": {
+    "action_allowed": "review_only",
+    "action_type": "review_only",
+    "chase_cutoff": 0.2035,
+    "current_decision_plain": "VALID_ENTRY_REVIEW",
+    "decision_deadline": "2026-06-02T15:30:00-04:00",
+    "good_add_zone": [
+      0.1988,
+      0.2005
+    ],
+    "good_entry_zone": [
+      0.2,
+      0.201
+    ],
+    "hard_failure": 0.1955,
+    "higher_timeframe_checkpoint": {
+      "at": "2026-06-02T16:00:00-04:00",
+      "label": "4:00pm 4h checkpoint",
+      "timeframe": "4h"
+    },
+    "next_checkpoint": {
+      "at": "2026-06-02T15:30:00-04:00",
+      "label": "3:30pm 15m close",
+      "reason": "Review stays valid only while data is fresh and price holds the plan."
+    },
+    "next_checkpoint_reason": "Review stays valid only while data is fresh and price holds the plan.",
+    "no_action_reason": "",
+    "operator_message": "Valid entry review. Good add zone is 0.1988-0.2005 / 0.2000-0.2010 depending on fill quality. Manual approval required. Execution disabled.",
+    "reset_zone": 0.1906,
+    "soft_invalidation": {
+      "condition": "Failed reclaim / loses 0.1982 after reclaim.",
+      "level": 0.1982
+    },
+    "time_context": {
+      "as_of": "2026-06-02T15:21:00-04:00",
+      "candle_minutes": 15,
+      "higher_timeframe": "4h",
+      "timezone_source": "timestamp_offset"
+    }
+  },
   "manual_only": true,
   "next_required_condition": "Manual approval required; execution remains disabled.",
   "playbook": {
@@ -61,40 +101,100 @@
     "version": "0.1"
   },
   "read_only": true,
-  "session_id": "hawk-jup-v0-1-demo",
+  "session_id": "hawk-b4c8c0737040",
   "symbol": "JUPUSDT",
   "timeframe": "15m",
   "timeline": [
     {
       "at": "2026-06-02T12:00:00Z",
+      "candle": {
+        "candle_closed": false,
+        "close": null,
+        "data_available": true,
+        "high": null,
+        "low": null,
+        "open": null,
+        "price": 0.2004,
+        "stale": false,
+        "timeframe": "15m",
+        "timestamp": "2026-06-02T12:00:00Z"
+      },
       "price": 0.2004,
       "state": "WAIT",
       "summary": "WAIT: No entry yet. Price is above support and has not completed the support test/sweep/reclaim sequence."
     },
     {
       "at": "2026-06-02T12:15:00Z",
+      "candle": {
+        "candle_closed": false,
+        "close": 0.1988,
+        "data_available": true,
+        "high": null,
+        "low": 0.1984,
+        "open": null,
+        "price": null,
+        "stale": false,
+        "timeframe": "15m",
+        "timestamp": "2026-06-02T12:15:00Z"
+      },
       "price": 0.1988,
       "state": "WATCH_SUPPORT",
       "summary": "WATCH_SUPPORT: Support touched at 0.1984. No entry yet; wait for seller failure and reclaim."
     },
     {
       "at": "2026-06-02T12:30:00Z",
+      "candle": {
+        "candle_closed": false,
+        "close": 0.1976,
+        "data_available": true,
+        "high": null,
+        "low": 0.197,
+        "open": null,
+        "price": null,
+        "stale": false,
+        "timeframe": "15m",
+        "timestamp": "2026-06-02T12:30:00Z"
+      },
       "price": 0.1976,
       "state": "WAITING_FOR_RECLAIM",
       "summary": "WAITING_FOR_RECLAIM: Sweep/support test is in progress below 0.1984 while still above hard failure 0.1963. No entry; wait for a 15m reclaim above 0.1984."
     },
     {
       "at": "2026-06-02T12:45:00Z",
+      "candle": {
+        "candle_closed": true,
+        "close": 0.1987,
+        "data_available": true,
+        "high": null,
+        "low": 0.1978,
+        "open": null,
+        "price": null,
+        "stale": false,
+        "timeframe": "15m",
+        "timestamp": "2026-06-02T12:45:00Z"
+      },
       "price": 0.1987,
       "state": "RECLAIM_CONFIRMED",
       "summary": "RECLAIM_CONFIRMED: 15m reclaim confirmed above 0.1984. Entry review may become active only if price holds above reclaim and pushes into 0.2000-0.2010."
     },
     {
       "at": "2026-06-02T13:00:00Z",
+      "candle": {
+        "candle_closed": false,
+        "close": 0.2005,
+        "data_available": true,
+        "high": null,
+        "low": 0.1986,
+        "open": null,
+        "price": null,
+        "stale": false,
+        "timeframe": "15m",
+        "timestamp": "2026-06-02T13:00:00Z"
+      },
       "price": 0.2005,
       "state": "VALID_ENTRY_REVIEW",
-      "summary": "VALID_ENTRY_REVIEW: Valid entry review. Advisory only. Manual approval required. Execution disabled."
+      "summary": "VALID_ENTRY_REVIEW: Valid entry review: support was tested, sellers failed, reclaim is confirmed, and price is holding into the 0.2000-0.2010 review zone."
     }
   ],
-  "updated_at": "2026-06-02T13:00:00Z"
+  "updated_at": "2026-06-02T23:21:36Z"
 }

@@ -2189,7 +2189,7 @@ body {
   .hud-table-header { display: none; }
   .hud-table-row, .all-symbol-table .hud-table-row { grid-template-columns: 1fr; }
   .decision-word, .decision-field { border-left: 0; border-top: 1px solid rgba(58, 161, 255, 0.18); }
-  .hawk-layout { grid-template-columns: 1fr; grid-template-areas: "decision" "plan" "next" "timeline" "ticket" "safety"; }
+  .hawk-layout { grid-template-columns: 1fr; grid-template-areas: "decision" "live" "plan" "next" "timeline" "ticket" "safety"; }
   .hawk-decision-topline, .hawk-decision-rationale, .hawk-timeline li { grid-template-columns: 1fr; }
   .hawk-timeline small { grid-column: 1; }
   .hawk-level-grid { grid-template-columns: 1fr; }
@@ -2346,6 +2346,7 @@ body {
   grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.58fr);
   grid-template-areas:
     "decision plan"
+    "live live"
     "next safety"
     "timeline ticket";
   align-content: start;
@@ -2354,6 +2355,7 @@ body {
 .hawk-decision-card,
 .hawk-plan-card,
 .hawk-next-card,
+.hawk-live-card,
 .hawk-timeline-card,
 .hawk-ticket-card,
 .hawk-safety-card {
@@ -2436,10 +2438,19 @@ body {
 }
 
 .hawk-plan-card { grid-area: plan; }
+.hawk-live-card { grid-area: live; }
 .hawk-next-card { grid-area: next; }
 .hawk-timeline-card { grid-area: timeline; }
 .hawk-ticket-card { grid-area: ticket; }
 .hawk-safety-card { grid-area: safety; }
+
+.hawk-live-card {
+  border-color: rgba(86, 177, 255, 0.32);
+}
+
+.hawk-live-card.danger {
+  border-color: rgba(255, 209, 102, 0.42);
+}
 
 .hawk-safety-card.danger {
   border-color: rgba(255, 209, 102, 0.42);
@@ -2454,6 +2465,22 @@ body {
   margin-bottom: 12px;
   color: #ffe7a3;
   font-weight: 850;
+}
+
+.hawk-operator-message {
+  margin: 0 0 12px;
+  color: #f7fbff;
+  font-size: 1rem;
+  line-height: 1.45;
+  font-weight: 900;
+}
+
+.hawk-no-action-reason {
+  margin: 12px 0 0;
+  color: #ffd166;
+  font-size: 0.82rem;
+  font-weight: 850;
+  line-height: 1.4;
 }
 
 .hawk-timeline {
@@ -2503,7 +2530,7 @@ body {
 }
 
 @media (max-width: 920px) {
-  .hawk-layout { grid-template-columns: 1fr; grid-template-areas: "decision" "plan" "next" "timeline" "ticket" "safety"; }
+  .hawk-layout { grid-template-columns: 1fr; grid-template-areas: "decision" "live" "plan" "next" "timeline" "ticket" "safety"; }
   .hawk-decision-topline, .hawk-decision-rationale, .hawk-timeline li { grid-template-columns: 1fr; }
   .hawk-timeline small { grid-column: 1; }
   .hawk-level-grid { grid-template-columns: 1fr; }
@@ -3364,7 +3391,7 @@ body {
   .trade-journal-executive,
   .performance-layout { grid-template-columns: 1fr; }
   .cockpit-page-tabs { position: static; }
-  .hawk-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "decision" "plan" "next" "timeline" "ticket" "safety"; }
+  .hawk-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "decision" "live" "plan" "next" "timeline" "ticket" "safety"; }
   .hawk-decision-card,
   .hawk-plan-card,
   .hawk-next-card,

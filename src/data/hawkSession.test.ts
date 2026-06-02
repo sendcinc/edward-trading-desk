@@ -35,6 +35,20 @@ describe("Edward Hawk session contract", () => {
     expect(validation.session.execution_intent).toBe("none");
     expect(validation.session.latest_decision?.order_ticket_suggestion?.approval_required).toBe(true);
     expect(validation.session.latest_decision?.order_ticket_suggestion?.execution_enabled).toBe(false);
+    expect(validation.session.live_management?.operator_message).toContain("Valid entry review");
+    expect(validation.session.live_management?.action_type).toBe("review_only");
+    expect(validation.session.live_management?.good_add_zone).toEqual([0.1988, 0.2005]);
+  });
+
+  it("accepts older Hawk artifacts without additive live_management fields", () => {
+    const oldSample = { ...sample };
+    delete oldSample.live_management;
+    const validation = validateHawkSession(oldSample);
+
+    expect(validation.ok).toBe(true);
+    if (!validation.ok) return;
+    expect(validation.session.live_management).toBeUndefined();
+    expect(validation.session.current_state).toBe("VALID_ENTRY_REVIEW");
   });
 
   it("rejects malformed or execution-enabled Hawk artifacts", () => {
