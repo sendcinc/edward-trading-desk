@@ -2,6 +2,11 @@ import { z } from "zod";
 import type { Direction } from "../domain/tradingDesk";
 
 export const EDWARD_HAWK_SESSION_ENDPOINT = "/trading-desk/data/hawk-session-latest.json";
+export const EDWARD_HAWK_LOCAL_SESSION_ENDPOINT = "/trading-desk/data/hawk/latest-session.json";
+export const EDWARD_HAWK_SESSION_ENDPOINTS = [
+  EDWARD_HAWK_LOCAL_SESSION_ENDPOINT,
+  EDWARD_HAWK_SESSION_ENDPOINT,
+] as const;
 
 export const HAWK_DECISION_STATES = [
   "WAIT",
@@ -180,15 +185,15 @@ export function safeUnavailableHawkSession(message: string, status: Exclude<Hawk
   };
 }
 
-export async function loadHawkSession(endpoint = EDWARD_HAWK_SESSION_ENDPOINT): Promise<HawkLoadResult> {
+async function loadHawkSessionFromEndpoint(endpoint: string): Promise<HawkLoadResult> {
   try {
     const response = await fetch(endpoint, {
       headers: { Accept: "application/json" },
     });
-    if (!response.ok) return safeUnavailableHawkSession(`hawk-session-latest.json unavailable: HTTP ${response.status}`);
+    if (!response.ok) return safeUnavailableHawkSession(`${endpoint} unavailable: HTTP ${response.status}`);
     const raw = await response.json();
     const validation = validateHawkSession(raw);
-    if (!validation.ok) return safeUnavailableHawkSession(`hawk-session-latest.json validation failed: ${validation.issues.join("; ")}`, "malformed");
+    if (!validation.ok) return safeUnavailableHawkSession(`${endpoint} validation failed: ${validation.issues.join("; ")}`, "malformed");
     const stale = validation.session.current_state === "STALE_NO_ACTION" || validation.session.latest_decision?.data_confidence.toUpperCase().includes("STALE");
     return {
       status: stale ? "stale" : "available",
@@ -198,6 +203,17 @@ export async function loadHawkSession(endpoint = EDWARD_HAWK_SESSION_ENDPOINT): 
       loadedAt: new Date().toISOString(),
     };
   } catch (error) {
-    return safeUnavailableHawkSession(error instanceof Error ? error.message : "hawk-session-latest.json unavailable");
+    return safeUnavailableHawkSession(error instanceof Error ? error.message : `${endpoint} unavailable`);
   }
+}
+
+export async function loadHawkSession(endpoint: string | readonly string[] = EDWARD_HAWK_SESSION_ENDPOINTS): Promise<HawkLoadResult> {
+  const endpoints = Array.isArray(endpoint) ? endpoint : [endpoint];
+  let lastResult: HawkLoadResult | null = null;
+  for (const candidate of endpoints) {
+    const result = await loadHawkSessionFromEndpoint(candidate);
+    if (result.status === "available" || result.status === "stale" || result.status === "malformed") return result;
+    lastResult = result;
+  }
+  return lastResult ?? safeUnavailableHawkSession("Hawk data stale/unavailable. No action.");
 }

@@ -151,6 +151,45 @@ describe("Trading Desk shell", () => {
     expect(html).not.toContain("Advisory ticket");
   });
 
+  it("renders the fresh Hawk story states without granting entry before valid review", () => {
+    const storyStates = [
+      {
+        state: "WATCH_SUPPORT",
+        message: "Support touched at 0.1984. No entry yet; wait for seller failure and reclaim.",
+        copy: "Support touched. No entry yet. Touch is not permission.",
+      },
+      {
+        state: "WAITING_FOR_RECLAIM",
+        message: "Sweep/support test in progress. Still no entry; wait for a 15m reclaim above 0.1984.",
+        copy: "Waiting for reclaim. No entry until reclaim confirms.",
+      },
+      {
+        state: "RECLAIM_CONFIRMED",
+        message: "Reclaim confirmed above 0.1984. Entry review may become active if price holds and pushes into 0.2000 - 0.2010.",
+        copy: "Reclaim confirmed. Entry review only if price holds and pushes into the review zone.",
+      },
+    ] as const;
+
+    for (const { state, message, copy } of storyStates) {
+      const session = {
+        ...hawkFixture,
+        current_state: state,
+        latest_decision: {
+          ...hawkFixture.latest_decision!,
+          state,
+          message,
+          order_ticket_suggestion: null,
+        },
+      } as HawkWatchSession;
+      const html = renderHawk(session);
+
+      expect(html).toContain(state);
+      expect(html).toContain(copy);
+      expect(html).not.toContain("Advisory ticket");
+      expect(html).not.toContain("Proposed action");
+    }
+  });
+
   it("renders VALID_ENTRY_REVIEW advisory ticket with execution disabled and approval required", () => {
     const html = renderHawk(hawkFixture);
 
