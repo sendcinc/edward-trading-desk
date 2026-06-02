@@ -1,0 +1,100 @@
+{
+  "active": true,
+  "auto_execution": false,
+  "contract": "edward_hawk_watch_session.v0.1",
+  "context": {
+    "entry_review_valid": true,
+    "reclaim_confirmed": true,
+    "support_touched": true,
+    "swept_support": true
+  },
+  "created_at": "2026-06-02T12:00:00Z",
+  "creates_trade_permission": false,
+  "current_state": "VALID_ENTRY_REVIEW",
+  "direction": "LONG",
+  "entry_permission": false,
+  "execution_intent": "none",
+  "latest_decision": {
+    "data_confidence": "FRESH",
+    "message": "Valid entry review: support was tested, sellers failed, reclaim is confirmed, and price is holding into the 0.2000-0.2010 review zone.",
+    "next_required_condition": "Manual approval required; execution remains disabled.",
+    "order_ticket_suggestion": {
+      "approval_required": true,
+      "chase_cutoff": 0.2035,
+      "direction": "LONG",
+      "entry_zone": [
+        0.2,
+        0.201
+      ],
+      "execution_enabled": false,
+      "hard_failure": 0.1963,
+      "invalidation": 0.1984,
+      "proposed_action": "REVIEW_LIMIT_OR_MANUAL_ENTRY_ONLY",
+      "symbol": "JUPUSDT"
+    },
+    "risk": "Invalidation remains the reclaim/support loss; hard failure is below 0.1963. Advisory only.",
+    "state": "VALID_ENTRY_REVIEW",
+    "thesis": "Range-long sweep/reclaim sequence is complete enough for discretionary entry review."
+  },
+  "level_plan": {
+    "chase_cutoff": 0.2035,
+    "current_area": 0.2004,
+    "deep_edge": 0.1921,
+    "entry_review_zone": [
+      0.2,
+      0.201
+    ],
+    "hard_failure": 0.1963,
+    "market_state": "RANGE",
+    "reclaim_level": 0.1984,
+    "rule": "EDGES_ONLY",
+    "support_zone": [
+      0.1984,
+      0.1963
+    ]
+  },
+  "manual_only": true,
+  "next_required_condition": "Manual approval required; execution remains disabled.",
+  "playbook": {
+    "display_name": "Range Long Sweep/Reclaim",
+    "name": "range_long_sweep_reclaim",
+    "version": "0.1"
+  },
+  "read_only": true,
+  "session_id": "hawk-jup-v0-1-demo",
+  "symbol": "JUPUSDT",
+  "timeframe": "15m",
+  "timeline": [
+    {
+      "at": "2026-06-02T12:00:00Z",
+      "price": 0.2004,
+      "state": "WAIT",
+      "summary": "WAIT: No entry yet. Price is above support and has not completed the support test/sweep/reclaim sequence."
+    },
+    {
+      "at": "2026-06-02T12:15:00Z",
+      "price": 0.1988,
+      "state": "WATCH_SUPPORT",
+      "summary": "WATCH_SUPPORT: Support touched at 0.1984. No entry yet; wait for seller failure and reclaim."
+    },
+    {
+      "at": "2026-06-02T12:30:00Z",
+      "price": 0.1976,
+      "state": "WAITING_FOR_RECLAIM",
+      "summary": "WAITING_FOR_RECLAIM: Sweep/support test is in progress below 0.1984 while still above hard failure 0.1963. No entry; wait for a 15m reclaim above 0.1984."
+    },
+    {
+      "at": "2026-06-02T12:45:00Z",
+      "price": 0.1987,
+      "state": "RECLAIM_CONFIRMED",
+      "summary": "RECLAIM_CONFIRMED: 15m reclaim confirmed above 0.1984. Entry review may become active only if price holds above reclaim and pushes into 0.2000-0.2010."
+    },
+    {
+      "at": "2026-06-02T13:00:00Z",
+      "price": 0.2005,
+      "state": "VALID_ENTRY_REVIEW",
+      "summary": "VALID_ENTRY_REVIEW: Valid entry review. Advisory only. Manual approval required. Execution disabled."
+    }
+  ],
+  "updated_at": "2026-06-02T13:00:00Z"
+}

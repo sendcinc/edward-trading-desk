@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { derivePrimaryScanDisplay, ActiveTradeManagementPanel, FreshAlertReviewPanel, LatestAlertPanel, buildAlertInboxRows } from "./App";
+import { derivePrimaryScanDisplay, ActiveTradeManagementPanel, EdwardHawkPage, FreshAlertReviewPanel, LatestAlertPanel, buildAlertInboxRows } from "./App";
+import { safeUnavailableHawkSession, validateHawkSession, type HawkLoadResult, type HawkWatchSession } from "./data/hawkSession";
 import type { AlertIntakeResult, FreshAlertReview, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskSnapshot, WatchlistItem } from "./domain/tradingDesk";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -18,6 +19,9 @@ const latestAlertFreshReviewHistoryTimeframesFixture = JSON.parse(
 const latestAlertEthLiveReviewTimestampStringFixture = JSON.parse(
   readFileSync(join(currentDir, "data", "fixtures", "latest-alert-eth-live-review-timestamp-string.json"), "utf8"),
 ) as AlertIntakeResult;
+const hawkFixture = JSON.parse(
+  readFileSync(join(currentDir, "..", "public", "data", "hawk-session-latest.json"), "utf8"),
+) as HawkWatchSession;
 
 function makeAlert(symbol: string, receivedAt: string, reason = "Context required"): LatestAlert {
   return {
@@ -86,12 +90,100 @@ function makeAlertIntake(overrides: Partial<AlertIntakeResult>): AlertIntakeResu
   } as AlertIntakeResult;
 }
 
+function hawkLoadResult(session: HawkWatchSession): HawkLoadResult {
+  return {
+    status: session.current_state === "STALE_NO_ACTION" ? "stale" : "available",
+    session,
+    message: "Hawk session available.",
+    validationIssues: [],
+    loadedAt: "2026-06-02T13:00:00.000Z",
+  };
+}
+
+function renderHawk(session: HawkWatchSession) {
+  return renderToStaticMarkup(React.createElement(EdwardHawkPage, { hawkResult: hawkLoadResult(session) }));
+}
+
 describe("Trading Desk shell", () => {
   it("does not render the visible data source/demo control panel", () => {
     expect(appSource).not.toContain("<DemoControls");
     expect(appSource).not.toContain("Data source and demo scenario controls");
     expect(appSource).not.toContain("Live Edward snapshot first");
     expect(appSource).not.toContain("Demo remains available as an explicit fallback");
+  });
+
+  it("validates and renders the Edward Hawk current decision from the sample session", () => {
+    expect(validateHawkSession(hawkFixture).ok).toBe(true);
+    const html = renderHawk(hawkFixture);
+
+    expect(html).toContain("Edward Hawk decision");
+    expect(html).toContain("VALID_ENTRY_REVIEW");
+    expect(html).toContain("Valid entry review. Advisory only. Manual approval required. Execution disabled.");
+    expect(html).toContain("JUPUSDT");
+    expect(html).toContain("Range Long Sweep/Reclaim");
+  });
+
+  it("renders WATCH_SUPPORT as a watch alert and says touch is not permission", () => {
+    const watchSupport = {
+      ...hawkFixture,
+      current_state: "WATCH_SUPPORT",
+      latest_decision: {
+        ...hawkFixture.latest_decision!,
+        state: "WATCH_SUPPORT",
+        message: "Support touched at 0.1984. No entry yet; wait for seller failure and reclaim.",
+        order_ticket_suggestion: null,
+      },
+    } as HawkWatchSession;
+    const html = renderHawk(watchSupport);
+
+    expect(html).toContain("WATCH_SUPPORT");
+    expect(html).toContain("Support touched. No entry yet. Touch is not permission.");
+    expect(html).not.toContain("Advisory ticket");
+  });
+
+  it("renders VALID_ENTRY_REVIEW advisory ticket with execution disabled and approval required", () => {
+    const html = renderHawk(hawkFixture);
+
+    expect(html).toContain("Advisory ticket");
+    expect(html).toContain("Advisory only. Manual approval required. Execution disabled.");
+    expect(html).toContain("Approval required");
+    expect(html).toContain("Yes");
+    expect(html).toContain("Execution enabled");
+    expect(html).toContain("No");
+    expect(html).toContain("Auto execution");
+    expect(html).toContain("false");
+    expect(html).toContain("Execution intent");
+    expect(html).toContain("none");
+  });
+
+  it("renders missing or stale Hawk data as safe no-action unavailable state", () => {
+    const missingHtml = renderToStaticMarkup(React.createElement(EdwardHawkPage, { hawkResult: safeUnavailableHawkSession("hawk-session-latest.json unavailable: HTTP 404") }));
+    const staleSession = {
+      ...hawkFixture,
+      current_state: "STALE_NO_ACTION",
+      latest_decision: {
+        ...hawkFixture.latest_decision!,
+        state: "STALE_NO_ACTION",
+        message: "Candle/context data is stale, missing, or unavailable. No action.",
+        data_confidence: "STALE_OR_UNAVAILABLE",
+        order_ticket_suggestion: null,
+      },
+    } as HawkWatchSession;
+    const staleHtml = renderHawk(staleSession);
+
+    expect(missingHtml).toContain("HAWK DATA UNAVAILABLE");
+    expect(missingHtml).toContain("Hawk data stale/unavailable. No action.");
+    expect(staleHtml).toContain("STALE_NO_ACTION");
+    expect(staleHtml).toContain("Hawk data stale/unavailable. No action.");
+  });
+
+  it("does not render an execution or order action in the Hawk panel", () => {
+    const html = renderHawk(hawkFixture).toLowerCase();
+
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain("confirm trade");
+    expect(html).not.toContain("send order");
+    expect(html).not.toContain("place order");
   });
 
   it("keeps journal summary as the default view and moves full detail behind a See Detail toggle", () => {
