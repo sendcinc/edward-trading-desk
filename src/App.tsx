@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edwardBodyProgress } from "./data/bodyProgress";
+import { loadHawkSession, safeUnavailableHawkSession, type HawkDecisionState, type HawkLiveManagement, type HawkLoadResult } from "./data/hawkSession";
 import { EDWARD_SNAPSHOT_ENDPOINT, LIVE_STALE_AFTER_MS, loadTradingDeskSnapshot, safeDegradedHealth } from "./data/tradingDeskAdapter";
 import { buildTradeJournalSummary } from "./data/tradeJournal";
 import type { AlertIntakeResult, DataMode, FreshAlertReview, FreshAlertReviewHistoryEntry, FreshAlertReviewTimeframe, HudHeartbeatDecision, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskHealth, TradingDeskLoadResult, TradingDeskSnapshot, TradingPosition, WatchlistItem } from "./domain/tradingDesk";
@@ -33,7 +34,7 @@ const pacePct = new Intl.NumberFormat("en-US", { style: "percent", minimumFracti
 const REFRESH_INTERVAL_SECONDS = 30;
 const TRADE_JOURNAL_PAGE_SIZE = 10;
 
-type CockpitPageId = "command" | "live-monitor" | "position-management" | "performance" | "alerts" | "system";
+type CockpitPageId = "command" | "live-monitor" | "position-management" | "hawk" | "performance" | "alerts" | "system";
 
 type CockpitPage = {
   id: CockpitPageId;
@@ -49,6 +50,7 @@ const COCKPIT_PAGES: CockpitPage[] = [
   { id: "command", label: "Command", shortLabel: "Command", eyebrow: "Decision", title: "Command", description: "One trade decision, one add status, one data status, one instruction.", icon: <Gauge /> },
   { id: "live-monitor", label: "Live Monitor", shortLabel: "Live Monitor", eyebrow: "Scanner Feed", title: "Live Monitor", description: "Attention rows first; full monitored basket stays collapsed until needed.", icon: <Radio /> },
   { id: "position-management", label: "Position Management", shortLabel: "Positions", eyebrow: "Broker Truth", title: "Position Management", description: "Active position, protection state, add permission, plan, and recheck trigger in one flow.", icon: <BriefcaseBusiness /> },
+  { id: "hawk", label: "Edward Hawk", shortLabel: "Hawk", eyebrow: "Entry Watch", title: "Edward Hawk", description: "Discretionary entry watch session. Advisory only, manual approval required, execution disabled.", icon: <Target /> },
   { id: "performance", label: "Performance", shortLabel: "Performance", eyebrow: "", title: "Portfolio & Journal", description: "Portfolio pace and closed-trade results. Read-only performance view.", icon: <CircleDollarSign /> },
   { id: "alerts", label: "Alerts", shortLabel: "Alerts", eyebrow: "Alert Ledger", title: "Alert Inbox", description: "Latest received alert for each active-basket symbol. Alerts are wake-up signals only; fresh context review is required before any trade decision.", icon: <BellRing /> },
   { id: "system", label: "System", shortLabel: "System", eyebrow: "Data Source Status", title: "System", description: "Compact feed health, Edward health, and collapsed source details unless degraded.", icon: <HeartPulse /> },
@@ -61,6 +63,7 @@ function normalizePageHash(hash: string): CockpitPageId {
   if (["overview", "decision", "primary-trade-decision"].includes(hash)) return "command";
   if (["live-desk", "watchlist", "thorp-monitor"].includes(hash)) return "live-monitor";
   if (["positions", "protection", "recheck"].includes(hash)) return "position-management";
+  if (["edward-hawk", "hawk-panel"].includes(hash)) return "hawk";
   if (hash === "system-health") return "system";
   return "command";
 }
@@ -71,6 +74,7 @@ function canonicalizePageHash(hash: string): string {
 
 export default function App() {
   const [loadResult, setLoadResult] = useState<TradingDeskLoadResult | null>(null);
+  const [hawkResult, setHawkResult] = useState<HawkLoadResult | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "refreshing">("loading");
   const [nextRefreshAt, setNextRefreshAt] = useState(() => Date.now() + REFRESH_INTERVAL_SECONDS * 1000);
   const [now, setNow] = useState(() => Date.now());
@@ -82,8 +86,12 @@ export default function App() {
   const refreshSnapshot = useCallback(async (manual = false) => {
     setLoadState((current) => (current === "loading" ? "loading" : "refreshing"));
     try {
-      const loaded = await loadTradingDeskSnapshot({ source: "edward-api" });
+      const [loaded, hawk] = await Promise.all([
+        loadTradingDeskSnapshot({ source: "edward-api" }),
+        loadHawkSession(),
+      ]);
       setLoadResult(loaded);
+      setHawkResult(hawk);
     } finally {
       setNextRefreshAt(Date.now() + REFRESH_INTERVAL_SECONDS * 1000);
       setNow(Date.now());
@@ -143,7 +151,7 @@ export default function App() {
         />
         <DataStateBanner loadResult={loadResult} />
         <CockpitPageTabs activePage={activePage} onSelectPage={selectPage} />
-        <CockpitWorkspace activePage={activePage} loadResult={loadResult} />
+        <CockpitWorkspace activePage={activePage} loadResult={loadResult} hawkResult={hawkResult ?? safeUnavailableHawkSession("Hawk data stale/unavailable. No action.")} />
       </div>
     </main>
   );
@@ -162,7 +170,7 @@ function CockpitPageTabs({ activePage, onSelectPage }: { activePage: CockpitPage
   );
 }
 
-function CockpitWorkspace({ activePage, loadResult }: { activePage: CockpitPageId; loadResult: TradingDeskLoadResult }) {
+function CockpitWorkspace({ activePage, loadResult, hawkResult }: { activePage: CockpitPageId; loadResult: TradingDeskLoadResult; hawkResult: HawkLoadResult }) {
   const page = COCKPIT_PAGES.find((item) => item.id === activePage) ?? COCKPIT_PAGES[0];
   const snapshot = loadResult.snapshot;
   return (
@@ -173,18 +181,20 @@ function CockpitWorkspace({ activePage, loadResult }: { activePage: CockpitPageI
         <p>{page.description}</p>
       </header>
       <div className={`cockpit-page-body ${activePage}`}>
-        <CockpitPageContent activePage={activePage} loadResult={loadResult} snapshot={snapshot} />
+        <CockpitPageContent activePage={activePage} loadResult={loadResult} snapshot={snapshot} hawkResult={hawkResult} />
       </div>
     </section>
   );
 }
 
-function CockpitPageContent({ activePage, loadResult, snapshot }: { activePage: CockpitPageId; loadResult: TradingDeskLoadResult; snapshot: TradingDeskSnapshot }) {
+function CockpitPageContent({ activePage, loadResult, snapshot, hawkResult }: { activePage: CockpitPageId; loadResult: TradingDeskLoadResult; snapshot: TradingDeskSnapshot; hawkResult: HawkLoadResult }) {
   switch (activePage) {
     case "live-monitor":
       return <LiveMonitorPage loadResult={loadResult} />;
     case "position-management":
       return <PositionManagementPage snapshot={snapshot} />;
+    case "hawk":
+      return <EdwardHawkPage hawkResult={hawkResult} />;
     case "performance":
       return <PerformancePage loadResult={loadResult} snapshot={snapshot} />;
     case "alerts":
@@ -404,6 +414,210 @@ function AlertInboxTableRow({ row }: { row: AlertInboxRow }) {
       </div>
     </details>
   );
+}
+
+export function EdwardHawkPage({ hawkResult }: { hawkResult: HawkLoadResult }) {
+  const session = hawkResult.session;
+  const unavailable = !session || hawkResult.status === "unavailable" || hawkResult.status === "malformed";
+  const noAction = unavailable || hawkResult.status === "stale" || session?.current_state === "STALE_NO_ACTION";
+  const state = noAction || !session ? "HAWK DATA UNAVAILABLE" : session.current_state;
+  const decisionCopy = noAction || !session ? "Hawk data stale/unavailable. No action." : hawkDecisionCopy(session.current_state);
+  const decision = session?.latest_decision;
+  const ticket = noAction ? null : decision?.order_ticket_suggestion ?? null;
+  const decisionMessage = noAction ? "Hawk data stale/unavailable. No action." : decision?.message ?? "Hawk data stale/unavailable. No action.";
+  const nextCondition = noAction ? "Hawk data stale/unavailable. No action." : decision?.next_required_condition ?? session?.next_required_condition ?? "Hawk data stale/unavailable. No action.";
+  const liveManagement = noAction ? null : session?.live_management ?? null;
+
+  return (
+    <div className="cockpit-page-grid hawk-layout">
+      <section className={`glass-panel hawk-decision-card ${hawkDecisionTone(state)}`} aria-label="Edward Hawk decision">
+        <div className="hawk-decision-topline">
+          <span className={`hawk-state-badge ${hawkDecisionTone(state)}`}>{state}</span>
+          <strong>{decisionCopy}</strong>
+        </div>
+        <p>{decisionMessage}</p>
+        <div className="hawk-decision-rationale">
+          <DecisionField label="Technical thesis" value={noAction ? "Not evaluated from stale/unavailable Hawk data." : decision?.thesis ?? "Not evaluated from unavailable Hawk data."} />
+          <DecisionField label="Risk / exposure / data confidence" value={decision ? `${decision.risk} Data: ${decision.data_confidence}.` : hawkResult.message} tone={noAction ? "danger" : "muted"} />
+        </div>
+      </section>
+
+      <section className={`glass-panel hawk-live-card ${noAction ? "danger" : ""}`} aria-label="Edward Hawk live management">
+        <PanelMiniHead icon={<Activity />} title="Live Management" />
+        {liveManagement ? (
+          <>
+            <p className="hawk-operator-message">{liveManagement.operator_message ?? decisionCopy}</p>
+            <div className="monitor-stats hawk-level-grid">
+              <Metric label="Next checkpoint" value={liveManagement.next_checkpoint?.label ?? "Unavailable"} strong />
+              <Metric label="Checkpoint reason" value={liveManagement.next_checkpoint?.reason ?? liveManagement.next_checkpoint_reason ?? "Unavailable"} />
+              {liveManagement.higher_timeframe_checkpoint?.label ? <Metric label="Higher timeframe" value={liveManagement.higher_timeframe_checkpoint.label} /> : null}
+              <Metric label="Good add zone only after reclaim" value={formatLevelRange(liveManagement.good_add_zone ?? undefined)} strong />
+              <Metric label="Entry review zone" value={formatLevelRange(liveManagement.good_entry_zone ?? session?.level_plan.entry_review_zone)} />
+              <Metric label="Soft invalidation" value={formatSoftInvalidation(liveManagement.soft_invalidation)} danger />
+              <Metric label="Hard failure" value={num(liveManagement.hard_failure ?? session?.level_plan.hard_failure ?? undefined)} danger />
+              <Metric label="Reset zone" value={num(liveManagement.reset_zone ?? undefined)} danger />
+              <Metric label="Chase cutoff" value={num(liveManagement.chase_cutoff ?? session?.level_plan.chase_cutoff ?? undefined)} danger />
+              <Metric label="Action guard" value={formatLiveActionGuard(liveManagement)} danger={liveManagement.action_type !== "review_only"} strong />
+            </div>
+            {liveManagement.no_action_reason ? <p className="hawk-no-action-reason">{liveManagement.no_action_reason}</p> : null}
+          </>
+        ) : noAction ? (
+          <p className="hawk-unavailable-copy">Hawk data stale/unavailable. No action.</p>
+        ) : (
+          <>
+            <p className="hawk-operator-message">{decisionCopy}</p>
+            <div className="monitor-stats hawk-level-grid">
+              <Metric label="Next condition" value={nextCondition} />
+              <Metric label="Entry review zone" value={formatLevelRange(session?.level_plan.entry_review_zone)} />
+              <Metric label="Hard failure" value={num(session?.level_plan.hard_failure)} danger />
+              <Metric label="Chase cutoff" value={num(session?.level_plan.chase_cutoff)} danger />
+              <Metric label="Action guard" value="No execution - decision fields shown" strong />
+            </div>
+          </>
+        )}
+      </section>
+
+      <section className="glass-panel hawk-plan-card" aria-label="Edward Hawk plan and levels">
+        <PanelMiniHead icon={<Target />} title="Plan / levels" />
+        {session ? (
+          <div className="monitor-stats hawk-level-grid">
+            <Metric label="Symbol" value={session.symbol} strong />
+            <Metric label="Direction" value={session.direction} strong />
+            <Metric label="Timeframe" value={session.timeframe} />
+            <Metric label="Playbook" value={session.playbook.display_name} />
+            <Metric label="Support zone" value={formatLevelRange(session.level_plan.support_zone)} strong />
+            <Metric label="Reclaim level" value={num(session.level_plan.reclaim_level)} />
+            <Metric label="Entry review zone" value={formatLevelRange(session.level_plan.entry_review_zone)} />
+            <Metric label="Soft invalidation" value={num(ticket?.invalidation ?? session.level_plan.reclaim_level)} danger={session.current_state === "INVALIDATED"} />
+            <Metric label="Hard failure" value={num(session.level_plan.hard_failure)} danger />
+            <Metric label="Chase cutoff" value={num(session.level_plan.chase_cutoff)} danger={session.current_state === "SKIP_CHASE"} />
+          </div>
+        ) : (
+          <p className="hawk-unavailable-copy">Hawk data stale/unavailable. No action.</p>
+        )}
+      </section>
+
+      <section className="glass-panel hawk-next-card" aria-label="Edward Hawk next condition">
+        <PanelMiniHead icon={<ListChecks />} title="Next condition" />
+        <p>{nextCondition}</p>
+      </section>
+
+      <section className="glass-panel hawk-timeline-card" aria-label="Edward Hawk timeline">
+        <PanelMiniHead icon={<Clock3 />} title="Timeline / story" />
+        {session?.timeline.length && !noAction ? (
+          <ol className="hawk-timeline">
+            {session.timeline.map((event, index) => (
+              <li key={`${event.at}-${event.state}-${index}`} className={hawkDecisionTone(event.state)}>
+                <span>{event.state}</span>
+                <p>{hawkTimelineCopy(event.state, event.summary)}</p>
+                <small>{formatTime(event.at)}{typeof event.price === "number" ? ` · ${num(event.price)}` : ""}</small>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="hawk-unavailable-copy">Hawk data stale/unavailable. No action.</p>
+        )}
+      </section>
+
+      {session && ticket ? (
+        <section className="glass-panel hawk-ticket-card" aria-label="Edward Hawk advisory ticket">
+          <PanelMiniHead icon={<ShieldCheck />} title="Advisory ticket" />
+          <p className="hawk-ticket-warning">Advisory only. Manual approval required. Execution disabled.</p>
+          <div className="monitor-stats hawk-level-grid">
+            <Metric label="Proposed action" value={humanizeAlertLabel(ticket.proposed_action)} strong />
+            <Metric label="Symbol" value={ticket.symbol} />
+            <Metric label="Direction" value={ticket.direction} />
+            <Metric label="Entry zone" value={formatLevelRange(ticket.entry_zone)} />
+            <Metric label="Soft invalidation" value={num(ticket.invalidation)} danger />
+            <Metric label="Hard failure" value={num(ticket.hard_failure)} danger />
+            <Metric label="Chase cutoff" value={num(ticket.chase_cutoff)} danger />
+            <Metric label="Approval required" value={ticket.approval_required ? "Yes" : "No"} strong />
+            <Metric label="Execution enabled" value={ticket.execution_enabled ? "Yes" : "No"} danger={ticket.execution_enabled} strong />
+            <Metric label="Auto execution" value={session.auto_execution ? "true" : "false"} danger={session.auto_execution} />
+            <Metric label="Execution intent" value={session.execution_intent} danger={session.execution_intent !== "none"} />
+          </div>
+        </section>
+      ) : null}
+
+      <section className={`glass-panel hawk-safety-card ${noAction ? "danger" : ""}`} aria-label="Edward Hawk safety status">
+        <PanelMiniHead icon={<LockKeyhole />} title="Safety / status" />
+        <div className="guardrail-grid compact">
+          <GuardrailStatus label="read_only" active={session?.read_only === true} />
+          <GuardrailStatus label="manual_only" active={session?.manual_only === true} />
+          <GuardrailStatus label="creates_trade_permission false" active={session?.creates_trade_permission === false} />
+          <GuardrailStatus label="entry_permission false" active={session?.entry_permission === false} />
+          <GuardrailStatus label="auto_execution false" active={session?.auto_execution === false} />
+          <GuardrailStatus label="execution_intent none" active={session?.execution_intent === "none"} />
+          <GuardrailStatus label="HAWK DATA UNAVAILABLE / NO ACTION" active={noAction} warn />
+        </div>
+        {hawkResult.validationIssues.length ? <p className="hawk-unavailable-copy">{hawkResult.validationIssues.join("; ")}</p> : null}
+      </section>
+    </div>
+  );
+}
+
+function hawkDecisionCopy(state: HawkDecisionState | "HAWK DATA UNAVAILABLE") {
+  switch (state) {
+    case "WATCH_SUPPORT":
+      return "Support touched. No entry yet. Touch is not permission.";
+    case "WAITING_FOR_RECLAIM":
+      return "Waiting for reclaim. No entry until reclaim confirms.";
+    case "RECLAIM_CONFIRMED":
+      return "Reclaim confirmed. Entry review only if price holds and pushes into the review zone.";
+    case "VALID_ENTRY_REVIEW":
+      return "Valid entry review. Advisory only. Manual approval required. Execution disabled.";
+    case "INVALIDATED":
+      return "Setup invalidated. Do not enter.";
+    case "SKIP_CHASE":
+      return "Skip. Move is too extended / chase risk.";
+    case "STALE_NO_ACTION":
+    case "HAWK DATA UNAVAILABLE":
+      return "Hawk data stale/unavailable. No action.";
+    case "ENTRY_REVIEW":
+      return "Entry review pending. Advisory review only; execution disabled.";
+    case "WAIT":
+    default:
+      return "Waiting for support test/sweep/reclaim sequence. No entry yet.";
+  }
+}
+
+function hawkTimelineCopy(state: HawkDecisionState, summary: string) {
+  const required = hawkDecisionCopy(state);
+  if (["WATCH_SUPPORT", "WAITING_FOR_RECLAIM", "RECLAIM_CONFIRMED", "VALID_ENTRY_REVIEW", "INVALIDATED", "SKIP_CHASE", "STALE_NO_ACTION"].includes(state)) {
+    return required;
+  }
+  return summary;
+}
+
+function hawkDecisionTone(state: HawkDecisionState | "HAWK DATA UNAVAILABLE") {
+  if (state === "VALID_ENTRY_REVIEW" || state === "RECLAIM_CONFIRMED") return "ok";
+  if (state === "WATCH_SUPPORT" || state === "WAITING_FOR_RECLAIM" || state === "WAIT" || state === "ENTRY_REVIEW") return "watch";
+  return "danger";
+}
+
+function formatLevelRange(values?: number[]) {
+  if (!values || values.length < 2) return "Unavailable";
+  return `${num(values[0])} - ${num(values[1])}`;
+}
+
+function formatSoftInvalidation(value: HawkLiveManagement["soft_invalidation"]) {
+  if (value === undefined || value === null) return "Unavailable";
+  if (typeof value === "number") return num(value);
+  if (typeof value === "string") return value;
+  const level = typeof value.level === "number" ? num(value.level) : null;
+  const condition = value.condition ?? null;
+  if (level && condition) return `${level} · ${condition}`;
+  return level ?? condition ?? "Unavailable";
+}
+
+function formatLiveActionGuard(liveManagement: HawkLiveManagement) {
+  if (liveManagement.action_type === "review_only" || liveManagement.action_allowed === "review_only") {
+    return "Manual review only — execution disabled";
+  }
+  if (liveManagement.action_allowed === false || liveManagement.action_type === "none") {
+    return "No action allowed";
+  }
+  return "No action allowed";
 }
 
 export function buildAlertInboxRows(snapshot: TradingDeskSnapshot, alertIntake?: AlertIntakeResult): AlertInboxRow[] {
