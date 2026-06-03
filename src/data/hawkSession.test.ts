@@ -38,6 +38,13 @@ describe("Edward Hawk session contract", () => {
     expect(validation.session.live_management?.operator_message).toContain("Valid entry review");
     expect(validation.session.live_management?.action_type).toBe("review_only");
     expect(validation.session.live_management?.good_add_zone).toEqual([0.1988, 0.2005]);
+    expect(validation.session.level_plan.support_zone).toEqual([0.1982, 0.1955]);
+    expect(validation.session.level_plan.reclaim_level).toBe(0.1982);
+    expect(validation.session.level_plan.hard_failure).toBe(0.1955);
+    expect(validation.session.level_plan.deep_edge).toBe(0.1906);
+    expect(validation.session.level_plan.chase_cutoff).toBe(0.2035);
+    expect(JSON.stringify(sample)).not.toContain("0.1984");
+    expect(JSON.stringify(sample)).not.toContain("0.1963");
   });
 
   it("accepts older Hawk artifacts without additive live_management fields", () => {
@@ -78,7 +85,7 @@ describe("Edward Hawk session contract", () => {
       latest_decision: {
         ...sample.latest_decision,
         state: "WATCH_SUPPORT",
-        message: "Support touched at 0.1984. No entry yet; wait for seller failure and reclaim.",
+        message: "Support touched at 0.1982. No entry yet; wait for seller failure and reclaim.",
         order_ticket_suggestion: null,
       },
     };
@@ -112,6 +119,14 @@ describe("Edward Hawk session contract", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.status).toBe("available");
     expect(result.session?.current_state).toBe("VALID_ENTRY_REVIEW");
+    expect(result.session?.level_plan.reclaim_level).toBe(0.1982);
+    expect(result.session?.level_plan.hard_failure).toBe(0.1955);
+    expect(result.session?.level_plan.deep_edge).toBe(0.1906);
+    expect(result.session?.level_plan.chase_cutoff).toBe(0.2035);
+    expect(result.session?.latest_decision?.order_ticket_suggestion?.approval_required).toBe(true);
+    expect(result.session?.latest_decision?.order_ticket_suggestion?.execution_enabled).toBe(false);
+    expect(JSON.stringify(result.session)).not.toContain("0.1984");
+    expect(JSON.stringify(result.session)).not.toContain("0.1963");
   });
 
   it("reports unavailable/no-action when both Hawk artifact endpoints are missing", async () => {

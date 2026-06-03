@@ -140,7 +140,7 @@ describe("Trading Desk shell", () => {
       latest_decision: {
         ...hawkFixture.latest_decision!,
         state: "WATCH_SUPPORT",
-        message: "Support touched at 0.1984. No entry yet; wait for seller failure and reclaim.",
+        message: "Support touched at 0.1982. No entry yet; wait for seller failure and reclaim.",
         order_ticket_suggestion: null,
       },
     } as HawkWatchSession;
@@ -155,17 +155,17 @@ describe("Trading Desk shell", () => {
     const storyStates = [
       {
         state: "WATCH_SUPPORT",
-        message: "Support touched at 0.1984. No entry yet; wait for seller failure and reclaim.",
+        message: "Support touched at 0.1982. No entry yet; wait for seller failure and reclaim.",
         copy: "Support touched. No entry yet. Touch is not permission.",
       },
       {
         state: "WAITING_FOR_RECLAIM",
-        message: "Sweep/support test in progress. Still no entry; wait for a 15m reclaim above 0.1984.",
+        message: "Sweep/support test in progress. Still no entry; wait for a 15m reclaim above 0.1982.",
         copy: "Waiting for reclaim. No entry until reclaim confirms.",
       },
       {
         state: "RECLAIM_CONFIRMED",
-        message: "Reclaim confirmed above 0.1984. Entry review may become active if price holds and pushes into 0.2000 - 0.2010.",
+        message: "Reclaim confirmed above 0.1982. Entry review may become active if price holds and pushes into 0.2000 - 0.2010.",
         copy: "Reclaim confirmed. Entry review only if price holds and pushes into the review zone.",
       },
     ] as const;

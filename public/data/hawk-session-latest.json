@@ -8,7 +8,7 @@
     "swept_support": true
   },
   "contract": "edward_hawk_watch_session.v0.1",
-  "created_at": "2026-06-02T23:21:36Z",
+  "created_at": "2026-06-03T00:32:41Z",
   "creates_trade_permission": false,
   "current_state": "VALID_ENTRY_REVIEW",
   "direction": "LONG",
@@ -27,30 +27,30 @@
         0.201
       ],
       "execution_enabled": false,
-      "hard_failure": 0.1963,
-      "invalidation": 0.1984,
+      "hard_failure": 0.1955,
+      "invalidation": 0.1982,
       "proposed_action": "REVIEW_LIMIT_OR_MANUAL_ENTRY_ONLY",
       "symbol": "JUPUSDT"
     },
-    "risk": "Invalidation remains the reclaim/support loss; hard failure is below 0.1963. Advisory only.",
+    "risk": "Invalidation remains the reclaim/support loss; hard failure is below 0.1955. Advisory only.",
     "state": "VALID_ENTRY_REVIEW",
     "thesis": "Range-long sweep/reclaim sequence is complete enough for discretionary entry review."
   },
   "level_plan": {
     "chase_cutoff": 0.2035,
     "current_area": 0.2004,
-    "deep_edge": 0.1921,
+    "deep_edge": 0.1906,
     "entry_review_zone": [
       0.2,
       0.201
     ],
-    "hard_failure": 0.1963,
+    "hard_failure": 0.1955,
     "market_state": "RANGE",
-    "reclaim_level": 0.1984,
+    "reclaim_level": 0.1982,
     "rule": "EDGES_ONLY",
     "support_zone": [
-      0.1984,
-      0.1963
+      0.1982,
+      0.1955
     ]
   },
   "live_management": {
@@ -101,7 +101,7 @@
     "version": "0.1"
   },
   "read_only": true,
-  "session_id": "hawk-b4c8c0737040",
+  "session_id": "hawk-6ece7635b15f",
   "symbol": "JUPUSDT",
   "timeframe": "15m",
   "timeline": [
@@ -130,7 +130,7 @@
         "close": 0.1988,
         "data_available": true,
         "high": null,
-        "low": 0.1984,
+        "low": 0.1982,
         "open": null,
         "price": null,
         "stale": false,
@@ -139,7 +139,7 @@
       },
       "price": 0.1988,
       "state": "WATCH_SUPPORT",
-      "summary": "WATCH_SUPPORT: Support touched at 0.1984. No entry yet; wait for seller failure and reclaim."
+      "summary": "WATCH_SUPPORT: Support touched at 0.1982. No entry yet; wait for seller failure and reclaim."
     },
     {
       "at": "2026-06-02T12:30:00Z",
@@ -157,7 +157,7 @@
       },
       "price": 0.1976,
       "state": "WAITING_FOR_RECLAIM",
-      "summary": "WAITING_FOR_RECLAIM: Sweep/support test is in progress below 0.1984 while still above hard failure 0.1963. No entry; wait for a 15m reclaim above 0.1984."
+      "summary": "WAITING_FOR_RECLAIM: Sweep/support test is in progress below 0.1982 while still above hard failure 0.1955. No entry; wait for a 15m reclaim above 0.1982."
     },
     {
       "at": "2026-06-02T12:45:00Z",
@@ -175,7 +175,7 @@
       },
       "price": 0.1987,
       "state": "RECLAIM_CONFIRMED",
-      "summary": "RECLAIM_CONFIRMED: 15m reclaim confirmed above 0.1984. Entry review may become active only if price holds above reclaim and pushes into 0.2000-0.2010."
+      "summary": "RECLAIM_CONFIRMED: 15m reclaim confirmed above 0.1982. Entry review may become active only if price holds above reclaim and pushes into 0.2000-0.2010."
     },
     {
       "at": "2026-06-02T13:00:00Z",
@@ -196,5 +196,5 @@
       "summary": "VALID_ENTRY_REVIEW: Valid entry review: support was tested, sellers failed, reclaim is confirmed, and price is holding into the 0.2000-0.2010 review zone."
     }
   ],
-  "updated_at": "2026-06-02T23:21:36Z"
+  "updated_at": "2026-06-03T00:32:41Z"
 }
