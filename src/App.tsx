@@ -427,6 +427,7 @@ export function EdwardHawkPage({ hawkResult }: { hawkResult: HawkLoadResult }) {
   const decisionMessage = noAction ? "Hawk data stale/unavailable. No action." : decision?.message ?? "Hawk data stale/unavailable. No action.";
   const nextCondition = noAction ? "Hawk data stale/unavailable. No action." : decision?.next_required_condition ?? session?.next_required_condition ?? "Hawk data stale/unavailable. No action.";
   const liveManagement = noAction ? null : session?.live_management ?? null;
+  const advisory = noAction ? null : session?.advisory ?? null;
 
   return (
     <div className="cockpit-page-grid hawk-layout">
@@ -448,6 +449,12 @@ export function EdwardHawkPage({ hawkResult }: { hawkResult: HawkLoadResult }) {
           <>
             <p className="hawk-operator-message">{liveManagement.operator_message ?? decisionCopy}</p>
             <div className="monitor-stats hawk-level-grid">
+              {advisory ? <Metric label="Job" value={advisory.job} strong /> : null}
+              {advisory ? <Metric label="Instruction" value={advisory.instruction} strong /> : null}
+              {advisory ? <Metric label="Approved quantity" value={String(advisory.approved_quantity)} danger={advisory.approved_quantity !== 0} strong /> : null}
+              {advisory ? <Metric label="Position status" value={advisory.position_status} /> : null}
+              {advisory ? <Metric label="Current price" value={advisory.current_price_text ?? num(advisory.current_price ?? undefined)} /> : null}
+              {advisory ? <Metric label="Chart timestamp" value={advisory.chart_timestamp} /> : null}
               <Metric label="Next checkpoint" value={liveManagement.next_checkpoint?.label ?? "Unavailable"} strong />
               <Metric label="Checkpoint reason" value={liveManagement.next_checkpoint?.reason ?? liveManagement.next_checkpoint_reason ?? "Unavailable"} />
               {liveManagement.higher_timeframe_checkpoint?.label ? <Metric label="Higher timeframe" value={liveManagement.higher_timeframe_checkpoint.label} /> : null}

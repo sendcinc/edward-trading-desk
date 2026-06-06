@@ -44,6 +44,35 @@ export type HawkDecision = {
   order_ticket_suggestion?: HawkOrderTicketSuggestion | null;
 };
 
+export type HawkStructuredAdvisory = {
+  alert_id: string;
+  symbol: string;
+  generated_at: string;
+  chart_timestamp: string;
+  timezone: string;
+  timeframe: string;
+  current_price?: number | null;
+  current_price_text?: string;
+  data_confidence: string;
+  position_status: string;
+  state: HawkDecisionState;
+  direction_context: Direction;
+  job: string;
+  instruction: string;
+  approved_quantity: number;
+  approved_quantity_reason: string;
+  thesis: string;
+  risk: string;
+  exposure_notes: string;
+  decision_message: string;
+  manual_only: true;
+  read_only: true;
+  entry_permission: false;
+  creates_trade_permission: false;
+  auto_execution: false;
+  execution_intent: "none";
+};
+
 export type HawkLiveManagement = {
   operator_message?: string;
   current_decision_plain?: string;
@@ -110,6 +139,7 @@ export type HawkWatchSession = {
     price?: number | null;
   }[];
   latest_decision: HawkDecision | null;
+  advisory?: HawkStructuredAdvisory | null;
   read_only: true;
   manual_only: true;
   creates_trade_permission: false;
@@ -154,6 +184,35 @@ const hawkDecisionSchema = z.object({
   data_confidence: z.string().min(1),
   order_ticket_suggestion: hawkOrderTicketSuggestionSchema.nullable().optional(),
 }).strict();
+
+const hawkStructuredAdvisorySchema = z.object({
+  alert_id: z.string().min(1),
+  symbol: z.string().min(1),
+  generated_at: z.string().min(1),
+  chart_timestamp: z.string().min(1),
+  timezone: z.string().min(1),
+  timeframe: z.string().min(1),
+  current_price: z.number().finite().nullable().optional(),
+  current_price_text: z.string().min(1).optional(),
+  data_confidence: z.string().min(1),
+  position_status: z.string().min(1),
+  state: hawkDecisionStateSchema,
+  direction_context: directionSchema,
+  job: z.string().min(1),
+  instruction: z.string().min(1),
+  approved_quantity: z.number().finite(),
+  approved_quantity_reason: z.string().min(1),
+  thesis: z.string().min(1),
+  risk: z.string().min(1),
+  exposure_notes: z.string().min(1),
+  decision_message: z.string().min(1),
+  manual_only: z.literal(true),
+  read_only: z.literal(true),
+  entry_permission: z.literal(false),
+  creates_trade_permission: z.literal(false),
+  auto_execution: z.literal(false),
+  execution_intent: z.literal("none"),
+}).passthrough();
 
 const hawkCheckpointSchema = z.object({
   at: z.string().min(1).nullable().optional(),
@@ -226,6 +285,7 @@ const hawkWatchSessionSchema = z.object({
     price: z.number().finite().nullable().optional(),
   }).passthrough()).default([]),
   latest_decision: hawkDecisionSchema.nullable(),
+  advisory: hawkStructuredAdvisorySchema.nullable().optional(),
   read_only: z.literal(true),
   manual_only: z.literal(true),
   creates_trade_permission: z.literal(false),
