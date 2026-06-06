@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { derivePrimaryScanDisplay, ActiveTradeManagementPanel, FreshAlertReviewPanel, LatestAlertPanel } from "./App";
-import type { AlertIntakeResult, FreshAlertReview, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, WatchlistItem } from "./domain/tradingDesk";
+import { derivePrimaryScanDisplay, ActiveTradeManagementPanel, EdwardHawkPage, FreshAlertReviewPanel, LatestAlertPanel, buildAlertInboxRows } from "./App";
+import { safeUnavailableHawkSession, validateHawkSession, type HawkLoadResult, type HawkWatchSession } from "./data/hawkSession";
+import type { AlertIntakeResult, FreshAlertReview, LatestAlert, ManagementBinding, ThorpRichScannerPayload, ThorpScannerRecommendation, TradingDeskSnapshot, WatchlistItem } from "./domain/tradingDesk";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(join(currentDir, "App.tsx"), "utf8");
@@ -18,6 +19,100 @@ const latestAlertFreshReviewHistoryTimeframesFixture = JSON.parse(
 const latestAlertEthLiveReviewTimestampStringFixture = JSON.parse(
   readFileSync(join(currentDir, "data", "fixtures", "latest-alert-eth-live-review-timestamp-string.json"), "utf8"),
 ) as AlertIntakeResult;
+const hawkFixture = JSON.parse(
+  readFileSync(join(currentDir, "..", "public", "data", "hawk-session-latest.json"), "utf8"),
+) as HawkWatchSession;
+
+function makeAlert(symbol: string, receivedAt: string, reason = "Context required"): LatestAlert {
+  return {
+    receivedAt,
+    alertType: "THORP_TRADE_SIGNAL",
+    symbol,
+    normalizedSymbol: symbol,
+    status: "fresh",
+    payloadHash: `${symbol}-${receivedAt}`,
+    triggeredReview: false,
+    reviewStatus: "not_applicable",
+    reason,
+    autoExecution: false,
+    executionIntent: "none",
+  };
+}
+
+function makeReview(symbol: string, reviewCompletedAt: string, nextActionSentence = "Review needed"): FreshAlertReview {
+  const normalizedSymbol = symbol.endsWith(".P") ? symbol : `${symbol}.P`;
+  return ({
+    contractVersion: "fresh-alert-3tf-review.v1",
+    symbol,
+    normalizedSymbol,
+    status: "completed",
+    tradingViewReadAttempted: true,
+    tradingViewReadState: "completed",
+    tradingViewRefreshAttempted: false,
+    tradingViewMutationAttempted: false,
+    alertReceivedAt: reviewCompletedAt,
+    reviewStartedAt: reviewCompletedAt,
+    reviewCompletedAt,
+    originalChartContextCaptured: false,
+    originalChartContextRestored: false,
+    timeframes: {
+      "15m": { status: "fresh", source: "tradingview_read", decision: "WAIT", action: "Context required", score: null },
+      "1H": { status: "fresh", source: "tradingview_read", decision: "WAIT", action: "Context required", score: null },
+      "4H": { status: "fresh", source: "tradingview_read", decision: "WAIT", action: "Context required", score: null },
+    },
+    livePrice: { status: "unavailable", price: null, timestamp: reviewCompletedAt },
+    finalRecommendation: "WAIT",
+    nextActionSentence,
+    riskReason: "History-only review context",
+    confidence: "medium",
+    guardrails: { readOnly: true, autoExecution: false, executionIntent: "none" },
+  }) as unknown as FreshAlertReview;
+}
+
+function makeSnapshot(symbols: string[]): TradingDeskSnapshot {
+  return {
+    watchlist: symbols.map((symbol) => ({ symbol, normalizedSymbol: symbol, status: "WAIT", freshnessStatus: "fresh", missingEvidence: [] })),
+    hudHeartbeatDecisions: [],
+  } as unknown as TradingDeskSnapshot;
+}
+
+function makeAlertIntake(overrides: Partial<AlertIntakeResult>): AlertIntakeResult {
+  return {
+    contractVersion: "edward-alert-intake.v1",
+    generatedAt: "2026-05-15T00:00:00.000Z",
+    webhookStatus: "healthy",
+    latestAlert: null,
+    latestBySymbol: {},
+    latestBySymbolTimeframe: {},
+    recentAlerts: [],
+    queueDepth: 0,
+    ...overrides,
+  } as AlertIntakeResult;
+}
+
+function hawkLoadResult(session: HawkWatchSession): HawkLoadResult {
+  return {
+    status: session.current_state === "STALE_NO_ACTION" ? "stale" : "available",
+    session,
+    message: "Hawk session available.",
+    validationIssues: [],
+    loadedAt: "2026-06-02T13:00:00.000Z",
+  };
+}
+
+function staleHawkLoadResult(session: HawkWatchSession): HawkLoadResult {
+  return {
+    status: "stale",
+    session,
+    message: "Hawk data stale/unavailable. No action.",
+    validationIssues: [],
+    loadedAt: "2026-06-02T13:05:00.000Z",
+  };
+}
+
+function renderHawk(session: HawkWatchSession) {
+  return renderToStaticMarkup(React.createElement(EdwardHawkPage, { hawkResult: hawkLoadResult(session) }));
+}
 
 describe("Trading Desk shell", () => {
   it("does not render the visible data source/demo control panel", () => {
@@ -25,6 +120,238 @@ describe("Trading Desk shell", () => {
     expect(appSource).not.toContain("Data source and demo scenario controls");
     expect(appSource).not.toContain("Live Edward snapshot first");
     expect(appSource).not.toContain("Demo remains available as an explicit fallback");
+  });
+
+  it("validates and renders the Edward Hawk current decision from the sample session", () => {
+    expect(validateHawkSession(hawkFixture).ok).toBe(true);
+    const html = renderHawk(hawkFixture);
+
+    expect(html).toContain("Edward Hawk decision");
+    expect(html).toContain("VALID_ENTRY_REVIEW");
+    expect(html).toContain("Valid entry review. Advisory only. Manual approval required. Execution disabled.");
+    expect(html).toContain("JUPUSDT");
+    expect(html).toContain("Range Long Sweep/Reclaim");
+  });
+
+  it("renders WATCH_SUPPORT as a watch alert and says touch is not permission", () => {
+    const watchSupport = {
+      ...hawkFixture,
+      current_state: "WATCH_SUPPORT",
+      latest_decision: {
+        ...hawkFixture.latest_decision!,
+        state: "WATCH_SUPPORT",
+        message: "Support touched at 0.1982. No entry yet; wait for seller failure and reclaim.",
+        order_ticket_suggestion: null,
+      },
+    } as HawkWatchSession;
+    const html = renderHawk(watchSupport);
+
+    expect(html).toContain("WATCH_SUPPORT");
+    expect(html).toContain("Support touched. No entry yet. Touch is not permission.");
+    expect(html).not.toContain("Advisory ticket");
+  });
+
+  it("renders the fresh Hawk story states without granting entry before valid review", () => {
+    const storyStates = [
+      {
+        state: "WATCH_SUPPORT",
+        message: "Support touched at 0.1982. No entry yet; wait for seller failure and reclaim.",
+        copy: "Support touched. No entry yet. Touch is not permission.",
+      },
+      {
+        state: "WAITING_FOR_RECLAIM",
+        message: "Sweep/support test in progress. Still no entry; wait for a 15m reclaim above 0.1982.",
+        copy: "Waiting for reclaim. No entry until reclaim confirms.",
+      },
+      {
+        state: "RECLAIM_CONFIRMED",
+        message: "Reclaim confirmed above 0.1982. Entry review may become active if price holds and pushes into 0.2000 - 0.2010.",
+        copy: "Reclaim confirmed. Entry review only if price holds and pushes into the review zone.",
+      },
+    ] as const;
+
+    for (const { state, message, copy } of storyStates) {
+      const session = {
+        ...hawkFixture,
+        current_state: state,
+        latest_decision: {
+          ...hawkFixture.latest_decision!,
+          state,
+          message,
+          order_ticket_suggestion: null,
+        },
+      } as HawkWatchSession;
+      const html = renderHawk(session);
+
+      expect(html).toContain(state);
+      expect(html).toContain(copy);
+      expect(html).not.toContain("Advisory ticket");
+      expect(html).not.toContain("Proposed action");
+    }
+  });
+
+  it("renders VALID_ENTRY_REVIEW advisory ticket with execution disabled and approval required", () => {
+    const html = renderHawk(hawkFixture);
+
+    expect(html).toContain("Advisory ticket");
+    expect(html).toContain("Advisory only. Manual approval required. Execution disabled.");
+    expect(html).toContain("Approval required");
+    expect(html).toContain("Yes");
+    expect(html).toContain("Execution enabled");
+    expect(html).toContain("No");
+    expect(html).toContain("Auto execution");
+    expect(html).toContain("false");
+    expect(html).toContain("Execution intent");
+    expect(html).toContain("none");
+  });
+
+  it("renders fresh Hawk live management fields with safe action wording", () => {
+    const html = renderHawk(hawkFixture);
+
+    expect(html).toContain("Live Management");
+    expect(html).toContain("Valid entry review. Good add zone is 0.1988-0.2005 / 0.2000-0.2010 depending on fill quality. Manual approval required. Execution disabled.");
+    expect(html).toContain("3:30pm 15m close");
+    expect(html).toContain("Review stays valid only while data is fresh and price holds the plan.");
+    expect(html).toContain("Good add zone only after reclaim");
+    expect(html).toContain("0.1988 - 0.2005");
+    expect(html).toContain("Soft invalidation");
+    expect(html).toContain("0.1982");
+    expect(html).toContain("Hard failure");
+    expect(html).toContain("0.1955");
+    expect(html).toContain("Chase cutoff");
+    expect(html).toContain("0.2035");
+    expect(html).toContain("Manual review only");
+    expect(html).toContain("execution disabled");
+    expect(html).not.toContain("allowed to trade");
+  });
+
+  it("renders WAITING_FOR_RECLAIM live management as no-add/no-action", () => {
+    const waitingForReclaim = {
+      ...hawkFixture,
+      current_state: "WAITING_FOR_RECLAIM",
+      latest_decision: {
+        ...hawkFixture.latest_decision!,
+        state: "WAITING_FOR_RECLAIM",
+        message: "Sweep/support test is in progress. No entry; wait for reclaim.",
+        order_ticket_suggestion: null,
+      },
+      live_management: {
+        ...hawkFixture.live_management!,
+        operator_message: "JUPUSDT inside the support zone. No add yet. Waiting for reclaim above 0.1982.",
+        current_decision_plain: "WAITING_FOR_RECLAIM",
+        next_checkpoint: {
+          at: "2026-06-02T15:30:00-04:00",
+          label: "3:30pm 15m close",
+          reason: "Need candle close above reclaim level 0.1982.",
+        },
+        next_checkpoint_reason: "Need candle close above reclaim level 0.1982.",
+        action_allowed: false,
+        action_type: "none",
+        no_action_reason: "Price is still below reclaim; touch/support test is not permission.",
+      },
+    } as HawkWatchSession;
+    const html = renderHawk(waitingForReclaim);
+
+    expect(html).toContain("WAITING_FOR_RECLAIM");
+    expect(html).toContain("No add yet");
+    expect(html).toContain("Waiting for reclaim above 0.1982");
+    expect(html).toContain("Good add zone only after reclaim");
+    expect(html).toContain("0.1988 - 0.2005");
+    expect(html).toContain("No action allowed");
+    expect(html).toContain("touch/support test is not permission");
+    expect(html).not.toContain("Advisory ticket");
+    expect(html.toLowerCase()).not.toContain("confirm trade");
+    expect(html.toLowerCase()).not.toContain("send order");
+    expect(html.toLowerCase()).not.toContain("place order");
+  });
+
+  it("renders VALID_ENTRY_REVIEW live management as review only, not execution", () => {
+    const html = renderHawk(hawkFixture);
+
+    expect(html).toContain("Valid entry review");
+    expect(html).toContain("Manual approval required");
+    expect(html).toContain("Execution disabled");
+    expect(html).toContain("Manual review only");
+    expect(html).toContain("Advisory ticket");
+    expect(html.toLowerCase()).not.toContain("confirm trade");
+    expect(html.toLowerCase()).not.toContain("send order");
+    expect(html.toLowerCase()).not.toContain("place order");
+  });
+
+  it("renders missing or stale Hawk data as safe no-action unavailable state", () => {
+    const missingHtml = renderToStaticMarkup(React.createElement(EdwardHawkPage, { hawkResult: safeUnavailableHawkSession("hawk-session-latest.json unavailable: HTTP 404") }));
+    const staleSession = {
+      ...hawkFixture,
+      current_state: "STALE_NO_ACTION",
+      latest_decision: {
+        ...hawkFixture.latest_decision!,
+        state: "STALE_NO_ACTION",
+        message: "Candle/context data is stale, missing, or unavailable. No action.",
+        data_confidence: "STALE_OR_UNAVAILABLE",
+        order_ticket_suggestion: null,
+      },
+    } as HawkWatchSession;
+    const staleHtml = renderHawk(staleSession);
+
+    expect(missingHtml).toContain("HAWK DATA UNAVAILABLE");
+    expect(missingHtml).toContain("Hawk data stale/unavailable. No action.");
+    expect(staleHtml).toContain("HAWK DATA UNAVAILABLE");
+    expect(staleHtml).toContain("Hawk data stale/unavailable. No action.");
+    expect(staleHtml).not.toContain("Advisory ticket");
+  });
+
+  it("fails closed when a schema-valid Hawk artifact is stale but still claims VALID_ENTRY_REVIEW with a ticket", () => {
+    const staleButValidEntryReview = {
+      ...hawkFixture,
+      current_state: "VALID_ENTRY_REVIEW",
+      latest_decision: {
+        ...hawkFixture.latest_decision!,
+        state: "VALID_ENTRY_REVIEW",
+        data_confidence: "STALE_OR_UNAVAILABLE",
+        order_ticket_suggestion: hawkFixture.latest_decision!.order_ticket_suggestion,
+      },
+      live_management: {
+        ...hawkFixture.live_management!,
+        operator_message: "Valid entry review. Manual approval required. Execution disabled.",
+        action_allowed: "review_only",
+        action_type: "review_only",
+      },
+    } as HawkWatchSession;
+    const html = renderToStaticMarkup(React.createElement(EdwardHawkPage, { hawkResult: staleHawkLoadResult(staleButValidEntryReview) }));
+
+    expect(html).toContain("HAWK DATA UNAVAILABLE");
+    expect(html).toContain("Hawk data stale/unavailable. No action.");
+    expect(html).not.toContain("Advisory ticket");
+    expect(html).not.toContain("Valid entry review. Advisory only. Manual approval required. Execution disabled.");
+    expect(html).not.toContain("Valid entry review. Manual approval required. Execution disabled.");
+    expect(html).not.toContain("Good add zone only after reclaim");
+    expect(html).not.toContain("Proposed action");
+    expect(html).not.toContain("Execution enabled");
+  });
+
+  it("keeps older Hawk artifacts without live_management rendering safely", () => {
+    const oldArtifact = {
+      ...hawkFixture,
+      live_management: undefined,
+    } as HawkWatchSession;
+    const html = renderHawk(oldArtifact);
+
+    expect(html).toContain("Live Management");
+    expect(html).toContain("No execution - decision fields shown");
+    expect(html).toContain("VALID_ENTRY_REVIEW");
+    expect(html).toContain("Advisory ticket");
+    expect(html.toLowerCase()).not.toContain("confirm trade");
+    expect(html.toLowerCase()).not.toContain("send order");
+    expect(html.toLowerCase()).not.toContain("place order");
+  });
+
+  it("does not render an execution or order action in the Hawk panel", () => {
+    const html = renderHawk(hawkFixture).toLowerCase();
+
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain("confirm trade");
+    expect(html).not.toContain("send order");
+    expect(html).not.toContain("place order");
   });
 
   it("keeps journal summary as the default view and moves full detail behind a See Detail toggle", () => {
@@ -83,7 +410,7 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Manual / Read-only");
     expect(appSource).toContain("edward-core-orb");
     expect(appSource).toContain("prefers-reduced-motion: reduce");
-    expect(appSource.indexOf("<TopCommandHeader")).toBeLessThan(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />"));
+    expect(appSource.indexOf("<TopCommandHeader")).toBeLessThan(appSource.indexOf("<PrimaryTradeDecisionPanel snapshot={snapshot} loadResult={loadResult} />"));
   });
 
   it("maps Primary Scan rows to operator evidence labels instead of vague trade copy", () => {
@@ -146,50 +473,38 @@ describe("Trading Desk shell", () => {
   });
 
   it("renders a decision-first cockpit with refresh, risk ladder, and watchlist surfaces", () => {
-    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
-      appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),
-    );
-    expect(appSource.indexOf("<RiskLadderPanel snapshot={snapshot} />")).toBeLessThan(
-      appSource.indexOf("<MarketMovementPanel snapshot={snapshot} />"),
-    );
     expect(appSource).toContain("REFRESH_INTERVAL_SECONDS = 30");
     expect(appSource).toContain("Next refresh");
     expect(appSource).toContain("Active Basket Coverage");
     expect(appSource).toContain("Risk & Ladder Management");
-    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
-    const tradeManagementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
-    const healthIndex = appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />");
-    const bodyProgressIndex = appSource.indexOf("<EdwardBodyProgressPanel />");
-    const journalIndex = appSource.indexOf("<TradeJournalPanel snapshot={snapshot} />");
-
-    expect(tradeDecisionIndex).toBeLessThan(tradeManagementIndex);
-    expect(tradeManagementIndex).toBeLessThan(healthIndex);
+    const commandIndex = appSource.indexOf("<PrimaryTradeDecisionPanel snapshot={snapshot} loadResult={loadResult} />");
+    const guardrailIndex = appSource.indexOf("<RiskGuardrailsPanel snapshot={snapshot} />");
+    const warningIndex = appSource.indexOf("<WarningAndRecheck snapshot={snapshot} />");
     const alertIndex = appSource.indexOf("<LatestAlertPanel alertIntake={loadResult.alertIntake} />");
-    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} />");
-    const verdictIndex = appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />");
+    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} compact />");
     const riskIndex = appSource.indexOf("<RiskLadderPanel snapshot={snapshot} />");
-    expect(tradeDecisionIndex).toBeLessThan(alertIndex);
-    expect(tradeManagementIndex).toBeLessThan(alertIndex);
-    expect(healthIndex).toBeLessThan(alertIndex);
-    expect(alertIndex).toBeLessThan(watchlistIndex);
-    expect(watchlistIndex).toBeLessThan(verdictIndex);
-    expect(verdictIndex).toBeLessThan(riskIndex);
-    expect(healthIndex).toBeLessThan(bodyProgressIndex);
-    expect(healthIndex).toBeLessThan(journalIndex);
+
+    expect(commandIndex).toBeGreaterThan(-1);
+    expect(commandIndex).toBeLessThan(guardrailIndex);
+    expect(guardrailIndex).toBeLessThan(warningIndex);
+    expect(warningIndex).toBeLessThan(alertIndex);
+    expect(watchlistIndex).toBeGreaterThan(-1);
+    expect(riskIndex).toBeGreaterThan(-1);
     expect(appSource).toContain("Edward Health");
     expect(appSource).toContain("Producer Status");
-    expect(appSource).toContain("Source Freshness");
+    expect(appSource).toContain("Data Source Status");
   });
 
-  it("keeps Edward Body Progress after cockpit/watchlist flow and before the journal", () => {
-    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
+  it("keeps the Performance report pace-first and journal second", () => {
     const portfolioIndex = appSource.indexOf("<PortfolioCommandBar snapshot={snapshot} />");
-    const bodyProgressIndex = appSource.indexOf("<EdwardBodyProgressPanel />");
+    const softLandingIndex = appSource.indexOf("<SoftLandingPanel snapshot={snapshot} />");
+    const compoundingIndex = appSource.indexOf("<CompoundingStatusCard snapshot={snapshot} />");
     const journalIndex = appSource.indexOf("<TradeJournalPanel snapshot={snapshot} />");
 
-    expect(bodyProgressIndex).toBeGreaterThan(tradeDecisionIndex);
-    expect(bodyProgressIndex).toBeGreaterThan(portfolioIndex);
-    expect(bodyProgressIndex).toBeLessThan(journalIndex);
+    expect(portfolioIndex).toBeGreaterThan(-1);
+    expect(portfolioIndex).toBeLessThan(softLandingIndex);
+    expect(softLandingIndex).toBeLessThan(compoundingIndex);
+    expect(compoundingIndex).toBeLessThan(journalIndex);
   });
 
   it("renders body-progress copy and locked execution state from static progress data", () => {
@@ -205,6 +520,111 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("Object.entries(progress.bodyParts)");
   });
 
+  it("frames Performance as a compact read-only portfolio and journal report", () => {
+    expect(appSource).toContain('title: "Portfolio & Journal"');
+    expect(appSource).toContain('description: "Portfolio pace and closed-trade results. Read-only performance view."');
+    expect(appSource).toContain('label: "Performance"');
+    expect(appSource).toContain('eyebrow: ""');
+    expect(appSource).toContain('page.eyebrow ? <span>{page.eyebrow}</span> : null');
+    expect(appSource).toContain("Data stale — portfolio values may lag. No trade decisions from this page.");
+    expect(appSource).toContain("READ-ONLY");
+    expect(appSource).not.toContain("performance-subnav");
+    expect(appSource).not.toContain('title="Portfolio & Pace"');
+    expect(appSource).not.toContain('eyebrow: "Pace + Journal"');
+    expect(appSource).toContain("Compounding Status");
+    expect(appSource).toContain("Realized Journal PnL");
+    expect(appSource).toContain("Moon target rate");
+    expect(appSource).toContain("Sun target rate");
+    expect(appSource).toContain("Average trade");
+    expect(appSource).toContain("Median trade");
+    expect(appSource).toContain("Largest win");
+    expect(appSource).toContain("Largest loss");
+    expect(appSource).toContain("Last closed trade");
+  });
+
+  it("adds an Alert Inbox page with read-only wake-up signal doctrine", () => {
+    expect(appSource).toContain('id: "alerts"');
+    expect(appSource).toContain('label: "Alerts"');
+    expect(appSource).toContain('title: "Alert Inbox"');
+    expect(appSource).toContain("Latest received alert for each active-basket symbol. Alerts are wake-up signals only; fresh context review is required before any trade decision.");
+    expect(appSource).toContain("READ-ONLY alert ledger. No trade action is created from this page.");
+    expect(appSource).toContain('case "alerts"');
+  });
+
+  it("keeps Alert Inbox compact with missing-alert rows and no execution affordances", () => {
+    expect(appSource).toContain("buildAlertInboxRows");
+    expect(appSource).toContain("No alert received");
+    expect(appSource).toContain("Missing");
+    expect(appSource).toContain("Fresh");
+    expect(appSource).toContain("Aging");
+    expect(appSource).toContain("Stale");
+    expect(appSource).toContain("Context required");
+    expect(appSource).toContain("Read-only · Auto-execution");
+    expect(appSource).toContain("Execution intent");
+    expect(appSource).toContain("Fresh review not available — fresh chart context is required before any trade decision.");
+    expect(appSource).toContain("alert-technical-details");
+    expect(appSource).toContain("truncatePayloadHash");
+    expect(appSource).not.toContain("Place order");
+    expect(appSource).not.toContain("Trade now");
+  });
+
+  it("includes JUPUSDT from fresh alert review history as canonical JUPUSDT.P", () => {
+    const rows = buildAlertInboxRows(makeSnapshot(["BTCUSDT.P"]), makeAlertIntake({
+      freshAlertReviewHistory: {
+        current: null,
+        lastSuccessfulBySymbol: { JUPUSDT: makeReview("JUPUSDT", "2026-05-15T12:00:00.000Z") },
+        blockedBySymbol: {},
+        recent: [],
+      },
+    }));
+
+    expect(rows.map((row) => row.normalizedSymbol)).toContain("JUPUSDT.P");
+    expect(rows.filter((row) => row.normalizedSymbol === "JUPUSDT.P")).toHaveLength(1);
+    expect(rows.find((row) => row.normalizedSymbol === "JUPUSDT.P")?.sourceDetail).toBe("latest alert history");
+  });
+
+  it("dedupes JUPUSDT and JUPUSDT.P into one Alert Inbox row", () => {
+    const rows = buildAlertInboxRows(makeSnapshot(["JUPUSDT.P"]), makeAlertIntake({
+      latestBySymbol: { JUPUSDT: makeAlert("JUPUSDT", "2026-05-15T12:00:00.000Z") },
+      recentAlerts: [makeAlert("JUPUSDT.P", "2026-05-15T11:00:00.000Z")],
+    }));
+
+    expect(rows.filter((row) => row.normalizedSymbol === "JUPUSDT.P")).toHaveLength(1);
+    expect(rows.map((row) => row.symbol)).not.toContain("JUPUSDT");
+  });
+
+  it("selects the newest alert or review across available Alert Inbox sources", () => {
+    const rows = buildAlertInboxRows(makeSnapshot(["JUPUSDT.P"]), makeAlertIntake({
+      latestBySymbol: { JUPUSDT: makeAlert("JUPUSDT", "2026-05-15T10:00:00.000Z", "older direct") },
+      latestBySymbolTimeframe: { JUPUSDT: { "15m": makeAlert("JUPUSDT", "2026-05-15T11:00:00.000Z", "newer timeframe") } },
+      freshAlertReviewHistory: {
+        current: null,
+        lastSuccessfulBySymbol: { JUPUSDT: makeReview("JUPUSDT", "2026-05-15T12:00:00.000Z", "newest review") },
+        blockedBySymbol: {},
+        recent: [],
+      },
+    }));
+
+    const row = rows.find((item) => item.normalizedSymbol === "JUPUSDT.P");
+    expect(row?.alert?.receivedAt).toBe("2026-05-15T12:00:00.000Z");
+    expect(row?.alert?.reason).toBe("newest review");
+  });
+
+  it("counts an alert-history-only symbol inside the normalized Alert Inbox universe", () => {
+    const rows = buildAlertInboxRows(makeSnapshot(["BTCUSDT.P", "ETHUSDT.P"]), makeAlertIntake({
+      freshAlertReviewHistory: {
+        current: null,
+        lastSuccessfulBySymbol: { JUPUSDT: makeReview("JUPUSDT", "2026-05-15T12:00:00.000Z") },
+        blockedBySymbol: {},
+        recent: [],
+      },
+    }));
+
+    expect(rows).toHaveLength(3);
+    expect(new Set(rows.map((row) => row.normalizedSymbol)).size).toBe(3);
+  });
+
+
   it("renders separated thesis, risk, data confidence, add permission, and reasons when present", () => {
     expect(appSource).toContain("Technical Thesis");
     expect(appSource).toContain("Risk State");
@@ -215,12 +635,12 @@ describe("Trading Desk shell", () => {
     expect(appSource).toContain("managementState");
   });
 
-  it("renders trade management plan below the trade decision with protection and soft landing math", () => {
-    expect(appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />")).toBeLessThan(
+  it("renders trade management plan below active position management with protection and soft landing math", () => {
+    expect(appSource.indexOf("<ActiveTradeManagementPanel binding={snapshot.managementBinding} />")).toBeLessThan(
       appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />"),
     );
     expect(appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />")).toBeLessThan(
-      appSource.indexOf("<EdwardVerdictPanel snapshot={snapshot} />"),
+      appSource.indexOf("<RecheckTriggersCard snapshot={snapshot} />"),
     );
     expect(appSource).toContain("Trade Management Plan");
     expect(appSource).toContain("Protection Plan");
@@ -238,18 +658,18 @@ describe("Trading Desk shell", () => {
     );
   });
 
-  it("renders latest alert intake below Edward Health without outranking decision or management", () => {
-    const tradeDecisionIndex = appSource.indexOf("<TradeDecisionCard snapshot={snapshot} />");
-    const tradeManagementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
-    const healthIndex = appSource.indexOf("<EdwardHealthPanel health={loadResult.health} />");
+  it("renders latest alert intake as command detail without outranking decision or management", () => {
+    const commandIndex = appSource.indexOf("<PrimaryTradeDecisionPanel snapshot={snapshot} loadResult={loadResult} />");
+    const guardrailIndex = appSource.indexOf("<RiskGuardrailsPanel snapshot={snapshot} />");
+    const warningIndex = appSource.indexOf("<WarningAndRecheck snapshot={snapshot} />");
     const alertIndex = appSource.indexOf("<LatestAlertPanel alertIntake={loadResult.alertIntake} />");
-    const watchlistIndex = appSource.indexOf("<WatchlistPanel snapshot={snapshot} />");
+    const managementIndex = appSource.indexOf("<TradeManagementPlanPanel snapshot={snapshot} />");
 
     expect(alertIndex).toBeGreaterThan(-1);
-    expect(tradeDecisionIndex).toBeLessThan(tradeManagementIndex);
-    expect(tradeManagementIndex).toBeLessThan(healthIndex);
-    expect(healthIndex).toBeLessThan(alertIndex);
-    expect(alertIndex).toBeLessThan(watchlistIndex);
+    expect(commandIndex).toBeLessThan(guardrailIndex);
+    expect(guardrailIndex).toBeLessThan(warningIndex);
+    expect(warningIndex).toBeLessThan(alertIndex);
+    expect(alertIndex).toBeLessThan(managementIndex);
     expect(appSource).toContain("Latest Alert / Alert Intake");
     expect(appSource).toContain("Alerts do not execute trades.");
     expect(appSource).toContain("Alert intake unavailable / no recent alerts");
@@ -764,14 +1184,14 @@ describe("Active Trade Management Binding panel", () => {
   it("renders active-position management separately from alert context", () => {
     const html = renderToStaticMarkup(React.createElement(ActiveTradeManagementPanel, { binding: baseBinding }));
 
-    expect(html).toContain("Active Trade Management / Management Binding");
+    expect(html).toContain("Position management link");
     expect(html).toContain("BCHUSDT SHORT");
     expect(html).toContain("broker open position");
     expect(html).toContain("15m");
     expect(html).toContain("1H");
     expect(html).toContain("4H");
     expect(html).toContain("HIGH");
-    expect(html).toContain("BLOCKED");
+    expect(html).toContain("No action / blocked");
     expect(html).toContain("autoExecution false");
     expect(html).toContain("executionIntent none");
     expect(html).not.toContain("Place order");

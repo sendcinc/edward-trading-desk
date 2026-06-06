@@ -972,11 +972,22 @@ h2 {
   letter-spacing: 0.06em;
 }
 
-.trade-journal-stats {
+.trade-journal-stats,
+.trade-journal-executive {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 16px;
+}
+
+.trade-journal-executive {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.journal-proof-copy {
+  margin: -2px 0 14px;
+  color: #9ba7bd;
+  line-height: 1.45;
 }
 
 .journal-stat {
@@ -2178,6 +2189,10 @@ body {
   .hud-table-header { display: none; }
   .hud-table-row, .all-symbol-table .hud-table-row { grid-template-columns: 1fr; }
   .decision-word, .decision-field { border-left: 0; border-top: 1px solid rgba(58, 161, 255, 0.18); }
+  .hawk-layout { grid-template-columns: 1fr; grid-template-areas: "decision" "live" "plan" "next" "timeline" "ticket" "safety"; }
+  .hawk-decision-topline, .hawk-decision-rationale, .hawk-timeline li { grid-template-columns: 1fr; }
+  .hawk-timeline small { grid-column: 1; }
+  .hawk-level-grid { grid-template-columns: 1fr; }
 }
 
 /* Tabbed/paginated cockpit pass */
@@ -2327,20 +2342,573 @@ body {
   grid-template-rows: minmax(0, auto) auto;
 }
 
+.hawk-layout {
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.58fr);
+  grid-template-areas:
+    "decision plan"
+    "live live"
+    "next safety"
+    "timeline ticket";
+  align-content: start;
+}
+
+.hawk-decision-card,
+.hawk-plan-card,
+.hawk-next-card,
+.hawk-live-card,
+.hawk-timeline-card,
+.hawk-ticket-card,
+.hawk-safety-card {
+  padding: 16px;
+}
+
+.hawk-decision-card {
+  grid-area: decision;
+  min-height: 210px;
+  border-color: rgba(255, 209, 102, 0.34);
+}
+
+.hawk-decision-card.ok {
+  border-color: rgba(99, 230, 190, 0.38);
+  box-shadow: 0 0 34px rgba(99, 230, 190, 0.08), inset 0 -1px 0 rgba(99, 230, 190, 0.2);
+}
+
+.hawk-decision-card.danger {
+  border-color: rgba(255, 77, 109, 0.62);
+  box-shadow: 0 0 40px rgba(255, 77, 109, 0.14), inset 0 -1px 0 rgba(255, 77, 109, 0.26);
+}
+
+.hawk-decision-topline {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.hawk-decision-topline strong {
+  color: #f7fbff;
+  font-size: clamp(1.28rem, 3vw, 2.05rem);
+  line-height: 1.04;
+  overflow-wrap: anywhere;
+}
+
+.hawk-state-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 9px 12px;
+  border-radius: 13px;
+  border: 1px solid currentColor;
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.08);
+  font-size: 0.8rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.hawk-state-badge.ok {
+  color: #63e6be;
+  background: rgba(99, 230, 190, 0.08);
+}
+
+.hawk-state-badge.danger {
+  color: #ff6f89;
+  background: rgba(255, 77, 109, 0.1);
+}
+
+.hawk-decision-card > p,
+.hawk-next-card p,
+.hawk-ticket-warning,
+.hawk-unavailable-copy {
+  margin: 0;
+  color: #bfcee8;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.hawk-decision-rationale {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.hawk-plan-card { grid-area: plan; }
+.hawk-live-card { grid-area: live; }
+.hawk-next-card { grid-area: next; }
+.hawk-timeline-card { grid-area: timeline; }
+.hawk-ticket-card { grid-area: ticket; }
+.hawk-safety-card { grid-area: safety; }
+
+.hawk-live-card {
+  border-color: rgba(86, 177, 255, 0.32);
+}
+
+.hawk-live-card.danger {
+  border-color: rgba(255, 209, 102, 0.42);
+}
+
+.hawk-safety-card.danger {
+  border-color: rgba(255, 209, 102, 0.42);
+}
+
+.hawk-level-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
+.hawk-ticket-warning {
+  margin-bottom: 12px;
+  color: #ffe7a3;
+  font-weight: 850;
+}
+
+.hawk-operator-message {
+  margin: 0 0 12px;
+  color: #f7fbff;
+  font-size: 1rem;
+  line-height: 1.45;
+  font-weight: 900;
+}
+
+.hawk-no-action-reason {
+  margin: 12px 0 0;
+  color: #ffd166;
+  font-size: 0.82rem;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.hawk-timeline {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.hawk-timeline li {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.34fr) minmax(0, 1fr);
+  gap: 8px 12px;
+  padding: 10px;
+  border-radius: 12px;
+  border-left: 4px solid #ffd166;
+  background: rgba(3, 12, 25, 0.58);
+}
+
+.hawk-timeline li.ok {
+  border-left-color: #63e6be;
+}
+
+.hawk-timeline li.danger {
+  border-left-color: #ff6f89;
+}
+
+.hawk-timeline span {
+  color: #f2f8ff;
+  font-size: 0.7rem;
+  font-weight: 950;
+  overflow-wrap: anywhere;
+}
+
+.hawk-timeline p {
+  margin: 0;
+  color: #c6d3ea;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.hawk-timeline small {
+  grid-column: 2;
+  color: #7c8dab;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 920px) {
+  .hawk-layout { grid-template-columns: 1fr; grid-template-areas: "decision" "live" "plan" "next" "timeline" "ticket" "safety"; }
+  .hawk-decision-topline, .hawk-decision-rationale, .hawk-timeline li { grid-template-columns: 1fr; }
+  .hawk-timeline small { grid-column: 1; }
+  .hawk-level-grid { grid-template-columns: 1fr; }
+}
+
 .monitor-layout .thorp-monitor-panel {
   min-height: 410px;
 }
 
-.portfolio-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+.performance-layout {
+  grid-template-columns: 1fr;
   align-content: start;
 }
 
-.portfolio-layout .portfolio-bar {
+.performance-shell {
+  gap: 4px;
+}
+
+.performance-shell .cockpit-page-header {
+  min-height: 0;
+  padding: 7px 12px 8px;
+}
+
+.performance-shell .cockpit-page-header h2 {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.15;
+}
+
+.performance-shell .cockpit-page-header p {
+  margin-top: 1px;
+  line-height: 1.25;
+}
+
+.performance-shell .cockpit-page-body,
+.performance-shell .cockpit-page-grid {
+  gap: 6px;
+}
+
+.performance-pace-section {
+  display: grid;
+  gap: 10px;
+}
+
+.performance-pace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+  gap: 14px;
+}
+
+.performance-journal-section {
+  margin-top: 2px;
+}
+
+.alerts-layout {
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
+.alert-ledger-notice,
+.alert-inbox-summary,
+.alert-inbox-panel {
+  padding: 14px;
+}
+
+.alert-ledger-notice p {
+  margin: 8px 0 8px;
+  color: #c6d3ea;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.alert-ledger-notice strong {
+  display: inline-flex;
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: #d9fbff;
+  background: rgba(86, 220, 255, 0.1);
+  border: 1px solid rgba(86, 220, 255, 0.2);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.alert-inbox-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
+.alert-inbox-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.alert-filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.alert-filter-buttons button {
+  border: 1px solid rgba(91, 204, 255, 0.16);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: #9fb1cf;
+  background: rgba(4, 14, 29, 0.78);
+  cursor: pointer;
+  font-size: 0.67rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.alert-filter-buttons button.active,
+.alert-filter-buttons button:hover {
+  color: #f4fbff;
+  border-color: rgba(86, 220, 255, 0.38);
+  background: rgba(0, 148, 255, 0.18);
+}
+
+.alert-inbox-toolbar input {
+  min-width: min(260px, 46vw);
+  border: 1px solid rgba(91, 204, 255, 0.18);
+  border-radius: 999px;
+  padding: 9px 12px;
+  color: #edf7ff;
+  background: rgba(3, 10, 22, 0.88);
+  outline: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.alert-inbox-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.alert-inbox-table {
+  display: grid;
+  gap: 6px;
+  min-width: 1380px;
+}
+
+.alert-inbox-header,
+.alert-inbox-cells {
+  display: grid;
+  grid-template-columns: 0.9fr 1.15fr 0.55fr 1fr 0.75fr 1.25fr 0.45fr 0.8fr 1fr 0.8fr 0.9fr 0.75fr 1.55fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.alert-inbox-header {
+  padding: 0 10px 5px;
+  color: #7185a6;
+  font-size: 0.56rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.alert-inbox-row {
+  border-radius: 13px;
+  border: 1px solid rgba(82, 166, 255, 0.12);
+  background: rgba(5, 17, 34, 0.7);
+  overflow: hidden;
+}
+
+.alert-inbox-row[open] {
+  border-color: rgba(86, 220, 255, 0.26);
+}
+
+.alert-inbox-row.missing {
+  opacity: 0.72;
+  background: rgba(5, 12, 25, 0.58);
+}
+
+.alert-inbox-row.fresh {
+  border-left: 4px solid #65e6c5;
+}
+
+.alert-inbox-row.aging {
+  border-left: 4px solid #ffd166;
+}
+
+.alert-inbox-row.stale,
+.alert-inbox-row.missing {
+  border-left: 4px solid #7f8da8;
+}
+
+.alert-inbox-row.danger {
+  border-left: 5px solid #ff4d6d;
+  background: linear-gradient(90deg, rgba(255, 77, 109, 0.18), rgba(5, 17, 34, 0.72));
+}
+
+.alert-inbox-cells {
+  min-height: 48px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.alert-inbox-cells::-webkit-details-marker {
+  display: none;
+}
+
+.alert-inbox-cells strong {
+  color: #f3f8ff;
+  font-size: 0.82rem;
+}
+
+.alert-inbox-cells span {
+  min-width: 0;
+  color: #c2d1e8;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.alert-freshness-pill {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.alert-freshness-pill.fresh { color: #88f3d1; background: rgba(101, 230, 197, 0.12); }
+.alert-freshness-pill.aging { color: #ffe3a3; background: rgba(255, 209, 102, 0.12); }
+.alert-freshness-pill.stale,
+.alert-freshness-pill.missing { color: #b5c1d7; background: rgba(127, 141, 168, 0.13); }
+
+.alert-inbox-detail {
+  padding: 0 10px 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.alert-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.alert-detail-grid .guardrail {
+  min-width: 0;
+  padding: 10px 11px;
+}
+
+.alert-detail-grid .guardrail strong {
+  overflow-wrap: anywhere;
+}
+
+.alert-review-unavailable {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 13px;
+  color: #c9d5eb;
+  background: rgba(127, 141, 168, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.alert-detail-guardrails {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: 999px;
+  color: #a8f3d5;
+  background: rgba(101, 230, 197, 0.10);
+  border: 1px solid rgba(101, 230, 197, 0.18);
+  font-size: 0.72rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.alert-detail-guardrails.danger {
+  color: #ffd1d9;
+  background: rgba(255, 122, 144, 0.09);
+  border-color: rgba(255, 122, 144, 0.24);
+}
+
+.alert-technical-details {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: #8f9bb3;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  font-size: 0.69rem;
+}
+
+.alert-technical-details span {
+  color: #aab8d0;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.alert-technical-details code,
+.alert-technical-details time {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alert-technical-details code {
+  color: #dbe6ff;
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.alert-danger-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: #ffe1e8;
+  background: rgba(255, 77, 109, 0.16);
+  border: 1px solid rgba(255, 77, 109, 0.28);
+  font-weight: 850;
+}
+
+@media (max-width: 980px) {
+  .alert-inbox-stats,
+  .alert-detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .alert-technical-details {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .alert-inbox-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .alert-inbox-toolbar input {
+    width: 100%;
+  }
+}
+
+.performance-layout .portfolio-bar {
   grid-column: 1 / -1;
 }
 
-.portfolio-layout .pace-panel {
+.performance-layout .pace-panel {
   min-height: 280px;
 }
 
@@ -2363,7 +2931,6 @@ body {
 }
 
 .watchlist-layout,
-.journal-layout,
 .health-layout {
   align-content: start;
 }
@@ -2473,7 +3040,12 @@ body {
 @media (max-width: 920px) {
   .cockpit-page-tabs,
   .decision-layout,
-  .portfolio-layout,
+  .performance-layout,
+  .performance-pace-grid,
+  .moon-sun-hero,
+  .moon-sun-grid,
+  .trade-journal-stats,
+  .trade-journal-executive,
   .positions-layout,
   .protection-layout,
   .recheck-layout {
@@ -2482,5 +3054,435 @@ body {
 
   .cockpit-page-shell {
     min-height: auto;
+  }
+}
+
+
+/* Desktop consolidation PR: single top nav, decision-first cockpit */
+.cockpit-shell {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+
+.cockpit-main {
+  width: min(100%, 1720px);
+  margin: 0 auto;
+}
+
+.cockpit-shell .command-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cockpit-shell .data-state-banner {
+  display: flex;
+  margin: 0 0 8px;
+  min-height: 0;
+  border-radius: 16px;
+}
+
+.cockpit-shell .data-state-banner.live_available {
+  display: none;
+}
+
+.cockpit-shell .data-state-banner.live_stale,
+.cockpit-shell .data-state-banner.live_unavailable,
+.cockpit-shell .data-state-banner.validation_error,
+.cockpit-shell .data-state-banner.demo_mode {
+  border-color: rgba(255, 77, 109, 0.72);
+  background: linear-gradient(90deg, rgba(255, 55, 93, 0.24), rgba(5, 10, 20, 0.94));
+  box-shadow: 0 0 32px rgba(255, 55, 93, 0.12);
+}
+
+.cockpit-shell .data-state-banner h2 {
+  color: #fff;
+  font-size: 1.05rem;
+}
+
+.cockpit-page-tabs {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  padding: 4px 0;
+  backdrop-filter: blur(16px);
+}
+
+.cockpit-page-tabs button {
+  min-height: 46px;
+}
+
+.cockpit-page-shell {
+  min-height: calc(100vh - 150px);
+}
+
+.command-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.3fr);
+  align-content: start;
+}
+
+.command-layout .command-decision-panel,
+.command-layout .warning-grid,
+.command-layout .compact-alert-disclosure {
+  grid-column: 1 / -1;
+}
+
+.command-decision-panel {
+  min-height: 330px;
+}
+
+.command-decision-grid {
+  grid-template-columns: minmax(180px, 0.58fr) minmax(150px, 0.36fr) minmax(150px, 0.36fr) minmax(260px, 1fr) minmax(260px, 1fr);
+}
+
+.command-decision-grid .decision-field:nth-child(4),
+.command-decision-grid .decision-field:nth-child(5) {
+  background: rgba(255,255,255,0.025);
+  border-radius: 14px;
+}
+
+.decision-field.ok strong { color: #63e6be; }
+.decision-field.warn strong { color: #ffd166; }
+.decision-field.danger strong { color: #ff6b85; text-shadow: 0 0 16px rgba(255,77,109,.32); }
+.decision-field.muted strong { color: #8fa1bf; }
+
+.hard-no-action-banner,
+.hard-monitor-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 77, 109, 0.6);
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(90deg, rgba(255, 55, 93, 0.35), rgba(255, 55, 93, 0.08));
+  font-size: 0.82rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wrong-behavior-callout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 77, 109, 0.5);
+  color: #ffe5eb;
+  background: rgba(255, 55, 93, 0.14);
+  font-weight: 900;
+}
+
+.warning-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 8px;
+}
+
+.command-layout .warning-panel {
+  border-color: rgba(255, 77, 109, 0.42);
+  background: linear-gradient(135deg, rgba(255, 55, 93, 0.16), rgba(5, 13, 25, 0.94));
+}
+
+.compact-alert-disclosure > .panel {
+  margin-top: 12px;
+}
+
+.monitor-layout {
+  grid-template-rows: auto auto auto;
+}
+
+.monitor-layout .thorp-monitor-panel {
+  min-height: 455px;
+}
+
+.monitor-layout .watchlist-disclosure,
+.monitor-layout .all-symbols-panel {
+  grid-column: 1 / -1;
+}
+
+.all-symbols-panel summary span::after {
+  content: " / full basket";
+  color: #7788a8;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.position-management-layout {
+  grid-template-columns: minmax(300px, 0.34fr) minmax(300px, 0.34fr) minmax(0, 1fr);
+  align-content: start;
+}
+
+.position-management-layout > .active-trade-management-panel,
+.position-management-layout > .trade-management-plan,
+.position-management-layout > .risk-ladder-disclosure,
+.position-management-layout > .protection-detail-disclosure {
+  grid-column: 1 / -1;
+}
+
+.position-management-layout > .trade-management-plan {
+  border-color: rgba(99, 230, 190, 0.22);
+}
+
+.risk-ladder-disclosure > .risk-ladder-panel,
+.protection-detail-disclosure > .risk-guardrails-panel,
+.protection-detail-disclosure > .broker-truth-warnings {
+  margin-top: 12px;
+}
+
+.protection-detail-disclosure .broker-truth-warnings {
+  position: relative;
+}
+
+.execution-detail {
+  grid-column: 1 / -1;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 8px;
+}
+
+.execution-detail summary {
+  cursor: pointer;
+  color: #8fa1bf;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.execution-detail .guardrail {
+  margin-top: 8px;
+}
+
+.performance-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.performance-layout .portfolio-bar {
+  background: linear-gradient(90deg, rgba(6, 17, 31, 0.9), rgba(9, 15, 29, 0.9));
+  border-color: rgba(99, 230, 190, 0.16);
+}
+
+.performance-layout .pace-panel,
+.performance-layout .compounding-status-card {
+  border-color: rgba(160, 128, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 10px 34px rgba(0,0,0,0.2);
+}
+
+.performance-stale-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 209, 102, 0.26);
+  color: #e6c36b;
+  background: rgba(255, 209, 102, 0.045);
+  font-size: 0.8rem;
+  font-weight: 760;
+}
+
+.performance-metric-row {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.read-only-badge {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 14px;
+  color: #b8c7ff;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  background: rgba(184, 199, 255, 0.1);
+  border: 1px solid rgba(184, 199, 255, 0.2);
+}
+
+.moon-sun-primary {
+  background: linear-gradient(135deg, rgba(38, 51, 98, 0.88), rgba(8, 12, 25, 0.97));
+}
+
+.moon-sun-hero {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1.1fr) repeat(2, minmax(130px, 0.7fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.moon-sun-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compounding-status-card {
+  padding: 18px;
+}
+
+.compounding-status-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.read-only-copy {
+  margin: 12px 0 0;
+  color: #9ba7bd;
+  line-height: 1.45;
+}
+
+.performance-layout .trade-journal-panel {
+  border-color: rgba(136, 151, 178, 0.22);
+  opacity: 0.92;
+}
+
+.health-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.health-layout .cockpit-footer,
+.health-layout > .health-panel,
+.health-layout > .system-health-panel {
+  grid-column: 1 / -1;
+}
+
+.source-freshness-details {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(61, 178, 255, 0.14);
+  background: rgba(255,255,255,0.025);
+}
+
+.source-freshness-details summary {
+  cursor: pointer;
+  color: #dcecff;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 1180px) {
+  .cockpit-page-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .command-decision-grid,
+  .position-management-layout { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 920px) {
+  .cockpit-shell { padding: 8px; }
+  .cockpit-shell .command-header { display: block; }
+  .cockpit-page-tabs,
+  .command-layout,
+  .command-decision-grid,
+  .warning-grid,
+  .position-management-layout,
+  .performance-pace-grid,
+  .moon-sun-hero,
+  .moon-sun-grid,
+  .trade-journal-stats,
+  .trade-journal-executive,
+  .performance-layout { grid-template-columns: 1fr; }
+  .cockpit-page-tabs { position: static; }
+  .hawk-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "decision" "live" "plan" "next" "timeline" "ticket" "safety"; }
+  .hawk-decision-card,
+  .hawk-plan-card,
+  .hawk-next-card,
+  .hawk-timeline-card,
+  .hawk-ticket-card,
+  .hawk-safety-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .hawk-decision-topline,
+  .hawk-decision-rationale,
+  .hawk-level-grid,
+  .hawk-timeline li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hawk-decision-topline strong,
+  .hawk-decision-card p,
+  .hawk-ticket-card strong,
+  .hawk-timeline p,
+  .hawk-timeline span {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+  .hawk-timeline small { grid-column: 1; }
+}
+
+@media (max-width: 620px) {
+  body,
+  .cockpit-shell,
+  .cockpit-main,
+  .cockpit-page-shell,
+  .cockpit-page-body,
+  .cockpit-page-grid {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  .cockpit-shell .command-header,
+  .cockpit-shell .data-state-banner {
+    width: 100%;
+    max-width: 100%;
+  }
+  .cockpit-shell * {
+    max-width: 100%;
+  }
+  .cockpit-shell p,
+  .cockpit-shell strong,
+  .cockpit-shell span,
+  .cockpit-shell small {
+    overflow-wrap: anywhere;
+  }
+  .cockpit-shell .data-state-banner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .cockpit-shell .data-state-banner > *,
+  .hawk-decision-topline > *,
+  .hawk-decision-rationale > *,
+  .hawk-level-grid > *,
+  .hawk-ticket-card .metric,
+  .hawk-plan-card .metric {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .cockpit-shell .header-status {
+    align-items: stretch;
+  }
+  .hawk-state-badge {
+    width: 100%;
+    white-space: normal;
+  }
+  .hawk-decision-topline strong {
+    display: block;
+    width: calc(100vw - 64px);
+    font-size: 1.05rem;
+    line-height: 1.16;
+  }
+  .cockpit-shell .data-state-banner p,
+  .cockpit-page-header p,
+  .hawk-decision-card > p {
+    display: block;
+    width: calc(100vw - 64px);
+  }
+  .cockpit-page-header p,
+  .cockpit-shell .data-state-banner p,
+  .hawk-decision-topline strong,
+  .hawk-decision-card p,
+  .hawk-decision-card strong,
+  .hawk-ticket-card strong,
+  .hawk-plan-card strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }

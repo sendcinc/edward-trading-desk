@@ -17,6 +17,14 @@ describe("trade journal table rows", () => {
     const summary = buildTradeJournalSummary(snapshot);
 
     expect(summary.stats).toEqual({ trades: "6", wins: "4", losses: "2", winRate: "66.7%" });
+    expect(summary.executive).toEqual({
+      realizedPnl: "$152.49",
+      averageTrade: "$25.42",
+      medianTrade: "$18.61",
+      largestWin: "$94.63",
+      largestLoss: "-$5.01",
+      lastClosedTradeDate: "Apr 29, 8:20 AM",
+    });
     expect(summary.badge).toBe("6 closed trades");
     expect(summary.rows).toHaveLength(5);
     expect(summary.rows.map((row) => row.symbol)).toEqual(["XRPUSDT", "LINKUSDT", "BTCUSDT", "AVAXUSDT", "FETUSDT"]);
@@ -33,7 +41,7 @@ describe("trade journal table rows", () => {
       entry: "1",
       exit: "1.1",
       size: "10",
-      pnl: "$-0.88",
+      pnl: "-$0.88",
       fees: "$0.00",
       funding: "$0.00",
       framework: "THORP",
