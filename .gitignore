@@ -6,3 +6,6 @@ dist/
 *.tsbuildinfo
 node_modules/.tmp/
 public/data/hawk/*.json
+
+# Local Edward/Hawk panel artifacts written by runtime smoke tests
+public/trading-desk/data/hawk/*.json
